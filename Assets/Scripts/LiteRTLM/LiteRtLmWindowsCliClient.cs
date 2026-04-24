@@ -1,0 +1,307 @@
+using System;
+using System.Diagnostics;
+using System.IO;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace LiteRTLM.Unity
+{
+    public sealed class LiteRtLmWindowsCliClient
+    {
+        public Task<string> SendMessageAsync(
+            string executablePath,
+            string modelPath,
+            string prompt,
+            string backend,
+            TimeSpan timeout,
+            CancellationToken cancellationToken)
+        {
+            return RunProcessAsync(executablePath, modelPath, prompt, backend, timeout, cancellationToken);
+        }
+
+        public string SendMessage(string executablePath, string modelPath, string prompt, string backend)
+        {
+            return Task.Run(() => SendMessageAsync(
+                    executablePath,
+                    modelPath,
+                    prompt,
+                    backend,
+                    Timeout.InfiniteTimeSpan,
+                    CancellationToken.None))
+                .GetAwaiter()
+                .GetResult();
+        }
+
+        private static async Task<string> RunProcessAsync(
+            string executablePath,
+            string modelPath,
+            string prompt,
+            string backend,
+            TimeSpan timeout,
+            CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(executablePath))
+            {
+                throw new ArgumentException("Windows CLI executable path is required.", nameof(executablePath));
+            }
+
+            if (string.IsNullOrWhiteSpace(modelPath))
+            {
+                throw new ArgumentException("Model path is required.", nameof(modelPath));
+            }
+
+            if (!File.Exists(executablePath))
+            {
+                throw new FileNotFoundException($"Windows executable not found: {executablePath}", executablePath);
+            }
+
+            if (!File.Exists(modelPath))
+            {
+                throw new FileNotFoundException($"Model file not found: {modelPath}", modelPath);
+            }
+
+            if (string.IsNullOrWhiteSpace(backend))
+            {
+                throw new ArgumentException("Windows backend is required.", nameof(backend));
+            }
+
+            if (timeout != Timeout.InfiniteTimeSpan && timeout <= TimeSpan.Zero)
+            {
+                throw new ArgumentOutOfRangeException(nameof(timeout), "Timeout must be greater than zero or infinite.");
+            }
+
+            var promptFilePath = Path.Combine(Path.GetTempPath(), $"litertlm-unity-prompt-{Guid.NewGuid():N}.txt");
+            File.WriteAllText(promptFilePath, prompt ?? string.Empty);
+
+            var executableName = Path.GetFileName(executablePath);
+            var isMainExecutable = executableName.StartsWith("litert_lm_main", StringComparison.OrdinalIgnoreCase);
+
+            var wrapperScriptPath = Path.Combine(Path.GetDirectoryName(executablePath) ?? string.Empty, "Run-LiteRtLmSample.ps1");
+            var usePowerShellWrapper = isMainExecutable && File.Exists(wrapperScriptPath);
+
+            var commandPath = usePowerShellWrapper ? "pwsh" : executablePath;
+            var arguments = usePowerShellWrapper
+                ? $"-File \"{wrapperScriptPath}\" -Backend {backend.ToLowerInvariant()} -ModelPath \"{modelPath}\" -PromptFilePath \"{promptFilePath}\""
+                : isMainExecutable
+                    ? $"--backend={backend.ToLowerInvariant()} --model_path=\"{modelPath}\" --input_prompt_file=\"{promptFilePath}\""
+                    : $"run \"{modelPath}\" --input_prompt_file \"{promptFilePath}\" --backend {backend.ToLowerInvariant()}";
+
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = commandPath,
+                Arguments = arguments,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                StandardOutputEncoding = Encoding.UTF8,
+                StandardErrorEncoding = Encoding.UTF8,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+
+            using var timeoutCts = timeout == Timeout.InfiniteTimeSpan ? null : new CancellationTokenSource(timeout);
+            using var linkedCts = timeoutCts == null
+                ? CancellationTokenSource.CreateLinkedTokenSource(cancellationToken)
+                : CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+            var effectiveCancellationToken = linkedCts.Token;
+
+            try
+            {
+                using var process = new Process
+                {
+                    StartInfo = startInfo,
+                    EnableRaisingEvents = false,
+                };
+
+                if (!process.Start())
+                {
+                    throw new InvalidOperationException($"Failed to start process: {commandPath}");
+                }
+
+                var stdoutTask = process.StandardOutput.ReadToEndAsync();
+                var stderrTask = process.StandardError.ReadToEndAsync();
+
+                using var cancellationRegistration = effectiveCancellationToken.Register(() =>
+                {
+                    try
+                    {
+                        if (!process.HasExited)
+                        {
+                            process.Kill();
+                        }
+                    }
+                    catch (InvalidOperationException)
+                    {
+                    }
+                });
+
+                try
+                {
+                    while (!process.HasExited)
+                    {
+                        await Task.Delay(50, effectiveCancellationToken).ConfigureAwait(false);
+                    }
+
+                    var outputCompletionTask = Task.WhenAll(stdoutTask, stderrTask);
+                    var completedTask = await Task.WhenAny(
+                        outputCompletionTask,
+                        Task.Delay(TimeSpan.FromSeconds(5), CancellationToken.None)).ConfigureAwait(false);
+
+                    if (completedTask != outputCompletionTask)
+                    {
+                        throw new IOException(
+                            $"Windows CLI process exited but redirected output did not complete. ExitCode={process.ExitCode}.");
+                    }
+
+                    await outputCompletionTask.ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (timeoutCts is { IsCancellationRequested: true } && !cancellationToken.IsCancellationRequested)
+                {
+                    throw new TimeoutException($"Windows CLI inference timed out after {timeout.TotalSeconds:0.#} seconds.");
+                }
+
+                var stdout = stdoutTask.Result.Trim();
+                var stderr = stderrTask.Result.Trim();
+                if (usePowerShellWrapper)
+                {
+                    stdout = ExtractWrapperOutput(stdout, prompt ?? string.Empty);
+                }
+
+                if (process.ExitCode != 0)
+                {
+                    throw new InvalidOperationException(
+                        $"Windows CLI inference failed (backend={backend}). ExitCode={process.ExitCode}. stderr={stderr}");
+                }
+
+                if (usePowerShellWrapper && string.IsNullOrWhiteSpace(stdout))
+                {
+                    throw new InvalidOperationException(
+                        $"Windows CLI inference produced no model response (backend={backend}). stderr={stderr}");
+                }
+
+                return stdout;
+            }
+            finally
+            {
+                try
+                {
+                    const int maxDeleteAttempts = 3;
+
+                    for (var attempt = 0; attempt < maxDeleteAttempts; attempt++)
+                    {
+                        if (!File.Exists(promptFilePath))
+                        {
+                            break;
+                        }
+
+                        try
+                        {
+                            File.Delete(promptFilePath);
+                            break;
+                        }
+                        catch (IOException) when (attempt < maxDeleteAttempts - 1)
+                        {
+                            Thread.Sleep(50);
+                        }
+                        catch (UnauthorizedAccessException) when (attempt < maxDeleteAttempts - 1)
+                        {
+                            Thread.Sleep(50);
+                        }
+                    }
+                }
+                catch (IOException)
+                {
+                }
+                catch (UnauthorizedAccessException)
+                {
+                }
+            }
+        }
+
+        private static string ExtractWrapperOutput(string stdout, string prompt)
+        {
+            if (string.IsNullOrWhiteSpace(stdout))
+            {
+                return stdout;
+            }
+
+            var lines = stdout.Replace("\r\n", "\n").Split('\n');
+            var promptLines = (prompt ?? string.Empty).Replace("\r\n", "\n").Split('\n');
+            var promptLineIndex = -1;
+            var skipSingleSeparatorAfterPrompt = false;
+            var builder = new StringBuilder();
+
+            foreach (var rawLine in lines)
+            {
+                var line = rawLine.TrimEnd();
+                if (promptLineIndex >= 0)
+                {
+                    if (promptLineIndex < promptLines.Length &&
+                        string.Equals(line, promptLines[promptLineIndex].TrimEnd(), StringComparison.Ordinal))
+                    {
+                        promptLineIndex++;
+                        skipSingleSeparatorAfterPrompt = promptLineIndex >= promptLines.Length;
+                        continue;
+                    }
+
+                    if (skipSingleSeparatorAfterPrompt && string.IsNullOrWhiteSpace(line))
+                    {
+                        promptLineIndex = -1;
+                        skipSingleSeparatorAfterPrompt = false;
+                        continue;
+                    }
+
+                    promptLineIndex = -1;
+                    skipSingleSeparatorAfterPrompt = false;
+                }
+
+                if (line.StartsWith("[LiteRT-LM]", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (line.StartsWith("input_prompt:", StringComparison.OrdinalIgnoreCase))
+                {
+                    var echoedFirstPromptLine = line.Substring("input_prompt:".Length).TrimStart();
+                    if (promptLines.Length > 0 &&
+                        string.Equals(echoedFirstPromptLine, promptLines[0].TrimEnd(), StringComparison.Ordinal))
+                    {
+                        promptLineIndex = 1;
+                        skipSingleSeparatorAfterPrompt = promptLineIndex >= promptLines.Length;
+                    }
+
+                    continue;
+                }
+
+                if (IsRuntimeLogLine(line))
+                {
+                    continue;
+                }
+
+                if (builder.Length > 0)
+                {
+                    builder.AppendLine();
+                }
+
+                builder.Append(line);
+            }
+
+            return builder.ToString().Trim();
+        }
+
+        private static bool IsRuntimeLogLine(string line)
+        {
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                return false;
+            }
+
+            return line.StartsWith("INFO:", StringComparison.OrdinalIgnoreCase) ||
+                   line.StartsWith("WARNING:", StringComparison.OrdinalIgnoreCase) ||
+                   line.StartsWith("ERROR:", StringComparison.OrdinalIgnoreCase) ||
+                   line.StartsWith("I0000 ", StringComparison.OrdinalIgnoreCase) ||
+                   line.StartsWith("W0000 ", StringComparison.OrdinalIgnoreCase) ||
+                   line.StartsWith("E0000 ", StringComparison.OrdinalIgnoreCase);
+        }
+    }
+}
