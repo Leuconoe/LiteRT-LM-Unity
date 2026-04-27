@@ -15,12 +15,37 @@ namespace LiteRTLM.Unity
             string prompt,
             string backend,
             TimeSpan timeout,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            string systemMessage = "",
+            string toolsJson = "",
+            string messagesJson = "",
+            bool enableConstrainedDecoding = false,
+            bool outputMessageJson = false)
         {
-            return RunProcessAsync(executablePath, modelPath, prompt, backend, timeout, cancellationToken);
+            return RunProcessAsync(
+                executablePath,
+                modelPath,
+                prompt,
+                backend,
+                timeout,
+                cancellationToken,
+                systemMessage,
+                toolsJson,
+                messagesJson,
+                enableConstrainedDecoding,
+                outputMessageJson);
         }
 
-        public string SendMessage(string executablePath, string modelPath, string prompt, string backend)
+        public string SendMessage(
+            string executablePath,
+            string modelPath,
+            string prompt,
+            string backend,
+            string systemMessage = "",
+            string toolsJson = "",
+            string messagesJson = "",
+            bool enableConstrainedDecoding = false,
+            bool outputMessageJson = false)
         {
             return Task.Run(() => SendMessageAsync(
                     executablePath,
@@ -28,7 +53,12 @@ namespace LiteRTLM.Unity
                     prompt,
                     backend,
                     Timeout.InfiniteTimeSpan,
-                    CancellationToken.None))
+                    CancellationToken.None,
+                    systemMessage,
+                    toolsJson,
+                    messagesJson,
+                    enableConstrainedDecoding,
+                    outputMessageJson))
                 .GetAwaiter()
                 .GetResult();
         }
@@ -39,7 +69,12 @@ namespace LiteRTLM.Unity
             string prompt,
             string backend,
             TimeSpan timeout,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            string systemMessage,
+            string toolsJson,
+            string messagesJson,
+            bool enableConstrainedDecoding,
+            bool outputMessageJson)
         {
             if (string.IsNullOrWhiteSpace(executablePath))
             {
@@ -73,6 +108,9 @@ namespace LiteRTLM.Unity
 
             var promptFilePath = Path.Combine(Path.GetTempPath(), $"litertlm-unity-prompt-{Guid.NewGuid():N}.txt");
             File.WriteAllText(promptFilePath, prompt ?? string.Empty);
+            var systemMessageFilePath = WriteOptionalTempFile("litertlm-unity-system", systemMessage);
+            var toolsJsonFilePath = WriteOptionalTempFile("litertlm-unity-tools", toolsJson);
+            var messagesJsonFilePath = WriteOptionalTempFile("litertlm-unity-messages", messagesJson);
 
             var executableName = Path.GetFileName(executablePath);
             var isMainExecutable = executableName.StartsWith("litert_lm_main", StringComparison.OrdinalIgnoreCase);
@@ -81,10 +119,17 @@ namespace LiteRTLM.Unity
             var usePowerShellWrapper = isMainExecutable && File.Exists(wrapperScriptPath);
 
             var commandPath = usePowerShellWrapper ? "pwsh" : executablePath;
+            var optionalArguments = BuildOptionalArguments(
+                systemMessageFilePath,
+                toolsJsonFilePath,
+                messagesJsonFilePath,
+                enableConstrainedDecoding,
+                outputMessageJson,
+                usePowerShellWrapper);
             var arguments = usePowerShellWrapper
-                ? $"-File \"{wrapperScriptPath}\" -Backend {backend.ToLowerInvariant()} -ModelPath \"{modelPath}\" -PromptFilePath \"{promptFilePath}\""
+                ? $"-File \"{wrapperScriptPath}\" -Backend {backend.ToLowerInvariant()} -ModelPath \"{modelPath}\" -PromptFilePath \"{promptFilePath}\"{optionalArguments}"
                 : isMainExecutable
-                    ? $"--backend={backend.ToLowerInvariant()} --model_path=\"{modelPath}\" --input_prompt_file=\"{promptFilePath}\""
+                    ? $"--backend={backend.ToLowerInvariant()} --model_path=\"{modelPath}\" --input_prompt_file=\"{promptFilePath}\"{optionalArguments}"
                     : $"run \"{modelPath}\" --input_prompt_file \"{promptFilePath}\" --backend {backend.ToLowerInvariant()}";
 
             var startInfo = new ProcessStartInfo
@@ -183,38 +228,99 @@ namespace LiteRTLM.Unity
             }
             finally
             {
-                try
+                DeleteTempFile(promptFilePath);
+                DeleteTempFile(systemMessageFilePath);
+                DeleteTempFile(toolsJsonFilePath);
+                DeleteTempFile(messagesJsonFilePath);
+            }
+        }
+
+        private static string WriteOptionalTempFile(string prefix, string content)
+        {
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                return string.Empty;
+            }
+
+            var path = Path.Combine(Path.GetTempPath(), $"{prefix}-{Guid.NewGuid():N}.txt");
+            File.WriteAllText(path, content, Encoding.UTF8);
+            return path;
+        }
+
+        private static string BuildOptionalArguments(
+            string systemMessageFilePath,
+            string toolsJsonFilePath,
+            string messagesJsonFilePath,
+            bool enableConstrainedDecoding,
+            bool outputMessageJson,
+            bool usePowerShellWrapper)
+        {
+            var builder = new StringBuilder();
+            AppendOptionalPathArgument(builder, usePowerShellWrapper ? "SystemMessageFilePath" : "system_message_file", systemMessageFilePath, usePowerShellWrapper);
+            AppendOptionalPathArgument(builder, usePowerShellWrapper ? "ToolsJsonFilePath" : "tools_json_file", toolsJsonFilePath, usePowerShellWrapper);
+            AppendOptionalPathArgument(builder, usePowerShellWrapper ? "MessagesJsonFilePath" : "messages_json_file", messagesJsonFilePath, usePowerShellWrapper);
+
+            if (enableConstrainedDecoding)
+            {
+                builder.Append(usePowerShellWrapper ? " -EnableConstrainedDecoding" : " --enable_constrained_decoding=true");
+            }
+
+            if (outputMessageJson)
+            {
+                builder.Append(usePowerShellWrapper ? " -OutputMessageJson" : " --output_message_json=true");
+            }
+
+            return builder.ToString();
+        }
+
+        private static void AppendOptionalPathArgument(StringBuilder builder, string name, string value, bool usePowerShellWrapper)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return;
+            }
+
+            builder.Append(usePowerShellWrapper ? $" -{name} \"{value}\"" : $" --{name}=\"{value}\"");
+        }
+
+        private static void DeleteTempFile(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return;
+            }
+
+            try
+            {
+                const int maxDeleteAttempts = 3;
+
+                for (var attempt = 0; attempt < maxDeleteAttempts; attempt++)
                 {
-                    const int maxDeleteAttempts = 3;
-
-                    for (var attempt = 0; attempt < maxDeleteAttempts; attempt++)
+                    if (!File.Exists(path))
                     {
-                        if (!File.Exists(promptFilePath))
-                        {
-                            break;
-                        }
+                        break;
+                    }
 
-                        try
-                        {
-                            File.Delete(promptFilePath);
-                            break;
-                        }
-                        catch (IOException) when (attempt < maxDeleteAttempts - 1)
-                        {
-                            Thread.Sleep(50);
-                        }
-                        catch (UnauthorizedAccessException) when (attempt < maxDeleteAttempts - 1)
-                        {
-                            Thread.Sleep(50);
-                        }
+                    try
+                    {
+                        File.Delete(path);
+                        break;
+                    }
+                    catch (IOException) when (attempt < maxDeleteAttempts - 1)
+                    {
+                        Thread.Sleep(50);
+                    }
+                    catch (UnauthorizedAccessException) when (attempt < maxDeleteAttempts - 1)
+                    {
+                        Thread.Sleep(50);
                     }
                 }
-                catch (IOException)
-                {
-                }
-                catch (UnauthorizedAccessException)
-                {
-                }
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
             }
         }
 

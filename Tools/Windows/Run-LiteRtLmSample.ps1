@@ -3,7 +3,12 @@ param(
     [ValidateSet("cpu", "gpu")]
     [string]$Backend = "cpu",
     [string]$ModelPath = "",
-    [string]$PromptFilePath = ""
+    [string]$PromptFilePath = "",
+    [string]$SystemMessageFilePath = "",
+    [string]$ToolsJsonFilePath = "",
+    [string]$MessagesJsonFilePath = "",
+    [switch]$EnableConstrainedDecoding,
+    [switch]$OutputMessageJson
 )
 
 $ErrorActionPreference = "Stop"
@@ -41,4 +46,42 @@ Write-Host "[LiteRT-LM] Executable: $ExecutablePath"
 Write-Host "[LiteRT-LM] Model: $ModelPath"
 Write-Host "[LiteRT-LM] Backend: $Backend"
 
-& $ExecutablePath --backend=$Backend --model_path=$ModelPath --input_prompt_file=$PromptFilePath
+$Arguments = @(
+    "--backend=$Backend",
+    "--model_path=$ModelPath",
+    "--input_prompt_file=$PromptFilePath"
+)
+
+if (-not [string]::IsNullOrWhiteSpace($SystemMessageFilePath)) {
+    if (-not (Test-Path $SystemMessageFilePath)) {
+        throw "LiteRT-LM system message file not found: $SystemMessageFilePath"
+    }
+
+    $Arguments += "--system_message_file=$SystemMessageFilePath"
+}
+
+if (-not [string]::IsNullOrWhiteSpace($ToolsJsonFilePath)) {
+    if (-not (Test-Path $ToolsJsonFilePath)) {
+        throw "LiteRT-LM tools JSON file not found: $ToolsJsonFilePath"
+    }
+
+    $Arguments += "--tools_json_file=$ToolsJsonFilePath"
+}
+
+if (-not [string]::IsNullOrWhiteSpace($MessagesJsonFilePath)) {
+    if (-not (Test-Path $MessagesJsonFilePath)) {
+        throw "LiteRT-LM messages JSON file not found: $MessagesJsonFilePath"
+    }
+
+    $Arguments += "--messages_json_file=$MessagesJsonFilePath"
+}
+
+if ($EnableConstrainedDecoding) {
+    $Arguments += "--enable_constrained_decoding=true"
+}
+
+if ($OutputMessageJson) {
+    $Arguments += "--output_message_json=true"
+}
+
+& $ExecutablePath @Arguments

@@ -77,6 +77,32 @@ namespace LiteRTLM.Unity
 #endif
         }
 
+        public string RunBenchmark(
+            string modelPath,
+            string backend = "CPU",
+            string cacheDir = "",
+            int prefillTokens = 64,
+            int decodeTokens = 32)
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            if (string.IsNullOrWhiteSpace(modelPath))
+            {
+                throw new ArgumentException("modelPath is required.", nameof(modelPath));
+            }
+
+            EnsureBridge();
+            return _bridge.Call<string>(
+                "runBenchmark",
+                modelPath,
+                backend,
+                cacheDir,
+                prefillTokens,
+                decodeTokens);
+#else
+            throw new PlatformNotSupportedException("LiteRT-LM Unity wrapper currently supports Android device builds only.");
+#endif
+        }
+
         public void ResetConversation(string systemInstruction = "")
         {
 #if UNITY_ANDROID && !UNITY_EDITOR
