@@ -48,13 +48,15 @@ and fallback/default responses.
 
 | Model | Recommended use | Benchmark result | Notes | Links |
 | --- | --- | --- | --- | --- |
-| `gemma-4-E2B-it.litertlm` | Default recommendation for reliability | 20/20, 100% accuracy, 8.01s average per turn | Best current balance for this Unity function-calling path. Uses the LiteRT `tools_json` constrained path. Higher memory footprint than Qwen. | [Official model](https://huggingface.co/google/gemma-4-e2b-it), [LiteRT-LM conversion](https://huggingface.co/DEEPBULE/gemma-4-E2B-it-litert-lm) |
-| `Qwen3-0.6B.litertlm` | Smaller-memory alternative | 20/20, 100% accuracy, 14.18s average per turn | Much smaller model. Requires the Qwen Hermes/ChatML prompt profile and deterministic routing guards; do not use the Gemma `tools_json` prompt path for this model. | [Official model](https://huggingface.co/Qwen/Qwen3-0.6B) |
-| `Qwen2.5-1.5B-Instruct-q8.litertlm` | Android GPU candidate for Qwen2.5 | Android AVD smoke passed on GPU backend | Larger than Qwen3-0.6B, but the available q8 LiteRT-LM graph initializes on the current AVD GPU path. | [LiteRT model](https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct) |
+| `gemma3-1b-it-int4.litertlm` | Android physical-device default | Physical-device GPU smoke passed on two devices | Best current Android baseline. Native OpenCL model execution is verified; Top-K sampling still falls back to CPU. | [LiteRT model](https://huggingface.co/litert-community/Gemma3-1B-IT) |
+| `Qwen2.5-0.5B-Instruct-q8.litertlm` | Fast Android CPU alternative | Physical-device CPU smoke passed: init 2.01s, turn 1 0.848s, turn 2 0.279s | Use when GPU is unavailable or unstable. The GPU path failed on the tested physical device because the WebGPU binding exceeded the storage-buffer limit. | [LiteRT model](https://huggingface.co/litert-community/Qwen2.5-0.5B-Instruct) |
+| `gemma-4-E2B-it.litertlm` | Windows function-calling quality baseline | 20/20, 100% accuracy, 8.01s average per turn | Best verified function-calling quality on the Windows/Editor path. Android physical-device GPU is not the default for this model yet. | [Official model](https://huggingface.co/google/gemma-4-e2b-it), [LiteRT-LM conversion](https://huggingface.co/DEEPBULE/gemma-4-E2B-it-litert-lm) |
+| `Qwen3-0.6B.litertlm` | Smaller-memory experiment | 20/20, 100% accuracy on Windows prompt-profile benchmark | Requires the Qwen Hermes/ChatML prompt profile and deterministic routing guards; Android generic smoke output was not usable. | [Official model](https://huggingface.co/Qwen/Qwen3-0.6B) |
 
-`gemma-4-E2B-it` is the safest default when memory is available. Use
-`Qwen3-0.6B` when model size is the primary constraint and the extra prompt
-profile/guard logic is acceptable.
+Use `gemma3-1b-it-int4` as the Android physical-device default. Keep
+`Qwen2.5-0.5B-Instruct-q8` as the fast CPU fallback when GPU initialization is
+unavailable or too risky. Use `gemma-4-E2B-it` as the Windows/Editor
+function-calling quality reference.
 
 ## Android AVD Smoke Results
 
