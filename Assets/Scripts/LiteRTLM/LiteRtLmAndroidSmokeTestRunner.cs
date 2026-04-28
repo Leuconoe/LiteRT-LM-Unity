@@ -18,6 +18,7 @@ namespace LiteRTLM.Unity
         [SerializeField] private int benchmarkPrefillTokens = 64;
         [SerializeField] private int benchmarkDecodeTokens = 32;
         [SerializeField] private string systemInstruction = "You are a concise Unity Android smoke test assistant.";
+        [SerializeField] private bool resetConversationBeforeEachPrompt = true;
 
         private readonly string[] prompts =
         {
@@ -42,7 +43,7 @@ namespace LiteRTLM.Unity
 
         private IEnumerator RunSmokeTest()
         {
-            WriteStatus("START", $"backend={backend}, model={modelPath}, platform={Application.platform}");
+            WriteStatus("START", $"backend={backend}, model={modelPath}, platform={Application.platform}, resetConversationBeforeEachPrompt={resetConversationBeforeEachPrompt}");
 
 #if UNITY_ANDROID && !UNITY_EDITOR
             var resolvedModelPath = string.Empty;
@@ -88,6 +89,12 @@ namespace LiteRTLM.Unity
                 {
                     var turn = i + 1;
                     var prompt = prompts[i];
+                    if (resetConversationBeforeEachPrompt)
+                    {
+                        WriteStatus("RESET_CONVERSATION", $"{turn}/{prompts.Length}: clearing previous conversation state before prompt.");
+                        client.ResetConversation(systemInstruction);
+                    }
+
                     WriteStatus("TURN", $"{turn}/{prompts.Length}: prompt={prompt}");
                     var startedAt = Time.realtimeSinceStartup;
                     var response = client.SendMessage(prompt);

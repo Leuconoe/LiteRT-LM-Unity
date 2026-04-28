@@ -36,6 +36,7 @@ namespace LiteRTLM.Unity
         [SerializeField] private string cacheDir = "";
         [SerializeField] private int maxNumTokens = 0;
         [SerializeField] private int cpuThreads = 0;
+        [SerializeField] private bool resetConversationBeforeEachPrompt = true;
 
         private LiteRtLmUnityClient _client;
         private LiteRtLmWindowsCliClient _windowsCliClient;
@@ -107,6 +108,13 @@ namespace LiteRTLM.Unity
             systemInstruction = DrawImeTextField(systemInstruction, "LiteRtLmSystemInstructionField");
             GUILayout.Label("Prompt");
             prompt = DrawImeTextField(prompt, "LiteRtLmPromptField");
+            if (canUseAndroidBridge)
+            {
+                resetConversationBeforeEachPrompt = GUILayout.Toggle(
+                    resetConversationBeforeEachPrompt,
+                    "Reset conversation before each prompt");
+            }
+
             if (canUseWindowsCli)
             {
                 GUILayout.Label("Windows CLI Executable Path");
@@ -144,8 +152,16 @@ namespace LiteRTLM.Unity
                 {
                     TryRun(() =>
                     {
+                        if (resetConversationBeforeEachPrompt)
+                        {
+                            _client.ResetConversation(systemInstruction);
+                            Debug.Log("[LiteRT-LM Sample] Reset conversation before sending prompt.");
+                        }
+
                         _response = _client.SendMessage(prompt);
-                        _status = "Response received";
+                        _status = resetConversationBeforeEachPrompt
+                            ? "Response received after conversation reset"
+                            : "Response received";
                     });
                 }
                 else if (canUseWindowsCli)
