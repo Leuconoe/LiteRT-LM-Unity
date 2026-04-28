@@ -17,6 +17,7 @@ namespace LiteRTLM.Unity
         [SerializeField] private bool runStandaloneBenchmark;
         [SerializeField] private int benchmarkPrefillTokens = 64;
         [SerializeField] private int benchmarkDecodeTokens = 32;
+        [SerializeField] private int benchmarkRuns = 3;
         [SerializeField] private string systemInstruction = "You are a concise Unity Android smoke test assistant.";
         [SerializeField] private bool resetConversationBeforeEachPrompt = true;
 
@@ -112,14 +113,29 @@ namespace LiteRTLM.Unity
 
                 if (runStandaloneBenchmark && benchmarkPrefillTokens > 0 && benchmarkDecodeTokens > 0)
                 {
-                    WriteStatus("BENCHMARK", $"prefillTokens={benchmarkPrefillTokens}, decodeTokens={benchmarkDecodeTokens}");
-                    var benchmark = client.RunBenchmark(
-                        resolvedModelPath,
-                        backend,
-                        Application.temporaryCachePath,
-                        benchmarkPrefillTokens,
-                        benchmarkDecodeTokens);
-                    WriteStatus("BENCHMARK_RESULT", benchmark);
+                    client.Dispose();
+                    client = null;
+
+                    var runs = Math.Max(1, benchmarkRuns);
+                    var elapsedTotalSeconds = 0f;
+                    WriteStatus("BENCHMARK", $"runs={runs}, prefillTokens={benchmarkPrefillTokens}, decodeTokens={benchmarkDecodeTokens}");
+                    for (var run = 1; run <= runs; run++)
+                    {
+                        using var benchmarkClient = new LiteRtLmUnityClient();
+                        benchmarkClient.SetNativeMinLogSeverity("INFO");
+                        var benchmarkStartedAt = Time.realtimeSinceStartup;
+                        var benchmark = benchmarkClient.RunBenchmark(
+                            resolvedModelPath,
+                            backend,
+                            Application.temporaryCachePath,
+                            benchmarkPrefillTokens,
+                            benchmarkDecodeTokens);
+                        var benchmarkElapsedSeconds = Time.realtimeSinceStartup - benchmarkStartedAt;
+                        elapsedTotalSeconds += benchmarkElapsedSeconds;
+                        WriteStatus("BENCHMARK_RESULT", $"run={run}/{runs}, elapsedSeconds={benchmarkElapsedSeconds:0.###}, {OneLine(benchmark)}");
+                    }
+
+                    WriteStatus("BENCHMARK_SUMMARY", $"runs={runs}, averageElapsedSeconds={(elapsedTotalSeconds / runs):0.###}");
                 }
                 else
                 {

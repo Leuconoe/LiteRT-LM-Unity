@@ -130,7 +130,8 @@ namespace LiteRTLM.Unity
                 ResetStatus(config.StatusPath);
             }
 
-            WriteStatusLine(config.StatusPath, "RUN_START", $"model={config.ModelLabel}, promptProfile={config.PromptProfile}, referenceNow={ReferenceNow}, cases={Cases.Length}, constrained={config.EnableConstrainedDecoding}, outputMessageJson={config.OutputMessageJson}");
+            var cases = GetCases(config.PromptProfile);
+            WriteStatusLine(config.StatusPath, "RUN_START", $"model={config.ModelLabel}, promptProfile={config.PromptProfile}, referenceNow={ReferenceNow}, cases={cases.Length}, constrained={config.EnableConstrainedDecoding}, outputMessageJson={config.OutputMessageJson}");
 
             if (!File.Exists(config.ExecutablePath))
             {
@@ -158,7 +159,7 @@ namespace LiteRTLM.Unity
             var client = new LiteRtLmWindowsCliClient();
             var summary = new BenchmarkSummary();
             var useQwenHermesPrompt = config.PromptProfile == PromptProfile.QwenHermes;
-            foreach (var testCase in Cases)
+            foreach (var testCase in cases)
             {
                 var prompt = BuildPrompt(config.PromptProfile, testCase.User);
                 var startTime = DateTime.UtcNow;
@@ -172,7 +173,7 @@ namespace LiteRTLM.Unity
                         config.Timeout,
                         CancellationToken.None,
                         useQwenHermesPrompt ? string.Empty : BuildSystemMessage(config.PromptProfile),
-                        useQwenHermesPrompt ? string.Empty : BuildToolsJson(),
+                        useQwenHermesPrompt ? string.Empty : BuildToolsJson(config.PromptProfile),
                         string.Empty,
                         !useQwenHermesPrompt && constrainedCliAvailable && config.EnableConstrainedDecoding,
                         !useQwenHermesPrompt && constrainedCliAvailable && config.OutputMessageJson)
@@ -195,7 +196,7 @@ namespace LiteRTLM.Unity
                 }
             }
 
-            summary.Total = Cases.Length;
+            summary.Total = cases.Length;
             summary.Accuracy = summary.Total == 0 ? 0f : (float)summary.Passed / summary.Total;
             if (summary.Failed > 0)
             {
@@ -242,6 +243,14 @@ namespace LiteRTLM.Unity
             if (profile == PromptProfile.QwenHermes)
             {
                 return string.Empty;
+            }
+
+            if (profile == PromptProfile.MobileActions)
+            {
+                return "You are a model that can do function calling with the following functions.\n" +
+                       "Current date and time given in YYYY-MM-DDTHH:MM:SS format: 2026-04-24T10:30:00\n" +
+                       "Day of week is Friday\n" +
+                       "Select exactly one provided function. Return only the function call.";
             }
 
             return "You are a deterministic function-calling router for a Unity command UI.\n" +
@@ -303,6 +312,11 @@ namespace LiteRTLM.Unity
                        "<|im_start|>assistant\n<tool_call>\n";
             }
 
+            if (profile == PromptProfile.MobileActions)
+            {
+                return "Current date and time: 2026-04-24T10:30:00\nUser request: " + userText;
+            }
+
             return "현재 시간: " + ReferenceNow + "\n사용자 발화: " + userText;
         }
 
@@ -323,8 +337,21 @@ namespace LiteRTLM.Unity
                    "{\"name\":\"DefaultResponse\",\"description\":\"input과 일치하는 description이 없다면 이 함수를 사용합니다.\",\"parameters\":{\"type\":\"object\",\"properties\":{},\"required\":[]}}\n";
         }
 
-        private static string BuildToolsJson()
+        private static string BuildToolsJson(PromptProfile profile)
         {
+            if (profile == PromptProfile.MobileActions)
+            {
+                return @"[
+  {""type"":""function"",""function"":{""name"":""turnOnFlashlight"",""description"":""Turns the flashlight on"",""parameters"":{""type"":""object"",""properties"":{},""required"":[]}}},
+  {""type"":""function"",""function"":{""name"":""turnOffFlashlight"",""description"":""Turns the flashlight off"",""parameters"":{""type"":""object"",""properties"":{},""required"":[]}}},
+  {""type"":""function"",""function"":{""name"":""createContact"",""description"":""Creates a contact in the phone's contact list."",""parameters"":{""type"":""object"",""properties"":{""firstName"":{""type"":""string"",""description"":""The first name of the contact.""},""lastName"":{""type"":""string"",""description"":""The last name of the contact.""},""phoneNumber"":{""type"":""string"",""description"":""The phone number of the contact.""},""email"":{""type"":""string"",""description"":""The email address of the contact.""}},""required"":[""firstName"",""lastName"",""phoneNumber"",""email""]}}},
+  {""type"":""function"",""function"":{""name"":""sendEmail"",""description"":""Sends an email."",""parameters"":{""type"":""object"",""properties"":{""to"":{""type"":""string"",""description"":""The email address of the recipient.""},""subject"":{""type"":""string"",""description"":""The subject of the email.""},""body"":{""type"":""string"",""description"":""The body of the email.""}},""required"":[""to"",""subject"",""body""]}}},
+  {""type"":""function"",""function"":{""name"":""showLocationOnMap"",""description"":""Shows a location on the map."",""parameters"":{""type"":""object"",""properties"":{""location"":{""type"":""string"",""description"":""The location to search for. May be the name of a place, a business, or an address.""}},""required"":[""location""]}}},
+  {""type"":""function"",""function"":{""name"":""openWifiSettings"",""description"":""Opens the WiFi settings."",""parameters"":{""type"":""object"",""properties"":{},""required"":[]}}},
+  {""type"":""function"",""function"":{""name"":""createCalendarEvent"",""description"":""Creates a new calendar event."",""parameters"":{""type"":""object"",""properties"":{""datetime"":{""type"":""string"",""description"":""The date and time of the event in the format YYYY-MM-DDTHH:MM:SS.""},""title"":{""type"":""string"",""description"":""The title of the event.""}},""required"":[""datetime"",""title""]}}}
+]";
+            }
+
             return @"[
   {""type"":""function"",""function"":{""name"":""IncreaseBrightness"",""description"":""디스플레이/화면 밝기를 더욱 밝게 합니다."",""parameters"":{""type"":""object"",""properties"":{},""required"":[]}}},
   {""type"":""function"",""function"":{""name"":""DecreaseBrightness"",""description"":""디스플레이의 화면 밝기를 더욱 어둡게 합니다."",""parameters"":{""type"":""object"",""properties"":{},""required"":[]}}},
@@ -661,6 +688,22 @@ namespace LiteRTLM.Unity
             new BenchmarkCase("B20", "4월 24일 상황인지 결과 조회해.", "ViewSituationAwarenessResults", "2026-04-24 00:00:00", "2026-04-24 23:59:59"),
         };
 
+        private static readonly BenchmarkCase[] MobileActionCases =
+        {
+            new BenchmarkCase("M01", "Turn the flashlight on.", "turnOnFlashlight"),
+            new BenchmarkCase("M02", "Turn off the flashlight.", "turnOffFlashlight"),
+            new BenchmarkCase("M03", "Create a contact for Jane Doe. Her phone number is 555-0102 and her email is jane@example.com.", "createContact"),
+            new BenchmarkCase("M04", "Send an email to alex@example.com with subject Project update and body The Unity demo is ready.", "sendEmail"),
+            new BenchmarkCase("M05", "Show Seoul Station on the map.", "showLocationOnMap"),
+            new BenchmarkCase("M06", "Open WiFi settings.", "openWifiSettings"),
+            new BenchmarkCase("M07", "Create a calendar event tomorrow at 3 PM titled Drone test.", "createCalendarEvent"),
+        };
+
+        private static BenchmarkCase[] GetCases(PromptProfile profile)
+        {
+            return profile == PromptProfile.MobileActions ? MobileActionCases : Cases;
+        }
+
         public struct BenchmarkSummary
         {
             public int Total;
@@ -675,6 +718,7 @@ namespace LiteRTLM.Unity
             Compact,
             QwenNoThink,
             QwenHermes,
+            MobileActions,
         }
 
         private struct BenchmarkRunConfig

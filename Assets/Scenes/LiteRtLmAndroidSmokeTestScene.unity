@@ -146,11 +146,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5ec46860d77a08e43b63c6f2d5e0a527, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LiteRTLM.Unity.LiteRtLmAndroidSmokeTestRunner
   modelPath: Qwen2.5-0.5B-Instruct-q8.litertlm
   backend: GPU
   maxNumTokens: 64
+  runStandaloneBenchmark: 0
+  benchmarkPrefillTokens: 64
+  benchmarkDecodeTokens: 32
   systemInstruction: You are a concise Unity Android smoke test assistant.
 --- !u!4 &2076134987
 Transform:

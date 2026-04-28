@@ -18,6 +18,10 @@ New-Item -ItemType Directory -Force -Path $LogDirectory | Out-Null
 
 $Benchmarks = @(
     @{ Name = "gemma-4-E2B-it-gpu"; Apk = "LiteRtLmAndroidSmokeTest-gemma-4-E2B-it.apk" },
+    @{ Name = "gemma3-1b-it-gpu"; Apk = "LiteRtLmAndroidSmokeTest-gemma3-1b-it-int4.apk" },
+    @{ Name = "gemma3-1b-it-cpu"; Apk = "LiteRtLmAndroidSmokeTest-gemma3-1b-it-int4-CPU.apk" },
+    @{ Name = "gemma3-270m-it-gpu"; Apk = "LiteRtLmAndroidSmokeTest-gemma3-270m-it-q8.apk" },
+    @{ Name = "mobile-actions-gpu"; Apk = "LiteRtLmAndroidSmokeTest-mobile_actions_q8_ekv1024.apk" },
     @{ Name = "qwen3-0.6b-gpu"; Apk = "LiteRtLmAndroidSmokeTest-Qwen3-0.6B.apk" },
     @{ Name = "qwen2.5-0.5b-gpu"; Apk = "LiteRtLmAndroidSmokeTest-Qwen2.5-0.5B-Instruct.apk" },
     @{ Name = "qwen2.5-0.5b-cpu"; Apk = "LiteRtLmAndroidSmokeTest-Qwen2.5-0.5B-Instruct-CPU.apk" },
@@ -96,6 +100,46 @@ function Get-FirstRegexGroup {
     return ""
 }
 
+function Get-BackendFromName {
+    param([string]$Name)
+
+    if ($Name -match "-cpu$") {
+        return "CPU"
+    }
+
+    if ($Name -match "-gpu$") {
+        return "GPU"
+    }
+
+    return ""
+}
+
+function Get-GpuEvidence {
+    param([string]$SummaryText)
+
+    $evidence = New-Object System.Collections.Generic.List[string]
+    if ($SummaryText -match "Initializing OpenCL-based API|delegate_opencl") {
+        $evidence.Add("NativeOpenCL")
+    }
+    if ($SummaryText -match "Created a WebGPU environment|delegate_webgpu|Using WebGPU instead") {
+        $evidence.Add("WebGPU")
+    }
+    if ($SummaryText -match "Dynamically loaded LiteRtTopKOpenClSampler|Statically linked LiteRtTopKOpenClSampler") {
+        $evidence.Add("OpenCLSampler")
+    }
+    if ($SummaryText -match "Dynamically loaded LiteRtTopKWebGpuSampler|Statically linked LiteRtTopKWebGpuSampler") {
+        $evidence.Add("WebGPUSampler")
+    }
+    if ($SummaryText -match "GPU sampler unavailable|Falling back to CPU sampling") {
+        $evidence.Add("CpuSamplerFallback")
+    }
+    if ($SummaryText -match "backend=GPU" -and $evidence.Count -eq 0) {
+        $evidence.Add("RequestedGPU")
+    }
+
+    return ($evidence -join "+")
+}
+
 $Serial = Resolve-PhysicalDeviceSerial $DeviceSerial
 $DeviceDescription = (& adb -s $Serial shell getprop ro.product.manufacturer).Trim() + " " +
     (& adb -s $Serial shell getprop ro.product.model).Trim() + " Android " +
@@ -139,9 +183,17 @@ foreach ($benchmark in $Benchmarks) {
             Status = "INSTALL_FAIL"
             Matched = $false
             ModelCopied = ""
+            BackendRequested = Get-BackendFromName $name
+            GpuEvidence = ""
             InitSeconds = ""
             Turn1Seconds = ""
             Turn2Seconds = ""
+            BenchmarkAverageSeconds = ""
+            BenchmarkInitMs = ""
+            BenchmarkTimeToFirstTokenSeconds = ""
+            BenchmarkPrefillTokensPerSecond = ""
+            BenchmarkDecodeTokensPerSecond = ""
+            FunctionCallingHitRate = ""
             TotalSeconds = ""
             RawLog = ""
             SummaryLog = ""
@@ -174,10 +226,15 @@ foreach ($benchmark in $Benchmarks) {
             }
         }
 
-        $patterns = "LiteRT-LM AndroidSmoke|MODEL_READY|COPY_MODEL|INITIALIZED|RESPONSE|BENCHMARK|SUCCESS|FAILURE|WebGPU|OpenCL|GPU sampler|compiled model|Binding size|lowmemorykiller|Process $([regex]::Escape($PackageName)).* has died|AndroidRuntime|FATAL|ERROR"
+        $patterns = "LiteRT-LM AndroidSmoke|MODEL_READY|COPY_MODEL|INITIALIZED|RESPONSE|BENCHMARK|SUCCESS|FAILURE|WebGPU|OpenCL|GPU sampler|GPU|compiled model|Binding size|lowmemorykiller|Process $([regex]::Escape($PackageName)).* has died|AndroidRuntime|FATAL|ERROR"
         Select-String -Path $rawLog -Pattern $patterns | ForEach-Object { $_.Line } | Out-File -FilePath $summaryLog -Encoding utf8
         $summaryText = Get-Content $summaryLog -Raw
         $status = if ($summaryText -match "\[LiteRT-LM AndroidSmoke\] SUCCESS") { "PASS" } elseif ($summaryText -match "\[LiteRT-LM AndroidSmoke\] FAILURE" -or $summaryText -match "lowmemorykiller|Process $([regex]::Escape($PackageName)).* has died") { "FAIL" } else { "TIMEOUT" }
+        $backendRequested = Get-FirstRegexGroup $summaryText "START: backend=([^,]+)"
+        if ([string]::IsNullOrWhiteSpace($backendRequested)) {
+            $backendRequested = Get-BackendFromName $name
+        }
+        $gpuEvidence = Get-GpuEvidence $summaryText
 
         $Results.Add([pscustomobject]@{
             Name = $name
@@ -185,9 +242,17 @@ foreach ($benchmark in $Benchmarks) {
             Status = $status
             Matched = $matched
             ModelCopied = Get-FirstRegexGroup $summaryText "MODEL_READY: .*copied=(True|False)"
+            BackendRequested = $backendRequested
+            GpuEvidence = $gpuEvidence
             InitSeconds = Get-FirstRegexGroup $summaryText "INITIALIZED: .*elapsedSeconds=([0-9.]+)"
             Turn1Seconds = Get-FirstRegexGroup $summaryText "RESPONSE: 1/2: elapsedSeconds=([0-9.]+)"
             Turn2Seconds = Get-FirstRegexGroup $summaryText "RESPONSE: 2/2: elapsedSeconds=([0-9.]+)"
+            BenchmarkAverageSeconds = Get-FirstRegexGroup $summaryText "BENCHMARK_SUMMARY: .*averageElapsedSeconds=([0-9.]+)"
+            BenchmarkInitMs = Get-FirstRegexGroup $summaryText "BENCHMARK_RESULT: .*Init Total: ([0-9.]+) ms"
+            BenchmarkTimeToFirstTokenSeconds = Get-FirstRegexGroup $summaryText "BENCHMARK_RESULT: .*Time to first token: ([0-9.]+) s"
+            BenchmarkPrefillTokensPerSecond = Get-FirstRegexGroup $summaryText "BENCHMARK_RESULT: .*Last Prefill: [0-9]+ tokens, ([0-9.]+) tokens/sec"
+            BenchmarkDecodeTokensPerSecond = Get-FirstRegexGroup $summaryText "BENCHMARK_RESULT: .*Last Decode: [0-9]+ tokens, ([0-9.]+) tokens/sec"
+            FunctionCallingHitRate = ""
             TotalSeconds = Get-FirstRegexGroup $summaryText "SUCCESS: .*totalElapsedSeconds=([0-9.]+)"
             RawLog = $rawLog
             SummaryLog = $summaryLog
@@ -202,9 +267,17 @@ foreach ($benchmark in $Benchmarks) {
             Status = "RUN_ERROR"
             Matched = $false
             ModelCopied = ""
+            BackendRequested = Get-BackendFromName $name
+            GpuEvidence = ""
             InitSeconds = ""
             Turn1Seconds = ""
             Turn2Seconds = ""
+            BenchmarkAverageSeconds = ""
+            BenchmarkInitMs = ""
+            BenchmarkTimeToFirstTokenSeconds = ""
+            BenchmarkPrefillTokensPerSecond = ""
+            BenchmarkDecodeTokensPerSecond = ""
+            FunctionCallingHitRate = ""
             TotalSeconds = ""
             RawLog = $rawLog
             SummaryLog = $summaryLog

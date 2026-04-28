@@ -49,11 +49,13 @@ namespace LiteRTLM.Unity
             }
 
             EnsureBridge();
+            var nativeLibraryDir = GetAndroidNativeLibraryDir();
             _bridge.Call(
                 "initialize",
                 modelPath,
                 backend,
                 cacheDir,
+                nativeLibraryDir,
                 maxNumTokens,
                 maxNumImages,
                 cpuThreads,
@@ -91,11 +93,13 @@ namespace LiteRTLM.Unity
             }
 
             EnsureBridge();
+            var nativeLibraryDir = GetAndroidNativeLibraryDir();
             return _bridge.Call<string>(
                 "runBenchmark",
                 modelPath,
                 backend,
                 cacheDir,
+                nativeLibraryDir,
                 prefillTokens,
                 decodeTokens);
 #else
@@ -147,6 +151,18 @@ namespace LiteRTLM.Unity
             {
                 _bridge = new AndroidJavaObject(BridgeClassName);
             }
+        }
+
+        private static string GetAndroidNativeLibraryDir()
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            using var unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer");
+            using var activity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity");
+            using var applicationInfo = activity.Call<AndroidJavaObject>("getApplicationInfo");
+            return applicationInfo.Get<string>("nativeLibraryDir") ?? string.Empty;
+#else
+            return string.Empty;
+#endif
         }
     }
 }
