@@ -16,31 +16,8 @@ $RunId = Get-Date -Format "yyyyMMdd-HHmmss"
 
 New-Item -ItemType Directory -Force -Path $LogDirectory | Out-Null
 
-$Benchmarks = @(
-    @{ Name = "gemma-4-E2B-it-gpu"; Apk = "LiteRtLmAndroidSmokeTest-gemma-4-E2B-it.apk" },
-    @{ Name = "gemma-4-E2B-it-gpu-nospec"; Apk = "LiteRtLmAndroidSmokeTest-gemma-4-E2B-it-nospec.apk" },
-    @{ Name = "gemma-4-E2B-it-cpu"; Apk = "LiteRtLmAndroidSmokeTest-gemma-4-E2B-it-CPU.apk" },
-    @{ Name = "gemma3-1b-it-gpu"; Apk = "LiteRtLmAndroidSmokeTest-gemma3-1b-it-int4.apk" },
-    @{ Name = "gemma3-1b-it-cpu"; Apk = "LiteRtLmAndroidSmokeTest-gemma3-1b-it-int4-CPU.apk" },
-    @{ Name = "gemma3-270m-it-gpu"; Apk = "LiteRtLmAndroidSmokeTest-gemma3-270m-it-q8.apk" },
-    @{ Name = "mobile-actions-gpu"; Apk = "LiteRtLmAndroidSmokeTest-mobile_actions_q8_ekv1024.apk" },
-    @{ Name = "qwen3-0.6b-gpu"; Apk = "LiteRtLmAndroidSmokeTest-Qwen3-0.6B.apk" },
-    @{ Name = "qwen2.5-0.5b-gpu"; Apk = "LiteRtLmAndroidSmokeTest-Qwen2.5-0.5B-Instruct.apk" },
-    @{ Name = "qwen2.5-0.5b-cpu"; Apk = "LiteRtLmAndroidSmokeTest-Qwen2.5-0.5B-Instruct-CPU.apk" },
-    @{ Name = "qwen2.5-1.5b-gpu"; Apk = "LiteRtLmAndroidSmokeTest-Qwen2.5-1.5B-Instruct.apk" }
-)
-
-if ($BenchmarkName.Count -gt 0) {
-    $selected = New-Object System.Collections.Generic.HashSet[string] ([StringComparer]::OrdinalIgnoreCase)
-    foreach ($name in $BenchmarkName) {
-        [void]$selected.Add($name)
-    }
-
-    $Benchmarks = @($Benchmarks | Where-Object { $selected.Contains($_.Name) })
-    if ($Benchmarks.Count -eq 0) {
-        throw "No benchmarks matched -BenchmarkName: $($BenchmarkName -join ', ')"
-    }
-}
+. (Join-Path $PSScriptRoot "LiteRtLmAndroidBenchmarks.ps1")
+$Benchmarks = Select-LiteRtLmAndroidBenchmarks -Name $BenchmarkName
 
 function Get-AdbDeviceLines {
     $lines = & adb devices -l

@@ -1,18 +1,4 @@
 param(
-    [ValidateSet(
-        "gemma-4-E2B-it-gpu",
-        "gemma-4-E2B-it-gpu-nospec",
-        "gemma-4-E2B-it-cpu",
-        "gemma3-1b-it-gpu",
-        "gemma3-1b-it-cpu",
-        "gemma3-270m-it-gpu",
-        "mobile-actions-gpu",
-        "qwen3-0.6b-gpu",
-        "qwen2.5-0.5b-gpu",
-        "qwen2.5-0.5b-cpu",
-        "qwen2.5-1.5b-gpu",
-        "qwen2.5-1.5b-cpu"
-    )]
     [string]$BenchmarkName = "gemma-4-E2B-it-gpu",
     [string]$UnityPath = "",
     [string]$TempRoot = "",
@@ -27,68 +13,8 @@ if ([string]::IsNullOrWhiteSpace($TempRoot)) {
     $TempRoot = Join-Path $RepoRoot "temp\unity-android-build"
 }
 
-$benchmark = @{
-    "gemma-4-E2B-it-gpu" = @{
-        Method = "LiteRTLM.Unity.Editor.LiteRtLmBuild.BuildAndroidAvdSmokeTestApkGemma4"
-        Model = "gemma-4-E2B-it.litertlm"
-        Apk = "LiteRtLmAndroidSmokeTest-gemma-4-E2B-it.apk"
-    }
-    "gemma-4-E2B-it-gpu-nospec" = @{
-        Method = "LiteRTLM.Unity.Editor.LiteRtLmBuild.BuildAndroidAvdSmokeTestApkGemma4NoSpeculative"
-        Model = "gemma-4-E2B-it.litertlm"
-        Apk = "LiteRtLmAndroidSmokeTest-gemma-4-E2B-it-nospec.apk"
-    }
-    "gemma-4-E2B-it-cpu" = @{
-        Method = "LiteRTLM.Unity.Editor.LiteRtLmBuild.BuildAndroidAvdSmokeTestApkGemma4Cpu"
-        Model = "gemma-4-E2B-it.litertlm"
-        Apk = "LiteRtLmAndroidSmokeTest-gemma-4-E2B-it-CPU.apk"
-    }
-    "gemma3-1b-it-gpu" = @{
-        Method = "LiteRTLM.Unity.Editor.LiteRtLmBuild.BuildAndroidAvdSmokeTestApkGemma1B"
-        Model = "gemma3-1b-it-int4.litertlm"
-        Apk = "LiteRtLmAndroidSmokeTest-gemma3-1b-it-int4.apk"
-    }
-    "gemma3-1b-it-cpu" = @{
-        Method = "LiteRTLM.Unity.Editor.LiteRtLmBuild.BuildAndroidAvdSmokeTestApkGemma1BCpu"
-        Model = "gemma3-1b-it-int4.litertlm"
-        Apk = "LiteRtLmAndroidSmokeTest-gemma3-1b-it-int4-CPU.apk"
-    }
-    "gemma3-270m-it-gpu" = @{
-        Method = "LiteRTLM.Unity.Editor.LiteRtLmBuild.BuildAndroidAvdSmokeTestApkGemma270M"
-        Model = "gemma3-270m-it-q8.litertlm"
-        Apk = "LiteRtLmAndroidSmokeTest-gemma3-270m-it-q8.apk"
-    }
-    "mobile-actions-gpu" = @{
-        Method = "LiteRTLM.Unity.Editor.LiteRtLmBuild.BuildAndroidAvdSmokeTestApkMobileActions"
-        Model = "mobile_actions_q8_ekv1024.litertlm"
-        Apk = "LiteRtLmAndroidSmokeTest-mobile_actions_q8_ekv1024.apk"
-    }
-    "qwen3-0.6b-gpu" = @{
-        Method = "LiteRTLM.Unity.Editor.LiteRtLmBuild.BuildAndroidAvdSmokeTestApkQwen3"
-        Model = "Qwen3-0.6B.litertlm"
-        Apk = "LiteRtLmAndroidSmokeTest-Qwen3-0.6B.apk"
-    }
-    "qwen2.5-0.5b-gpu" = @{
-        Method = "LiteRTLM.Unity.Editor.LiteRtLmBuild.BuildAndroidAvdSmokeTestApkQwen25"
-        Model = "Qwen2.5-0.5B-Instruct-q8.litertlm"
-        Apk = "LiteRtLmAndroidSmokeTest-Qwen2.5-0.5B-Instruct.apk"
-    }
-    "qwen2.5-0.5b-cpu" = @{
-        Method = "LiteRTLM.Unity.Editor.LiteRtLmBuild.BuildAndroidAvdSmokeTestApkQwen25Cpu"
-        Model = "Qwen2.5-0.5B-Instruct-q8.litertlm"
-        Apk = "LiteRtLmAndroidSmokeTest-Qwen2.5-0.5B-Instruct-CPU.apk"
-    }
-    "qwen2.5-1.5b-gpu" = @{
-        Method = "LiteRTLM.Unity.Editor.LiteRtLmBuild.BuildAndroidAvdSmokeTestApkQwen25_1_5B"
-        Model = "Qwen2.5-1.5B-Instruct-q8.litertlm"
-        Apk = "LiteRtLmAndroidSmokeTest-Qwen2.5-1.5B-Instruct.apk"
-    }
-    "qwen2.5-1.5b-cpu" = @{
-        Method = "LiteRTLM.Unity.Editor.LiteRtLmBuild.BuildAndroidAvdSmokeTestApkQwen25_1_5BCpu"
-        Model = "Qwen2.5-1.5B-Instruct-q8.litertlm"
-        Apk = "LiteRtLmAndroidSmokeTest-Qwen2.5-1.5B-Instruct-CPU.apk"
-    }
-}[$BenchmarkName]
+. (Join-Path $PSScriptRoot "LiteRtLmAndroidBenchmarks.ps1")
+$benchmark = Get-LiteRtLmAndroidBenchmark -Name $BenchmarkName
 
 function Invoke-CheckedRobocopy {
     param(

@@ -89,57 +89,11 @@ namespace LiteRTLM.Unity
                 var initializeElapsedSeconds = Time.realtimeSinceStartup - initializeStartedAt;
                 WriteStatus("INITIALIZED", $"isInitialized={client.IsInitialized}, elapsedSeconds={initializeElapsedSeconds:0.###}");
 
-                for (var i = 0; i < prompts.Length; i++)
-                {
-                    var turn = i + 1;
-                    var prompt = prompts[i];
-                    if (resetConversationBeforeEachPrompt)
-                    {
-                        WriteStatus("RESET_CONVERSATION", $"{turn}/{prompts.Length}: clearing previous conversation state before prompt.");
-                        client.ResetConversation(systemInstruction);
-                    }
-
-                    WriteStatus("TURN", $"{turn}/{prompts.Length}: prompt={prompt}");
-                    var startedAt = Time.realtimeSinceStartup;
-                    var response = client.SendMessage(prompt);
-                    var elapsedSeconds = Time.realtimeSinceStartup - startedAt;
-
-                    if (string.IsNullOrWhiteSpace(response))
-                    {
-                        throw new InvalidOperationException($"Turn {turn} returned an empty response.");
-                    }
-
-                    WriteStatus(
-                        "RESPONSE",
-                        $"{turn}/{prompts.Length}: elapsedSeconds={elapsedSeconds:0.###}, length={response.Length}, preview={OneLine(Truncate(response, 180))}");
-                }
+                RunPromptTurns();
 
                 if (runStandaloneBenchmark && benchmarkPrefillTokens > 0 && benchmarkDecodeTokens > 0)
                 {
-                    client.Dispose();
-                    client = null;
-
-                    var runs = Math.Max(1, benchmarkRuns);
-                    var elapsedTotalSeconds = 0f;
-                    WriteStatus("BENCHMARK", $"runs={runs}, prefillTokens={benchmarkPrefillTokens}, decodeTokens={benchmarkDecodeTokens}");
-                    for (var run = 1; run <= runs; run++)
-                    {
-                        using var benchmarkClient = new LiteRtLmUnityClient();
-                        benchmarkClient.SetNativeMinLogSeverity("INFO");
-                        var benchmarkStartedAt = Time.realtimeSinceStartup;
-                        var benchmark = benchmarkClient.RunBenchmark(
-                            resolvedModelPath,
-                            backend,
-                            Application.temporaryCachePath,
-                            benchmarkPrefillTokens,
-                            benchmarkDecodeTokens,
-                            enableSpeculativeDecoding);
-                        var benchmarkElapsedSeconds = Time.realtimeSinceStartup - benchmarkStartedAt;
-                        elapsedTotalSeconds += benchmarkElapsedSeconds;
-                        WriteStatus("BENCHMARK_RESULT", $"run={run}/{runs}, elapsedSeconds={benchmarkElapsedSeconds:0.###}, {OneLine(benchmark)}");
-                    }
-
-                    WriteStatus("BENCHMARK_SUMMARY", $"runs={runs}, averageElapsedSeconds={(elapsedTotalSeconds / runs):0.###}");
+                    RunStandaloneBenchmark(resolvedModelPath);
                 }
                 else
                 {
@@ -155,6 +109,62 @@ namespace LiteRTLM.Unity
             {
                 WriteFailure(ex);
             }
+        }
+
+        private void RunPromptTurns()
+        {
+            for (var i = 0; i < prompts.Length; i++)
+            {
+                var turn = i + 1;
+                var prompt = prompts[i];
+                if (resetConversationBeforeEachPrompt)
+                {
+                    WriteStatus("RESET_CONVERSATION", $"{turn}/{prompts.Length}: clearing previous conversation state before prompt.");
+                    client.ResetConversation(systemInstruction);
+                }
+
+                WriteStatus("TURN", $"{turn}/{prompts.Length}: prompt={prompt}");
+                var startedAt = Time.realtimeSinceStartup;
+                var response = client.SendMessage(prompt);
+                var elapsedSeconds = Time.realtimeSinceStartup - startedAt;
+
+                if (string.IsNullOrWhiteSpace(response))
+                {
+                    throw new InvalidOperationException($"Turn {turn} returned an empty response.");
+                }
+
+                WriteStatus(
+                    "RESPONSE",
+                    $"{turn}/{prompts.Length}: elapsedSeconds={elapsedSeconds:0.###}, length={response.Length}, preview={OneLine(Truncate(response, 180))}");
+            }
+        }
+
+        private void RunStandaloneBenchmark(string resolvedModelPath)
+        {
+            client.Dispose();
+            client = null;
+
+            var runs = Math.Max(1, benchmarkRuns);
+            var elapsedTotalSeconds = 0f;
+            WriteStatus("BENCHMARK", $"runs={runs}, prefillTokens={benchmarkPrefillTokens}, decodeTokens={benchmarkDecodeTokens}");
+            for (var run = 1; run <= runs; run++)
+            {
+                using var benchmarkClient = new LiteRtLmUnityClient();
+                benchmarkClient.SetNativeMinLogSeverity("INFO");
+                var benchmarkStartedAt = Time.realtimeSinceStartup;
+                var benchmark = benchmarkClient.RunBenchmark(
+                    resolvedModelPath,
+                    backend,
+                    Application.temporaryCachePath,
+                    benchmarkPrefillTokens,
+                    benchmarkDecodeTokens,
+                    enableSpeculativeDecoding);
+                var benchmarkElapsedSeconds = Time.realtimeSinceStartup - benchmarkStartedAt;
+                elapsedTotalSeconds += benchmarkElapsedSeconds;
+                WriteStatus("BENCHMARK_RESULT", $"run={run}/{runs}, elapsedSeconds={benchmarkElapsedSeconds:0.###}, {OneLine(benchmark)}");
+            }
+
+            WriteStatus("BENCHMARK_SUMMARY", $"runs={runs}, averageElapsedSeconds={(elapsedTotalSeconds / runs):0.###}");
         }
 
         private IEnumerator ResolveModelPath(string configuredPath, Action<string> onSuccess, Action<Exception> onError)
