@@ -78,6 +78,29 @@ model reuse `copied=False`, client initialization `56.411s` to `57.757s`,
 turn 1 `2.470s` to `2.508s`, turn 2 `0.457s` to `0.480s`, total smoke
 runtime `59.507s` to `60.848s`.
 
+## Build The Android Bridge AAR From A Patch
+
+Unity can use the committed `Assets/Plugins/Android/litertlm-unity-bridge.aar`
+without modifying the parent LiteRT-LM source tree. To rebuild that AAR from
+source, use the patch-based wrapper:
+
+```powershell
+.\Tools\Windows\Build-LiteRtLmUnityAarFromPatch.ps1 `
+  -BazelJobs 8
+```
+
+The wrapper copies the parent LiteRT-LM source into `..\temp`, applies
+`Tools\Patches\unity-aar\litert-lm-unity-aar.patch` there, then runs the
+patched Docker/Bazel AAR build. The parent source tree is left untouched; only
+`Assets\Plugins\Android\litertlm-unity-bridge.aar` is updated in this Unity
+project.
+
+For a quick patch-only check without Docker:
+
+```powershell
+.\Tools\Windows\Build-LiteRtLmUnityAarFromPatch.ps1 -PrepareOnly
+```
+
 ## Run The Editor Self-Test
 
 From the Unity project root:

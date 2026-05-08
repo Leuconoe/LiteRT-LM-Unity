@@ -1,0 +1,1478 @@
+diff --git a/cmake/Containerfile b/cmake/Containerfile
+index 2e1a816..ad41e4b 100644
+--- a/cmake/Containerfile
++++ b/cmake/Containerfile
+@@ -15,19 +15,30 @@
+
+ FROM docker.io/library/ubuntu:24.04
+
++ARG BAZELISK_VERSION=v1.28.1
++ARG ANDROID_NDK_VERSION=r28b
++ARG ANDROID_CMDLINE_TOOLS_VERSION=14742923
++
+ ENV DEBIAN_FRONTEND=noninteractive
++ENV JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64"
++ENV PATH="${JAVA_HOME}/bin:${PATH}"
++ENV ANDROID_HOME="/opt/android-sdk"
++ENV ANDROID_SDK_ROOT="/opt/android-sdk"
+
+ RUN apt-get update && apt-get install -y \
++    ca-certificates \
+     build-essential \
+     cmake \
+     ninja-build \
+     make \
+     gdb \
++    gnupg \
+     pkg-config \
+-    openjdk-17-jre-headless \
++    openjdk-17-jdk-headless \
+     clang \
+     lld \
+     git \
++    git-lfs \
+     wget \
+     curl \
+     unzip \
+@@ -54,6 +65,35 @@ RUN wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/nul
+ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ ENV PATH="/root/.cargo/bin:${PATH}"
+
++RUN wget -O /usr/local/bin/bazelisk \
++      "https://github.com/bazelbuild/bazelisk/releases/download/${BAZELISK_VERSION}/bazelisk-linux-amd64" \
++    && chmod +x /usr/local/bin/bazelisk \
++    && ln -sf /usr/local/bin/bazelisk /usr/local/bin/bazel
++
++RUN wget -O /tmp/android-ndk.zip \
++      "https://dl.google.com/android/repository/android-ndk-${ANDROID_NDK_VERSION}-linux.zip" \
++    && unzip -q /tmp/android-ndk.zip -d /opt \
++    && rm -f /tmp/android-ndk.zip
++
++RUN mkdir -p "${ANDROID_HOME}/cmdline-tools" \
++    && wget -O /tmp/android-commandlinetools.zip \
++      "https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_CMDLINE_TOOLS_VERSION}_latest.zip" \
++    && unzip -q /tmp/android-commandlinetools.zip -d "${ANDROID_HOME}/cmdline-tools" \
++    && mv "${ANDROID_HOME}/cmdline-tools/cmdline-tools" "${ANDROID_HOME}/cmdline-tools/latest" \
++    && rm -f /tmp/android-commandlinetools.zip
++
++ENV ANDROID_NDK_HOME="/opt/android-ndk-${ANDROID_NDK_VERSION}"
++ENV ANDROID_NDK_ROOT="/opt/android-ndk-${ANDROID_NDK_VERSION}"
++ENV PATH="${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-tools:${PATH}"
++
++RUN yes | sdkmanager --licenses >/dev/null \
++    && sdkmanager \
++      "platform-tools" \
++      "platforms;android-34" \
++      "build-tools;34.0.0"
++
++RUN git lfs install --system
++
+ WORKDIR /litert_lm
+
+ COPY . .
+diff --git a/kotlin/java/com/google/ai/edge/litertlm/BUILD b/kotlin/java/com/google/ai/edge/litertlm/BUILD
+index 46eba4a..c5162a5 100644
+--- a/kotlin/java/com/google/ai/edge/litertlm/BUILD
++++ b/kotlin/java/com/google/ai/edge/litertlm/BUILD
+@@ -46,3 +46,12 @@ kt_android_library(
+         "//conditions:default": [],
+     }),
+ )
++
++java_library(
++    name = "litertlm-unity-bridge-jar",
++    srcs = [
++        "BenchmarkInfo.java",
++        "LiteRtLmJniException.java",
++        "unity/UnityLiteRtLmBridge.java",
++    ],
++)
+diff --git a/kotlin/java/com/google/ai/edge/litertlm/BenchmarkInfo.java b/kotlin/java/com/google/ai/edge/litertlm/BenchmarkInfo.java
+new file mode 100644
+index 0000000..026c096
+--- /dev/null
++++ b/kotlin/java/com/google/ai/edge/litertlm/BenchmarkInfo.java
+@@ -0,0 +1,37 @@
++package com.google.ai.edge.litertlm;
++
++public final class BenchmarkInfo {
++    public final double initTimeInSecond;
++    public final double timeToFirstTokenInSecond;
++    public final int lastPrefillTokenCount;
++    public final int lastDecodeTokenCount;
++    public final double lastPrefillTokensPerSecond;
++    public final double lastDecodeTokensPerSecond;
++
++    public BenchmarkInfo(
++            double initTimeInSecond,
++            double timeToFirstTokenInSecond,
++            int lastPrefillTokenCount,
++            int lastDecodeTokenCount,
++            double lastPrefillTokensPerSecond,
++            double lastDecodeTokensPerSecond) {
++        this.initTimeInSecond = initTimeInSecond;
++        this.timeToFirstTokenInSecond = timeToFirstTokenInSecond;
++        this.lastPrefillTokenCount = lastPrefillTokenCount;
++        this.lastDecodeTokenCount = lastDecodeTokenCount;
++        this.lastPrefillTokensPerSecond = lastPrefillTokensPerSecond;
++        this.lastDecodeTokensPerSecond = lastDecodeTokensPerSecond;
++    }
++
++    @Override
++    public String toString() {
++        return "BenchmarkInfo{"
++                + "initTimeInSecond=" + initTimeInSecond
++                + ", timeToFirstTokenInSecond=" + timeToFirstTokenInSecond
++                + ", lastPrefillTokenCount=" + lastPrefillTokenCount
++                + ", lastDecodeTokenCount=" + lastDecodeTokenCount
++                + ", lastPrefillTokensPerSecond=" + lastPrefillTokensPerSecond
++                + ", lastDecodeTokensPerSecond=" + lastDecodeTokensPerSecond
++                + '}';
++    }
++}
+diff --git a/kotlin/java/com/google/ai/edge/litertlm/LiteRtLmJniException.java b/kotlin/java/com/google/ai/edge/litertlm/LiteRtLmJniException.java
+new file mode 100644
+index 0000000..26534a0
+--- /dev/null
++++ b/kotlin/java/com/google/ai/edge/litertlm/LiteRtLmJniException.java
+@@ -0,0 +1,7 @@
++package com.google.ai.edge.litertlm;
++
++public final class LiteRtLmJniException extends RuntimeException {
++    public LiteRtLmJniException(String message) {
++        super(message);
++    }
++}
+diff --git a/kotlin/java/com/google/ai/edge/litertlm/jni/BUILD b/kotlin/java/com/google/ai/edge/litertlm/jni/BUILD
+index 03c4367..e15f484 100644
+--- a/kotlin/java/com/google/ai/edge/litertlm/jni/BUILD
++++ b/kotlin/java/com/google/ai/edge/litertlm/jni/BUILD
+@@ -19,10 +19,31 @@ package(
+     default_visibility = ["//kotlin:__subpackages__"],
+ )
+
++cc_binary(
++    name = "litertlm_loader",
++    srcs = ["litertlm_loader.cc"],
++    linkshared = 1,
++    linkopts = select({
++        "@platforms//os:android": ["-llog", "-ldl"],
++        "//conditions:default": [],
++    }),
++)
++
+ cc_binary(
+     name = "litertlm_jni",
+     srcs = ["litertlm.cc"],
+     linkshared = 1,
++    linkopts = select({
++        "@litert//litert:litert_link_capi_so": [],
++        "@platforms//os:ios": ["-Wl,-exported_symbol,_LiteRt*"],
++        "@platforms//os:macos": ["-Wl,-exported_symbol,_LiteRt*"],
++        "@platforms//os:windows": [],
++        "@platforms//os:linux": [],
++        "//conditions:default": ["-Wl,--export-dynamic-symbol=LiteRt*"],
++    }) + select({
++        "@platforms//os:android": ["-lEGL", "-lGLESv3"],
++        "//conditions:default": [],
++    }),
+     deps = [
+         "@com_google_absl//absl/base:log_severity",
+         "@com_google_absl//absl/container:flat_hash_map",
+diff --git a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
+index c6db59f..7524bbe 100644
+--- a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
++++ b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
+@@ -13,10 +13,14 @@
+ // limitations under the License.
+
+ #include <jni.h>
++#if defined(__ANDROID__)
++#include <dlfcn.h>
++#endif
+ #include <sys/stat.h>
+
+ #include <memory>
+ #include <optional>
++#include <sstream>
+ #include <string>
+ #include <utility>
+ #include <variant>
+@@ -84,6 +88,175 @@ using litert::lm::Responses;
+ using litert::lm::SessionConfig;
+ using litert::lm::proto::SamplerParameters;
+
++struct UnityBridgeContext {
++  std::unique_ptr<Engine> engine;
++  std::unique_ptr<Conversation> conversation;
++  std::string system_instruction;
++};
++
++std::string JStringToStdString(JNIEnv* env, jstring value) {
++  if (value == nullptr) {
++    return "";
++  }
++  const char* chars = env->GetStringUTFChars(value, nullptr);
++  std::string result(chars == nullptr ? "" : chars);
++  if (chars != nullptr) {
++    env->ReleaseStringUTFChars(value, chars);
++  }
++  return result;
++}
++
++nlohmann::ordered_json MakeTextMessageJson(const std::string& role,
++                                          const std::string& text) {
++  return nlohmann::ordered_json{
++      {"role", role},
++      {"content",
++       nlohmann::ordered_json::array(
++           {nlohmann::ordered_json{{"type", "text"}, {"text", text}}})}};
++}
++
++std::string ExtractTextFromMessageJson(const Message& message) {
++  if (!message.contains("content") || !message["content"].is_array()) {
++    return message.dump();
++  }
++
++  std::string result;
++  for (const auto& item : message["content"]) {
++    if (item.contains("type") && item["type"] == "text" &&
++        item.contains("text") && item["text"].is_string()) {
++      result += item["text"].get<std::string>();
++    }
++  }
++  return result.empty() ? message.dump() : result;
++}
++
++void PromoteUnityJniLibrarySymbols(const std::string& native_library_dir) {
++#if defined(__ANDROID__)
++  if (native_library_dir.empty()) {
++    return;
++  }
++
++  const std::string litert_library_path = native_library_dir + "/libLiteRt.so";
++  void* litert_handle =
++      dlopen(litert_library_path.c_str(), RTLD_NOW | RTLD_GLOBAL);
++  if (litert_handle == nullptr) {
++    ABSL_LOG(WARNING) << "Failed to promote libLiteRt.so symbols: "
++                      << dlerror();
++  } else {
++    ABSL_LOG(INFO) << "Promoted libLiteRt.so symbols for LiteRT sampler "
++                      "shared libraries: "
++                   << litert_library_path;
++  }
++
++  const std::string jni_library_path =
++      native_library_dir + "/liblitertlm_jni.so";
++  void* handle = dlopen(jni_library_path.c_str(), RTLD_NOW | RTLD_GLOBAL);
++  if (handle == nullptr) {
++    ABSL_LOG(WARNING) << "Failed to promote liblitertlm_jni.so symbols: "
++                      << dlerror();
++    return;
++  }
++
++  ABSL_LOG(INFO) << "Promoted liblitertlm_jni.so symbols for LiteRT sampler "
++                    "shared libraries: "
++                 << jni_library_path;
++#else
++  (void)native_library_dir;
++#endif
++}
++
++absl::StatusOr<std::unique_ptr<Engine>> CreateUnityBridgeEngine(
++    const std::string& model_path, const std::string& backend_name,
++    const std::string& cache_dir, const std::string& native_library_dir,
++    int max_num_tokens, int max_num_images, int cpu_threads,
++    bool enable_speculative_decoding) {
++  auto model_assets = ModelAssets::Create(model_path);
++  if (!model_assets.ok()) {
++    return model_assets.status();
++  }
++
++  auto backend_enum = litert::lm::GetBackendFromString(backend_name);
++  if (!backend_enum.ok()) {
++    return backend_enum.status();
++  }
++
++  auto settings = EngineSettings::CreateDefault(
++      *model_assets, *backend_enum,
++      /*vision_backend=*/std::nullopt,
++      /*audio_backend=*/std::nullopt);
++  if (!settings.ok()) {
++    return settings.status();
++  }
++
++  if (!cache_dir.empty()) {
++    settings->GetMutableMainExecutorSettings().SetCacheDir(cache_dir);
++  }
++  if (!native_library_dir.empty()) {
++    PromoteUnityJniLibrarySymbols(native_library_dir);
++    settings->GetMutableMainExecutorSettings().SetLitertDispatchLibDir(
++        native_library_dir);
++  }
++  if (max_num_tokens > 0) {
++    settings->GetMutableMainExecutorSettings().SetMaxNumTokens(max_num_tokens);
++  }
++  if (max_num_images > 0) {
++    settings->GetMutableMainExecutorSettings().SetMaxNumImages(max_num_images);
++  }
++  if (cpu_threads > 0) {
++    auto cpu_config = settings->GetMutableMainExecutorSettings()
++                          .MutableBackendConfig<litert::lm::CpuConfig>();
++    if (cpu_config.ok()) {
++      auto config = *cpu_config;
++      config.number_of_threads = cpu_threads;
++      settings->GetMutableMainExecutorSettings().SetBackendConfig(config);
++    }
++  }
++  if (*backend_enum == litert::lm::Backend::GPU ||
++      enable_speculative_decoding) {
++    auto advanced_settings =
++        settings->GetMainExecutorSettings().GetAdvancedSettings().value_or(
++            litert::lm::AdvancedSettings());
++    if (*backend_enum == litert::lm::Backend::GPU) {
++      advanced_settings.allow_partial_gpu_delegation = true;
++    }
++    if (enable_speculative_decoding) {
++      advanced_settings.enable_speculative_decoding = true;
++    }
++    settings->GetMutableMainExecutorSettings().SetAdvancedSettings(
++        advanced_settings);
++  }
++
++  return EngineFactory::CreateAny(*settings);
++}
++
++absl::StatusOr<std::unique_ptr<Conversation>> CreateUnityBridgeConversation(
++    Engine* engine, const std::string& system_instruction) {
++  auto session_config = SessionConfig::CreateDefault();
++  if (engine->GetEngineSettings().GetAudioExecutorSettings().has_value()) {
++    session_config.SetAudioModalityEnabled(true);
++  }
++  if (engine->GetEngineSettings().GetVisionExecutorSettings().has_value()) {
++    session_config.SetVisionModalityEnabled(true);
++  }
++
++  JsonPreface json_preface;
++  json_preface.messages = nlohmann::ordered_json::array();
++  if (!system_instruction.empty()) {
++    json_preface.messages.push_back(
++        MakeTextMessageJson("system", system_instruction));
++  }
++
++  auto conversation_config = ConversationConfig::Builder()
++                                 .SetSessionConfig(session_config)
++                                 .SetPreface(json_preface)
++                                 .Build(*engine);
++  if (!conversation_config.ok()) {
++    return conversation_config.status();
++  }
++
++  return Conversation::Create(*engine, *conversation_config);
++}
++
+ void ThrowLiteRtLmJniException(JNIEnv* env, const std::string& message) {
+   jclass exClass =
+       env->FindClass("com/google/ai/edge/litertlm/LiteRtLmJniException");
+@@ -193,6 +366,51 @@ jobject CreateBenchmarkInfoJni(
+       last_decode_tokens_per_second);
+ }
+
++std::string FormatBenchmarkInfo(
++    const litert::lm::BenchmarkInfo& benchmark_info) {
++  int last_prefill_token_count = 0;
++  double last_prefill_tokens_per_second = 0.0;
++  if (benchmark_info.GetTotalPrefillTurns() > 0) {
++    auto turn = benchmark_info.GetPrefillTurn(
++        benchmark_info.GetTotalPrefillTurns() - 1);
++    if (turn.ok()) {
++      last_prefill_token_count = turn->num_tokens;
++    }
++    last_prefill_tokens_per_second = benchmark_info.GetPrefillTokensPerSec(
++        benchmark_info.GetTotalPrefillTurns() - 1);
++  }
++
++  int last_decode_token_count = 0;
++  double last_decode_tokens_per_second = 0.0;
++  if (benchmark_info.GetTotalDecodeTurns() > 0) {
++    auto turn =
++        benchmark_info.GetDecodeTurn(benchmark_info.GetTotalDecodeTurns() - 1);
++    if (turn.ok()) {
++      last_decode_token_count = turn->num_tokens;
++    }
++    last_decode_tokens_per_second = benchmark_info.GetDecodeTokensPerSec(
++        benchmark_info.GetTotalDecodeTurns() - 1);
++  }
++
++  double total_init_time_ms = 0.0;
++  for (const auto& phase : benchmark_info.GetInitPhases()) {
++    total_init_time_ms += absl::ToDoubleMilliseconds(phase.second);
++  }
++
++  std::ostringstream stream;
++  stream << "BenchmarkInfo:\n";
++  stream << "  Init Total: " << total_init_time_ms << " ms\n";
++  stream << "  Time to first token: "
++         << benchmark_info.GetTimeToFirstToken() << " s\n";
++  stream << "  Last Prefill: " << last_prefill_token_count
++         << " tokens, " << last_prefill_tokens_per_second
++         << " tokens/sec\n";
++  stream << "  Last Decode: " << last_decode_token_count
++         << " tokens, " << last_decode_tokens_per_second
++         << " tokens/sec";
++  return stream.str();
++}
++
+ // Converts a Java InputData array to a C++ vector of InputData.
+ std::vector<InputData> GetNativeInputData(JNIEnv* env,
+                                           jobjectArray input_data) {
+@@ -333,6 +551,217 @@ nlohmann::ordered_json GetExtraContextJson(JNIEnv* env,
+
+ extern "C" {
+
++LITERTLM_JNIEXPORT jlong JNICALL
++Java_com_google_ai_edge_litertlm_unity_UnityLiteRtLmBridge_nativeCreateBridge(
++    JNIEnv* env, jclass thiz, jstring model_path, jstring backend,
++    jstring cache_dir, jstring native_library_dir, jint max_num_tokens,
++    jint max_num_images, jint cpu_threads, jboolean enable_speculative_decoding,
++    jstring system_instruction) {
++  const std::string model_path_str = JStringToStdString(env, model_path);
++  if (model_path_str.empty()) {
++    ThrowLiteRtLmJniException(env, "modelPath is required.");
++    return 0;
++  }
++
++  struct stat buffer;
++  if (stat(model_path_str.c_str(), &buffer) != 0) {
++    ThrowLiteRtLmJniException(env, "Model file not found: " + model_path_str);
++    return 0;
++  }
++
++  auto engine = CreateUnityBridgeEngine(
++      model_path_str, JStringToStdString(env, backend),
++      JStringToStdString(env, cache_dir),
++      JStringToStdString(env, native_library_dir), max_num_tokens,
++      max_num_images, cpu_threads,
++      enable_speculative_decoding == JNI_TRUE);
++  if (!engine.ok()) {
++    ThrowLiteRtLmJniException(
++        env, "Failed to create engine: " + engine.status().ToString());
++    return 0;
++  }
++
++  const std::string system_instruction_str =
++      JStringToStdString(env, system_instruction);
++  auto conversation =
++      CreateUnityBridgeConversation(engine->get(), system_instruction_str);
++  if (!conversation.ok()) {
++    ThrowLiteRtLmJniException(
++        env, "Failed to create conversation: " + conversation.status().ToString());
++    return 0;
++  }
++
++  auto context = std::make_unique<UnityBridgeContext>();
++  context->engine = std::move(*engine);
++  context->conversation = std::move(*conversation);
++  context->system_instruction = system_instruction_str;
++  return reinterpret_cast<jlong>(context.release());
++}
++
++LITERTLM_JNIEXPORT jstring JNICALL
++Java_com_google_ai_edge_litertlm_unity_UnityLiteRtLmBridge_nativeSendMessage(
++    JNIEnv* env, jclass thiz, jlong bridge_pointer, jstring text) {
++  auto* context = reinterpret_cast<UnityBridgeContext*>(bridge_pointer);
++  if (context == nullptr || context->conversation == nullptr) {
++    ThrowLiteRtLmJniException(env, "Unity bridge is not initialized.");
++    return nullptr;
++  }
++
++  auto response = context->conversation->SendMessage(
++      MakeTextMessageJson("user", JStringToStdString(env, text)));
++  if (!response.ok()) {
++    ThrowLiteRtLmJniException(
++        env, "Failed to send message: " + response.status().ToString());
++    return nullptr;
++  }
++
++  return NewStringStandardUTF(env, ExtractTextFromMessageJson(*response));
++}
++
++LITERTLM_JNIEXPORT void JNICALL
++Java_com_google_ai_edge_litertlm_unity_UnityLiteRtLmBridge_nativeResetConversation(
++    JNIEnv* env, jclass thiz, jlong bridge_pointer, jstring system_instruction) {
++  auto* context = reinterpret_cast<UnityBridgeContext*>(bridge_pointer);
++  if (context == nullptr || context->engine == nullptr) {
++    ThrowLiteRtLmJniException(env, "Unity bridge is not initialized.");
++    return;
++  }
++
++  context->system_instruction = JStringToStdString(env, system_instruction);
++  context->conversation.reset();
++  auto conversation =
++      CreateUnityBridgeConversation(context->engine.get(), context->system_instruction);
++  if (!conversation.ok()) {
++    ThrowLiteRtLmJniException(
++        env, "Failed to reset conversation: " + conversation.status().ToString());
++    return;
++  }
++
++  context->conversation = std::move(*conversation);
++}
++
++LITERTLM_JNIEXPORT void JNICALL
++Java_com_google_ai_edge_litertlm_unity_UnityLiteRtLmBridge_nativeClose(
++    JNIEnv* env, jclass thiz, jlong bridge_pointer) {
++  delete reinterpret_cast<UnityBridgeContext*>(bridge_pointer);
++}
++
++LITERTLM_JNIEXPORT void JNICALL
++Java_com_google_ai_edge_litertlm_unity_UnityLiteRtLmBridge_nativeSetMinLogSeverity(
++    JNIEnv* env, jclass thiz, jint log_severity) {
++  litert::lm::SetMinLogSeverity(
++      static_cast<litert::lm::LogSeverity>(log_severity));
++}
++
++LITERTLM_JNIEXPORT jstring JNICALL
++Java_com_google_ai_edge_litertlm_unity_UnityLiteRtLmBridge_nativeRunBenchmark(
++    JNIEnv* env, jclass thiz, jstring model_path, jstring backend,
++    jstring cache_dir, jstring native_library_dir, jint prefill_tokens,
++    jint decode_tokens, jboolean enable_speculative_decoding) {
++  const std::string model_path_str = JStringToStdString(env, model_path);
++  if (model_path_str.empty()) {
++    ThrowLiteRtLmJniException(env, "modelPath is required.");
++    return nullptr;
++  }
++
++  struct stat buffer;
++  if (stat(model_path_str.c_str(), &buffer) != 0) {
++    ThrowLiteRtLmJniException(env, "Model file not found: " + model_path_str);
++    return nullptr;
++  }
++
++  auto model_assets = ModelAssets::Create(model_path_str);
++  if (!model_assets.ok()) {
++    ThrowLiteRtLmJniException(env, "Failed to create model assets: " +
++                                       model_assets.status().ToString());
++    return nullptr;
++  }
++
++  auto backend_enum =
++      litert::lm::GetBackendFromString(JStringToStdString(env, backend));
++  if (!backend_enum.ok()) {
++    ThrowLiteRtLmJniException(env, backend_enum.status().ToString());
++    return nullptr;
++  }
++
++  auto settings = EngineSettings::CreateDefault(
++      *model_assets, *backend_enum,
++      /*vision_backend=*/std::nullopt,
++      /*audio_backend=*/std::nullopt);
++  if (!settings.ok()) {
++    ThrowLiteRtLmJniException(env, "Failed to create engine settings: " +
++                                       settings.status().ToString());
++    return nullptr;
++  }
++
++  const std::string cache_dir_str = JStringToStdString(env, cache_dir);
++  if (!cache_dir_str.empty()) {
++    settings->GetMutableMainExecutorSettings().SetCacheDir(cache_dir_str);
++  }
++  const std::string native_library_dir_str =
++      JStringToStdString(env, native_library_dir);
++  if (!native_library_dir_str.empty()) {
++    PromoteUnityJniLibrarySymbols(native_library_dir_str);
++    settings->GetMutableMainExecutorSettings().SetLitertDispatchLibDir(
++        native_library_dir_str);
++  }
++  if (*backend_enum == litert::lm::Backend::GPU ||
++      enable_speculative_decoding == JNI_TRUE) {
++    auto advanced_settings =
++        settings->GetMainExecutorSettings().GetAdvancedSettings().value_or(
++            litert::lm::AdvancedSettings());
++    if (*backend_enum == litert::lm::Backend::GPU) {
++      advanced_settings.allow_partial_gpu_delegation = true;
++    }
++    if (enable_speculative_decoding == JNI_TRUE) {
++      advanced_settings.enable_speculative_decoding = true;
++    }
++    settings->GetMutableMainExecutorSettings().SetAdvancedSettings(
++        advanced_settings);
++  }
++
++  const int benchmark_min_tokens = prefill_tokens + decode_tokens;
++  settings->GetMutableMainExecutorSettings().SetMaxNumTokens(
++      benchmark_min_tokens > 1024 ? benchmark_min_tokens : 1024);
++
++  auto& benchmark_params = settings->GetMutableBenchmarkParams();
++  benchmark_params.set_num_prefill_tokens(prefill_tokens);
++  benchmark_params.set_num_decode_tokens(decode_tokens);
++
++  auto engine = EngineFactory::CreateAny(*settings);
++  if (!engine.ok()) {
++    ThrowLiteRtLmJniException(
++        env, "Failed to create engine: " + engine.status().ToString());
++    return nullptr;
++  }
++
++  auto conversation = CreateUnityBridgeConversation(engine->get(), "");
++  if (!conversation.ok()) {
++    ThrowLiteRtLmJniException(
++        env, "Failed to create benchmark conversation: " +
++                 conversation.status().ToString());
++    return nullptr;
++  }
++
++  auto response = (*conversation)->SendMessage(
++      MakeTextMessageJson("user", "Engine ignore this message in this mode."));
++  if (!response.ok()) {
++    ThrowLiteRtLmJniException(
++        env, "Failed to run benchmark message: " + response.status().ToString());
++    return nullptr;
++  }
++
++  auto benchmark_info = (*conversation)->GetBenchmarkInfo();
++  if (!benchmark_info.ok()) {
++    ThrowLiteRtLmJniException(
++        env, "Failed to get benchmark info: " +
++                 benchmark_info.status().ToString());
++    return nullptr;
++  }
++
++  return NewStringStandardUTF(env, FormatBenchmarkInfo(*benchmark_info));
++}
++
+ LITERTLM_JNIEXPORT void JNICALL
+ Java_com_google_ai_edge_litertlm_NativeLibraryLoader_nativeCheckLoaded(
+     JNIEnv* env, jclass thiz) {}
+@@ -549,7 +978,10 @@ LITERTLM_JNIEXPORT jlong JNICALL JNI_METHOD(nativeCreateBenchmark)(
+     return 0;
+   }
+
+-  auto settings = EngineSettings::CreateDefault(*model_assets, *backend_enum);
++  auto settings = EngineSettings::CreateDefault(
++      *model_assets, *backend_enum,
++      /*vision_backend=*/std::nullopt,
++      /*audio_backend=*/std::nullopt);
+   if (!settings.ok()) {
+     ThrowLiteRtLmJniException(env, "Failed to create engine settings: " +
+                                        settings.status().ToString());
+@@ -577,6 +1009,9 @@ LITERTLM_JNIEXPORT jlong JNICALL JNI_METHOD(nativeCreateBenchmark)(
+   auto& benchmark_params = settings->GetMutableBenchmarkParams();
+   benchmark_params.set_num_prefill_tokens(prefill_tokens);
+   benchmark_params.set_num_decode_tokens(decode_tokens);
++  const int benchmark_min_tokens = prefill_tokens + decode_tokens;
++  settings->GetMutableMainExecutorSettings().SetMaxNumTokens(
++      benchmark_min_tokens > 1024 ? benchmark_min_tokens : 1024);
+
+   auto engine = EngineFactory::CreateDefault(*settings);
+   if (!engine.ok()) {
+diff --git a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm_loader.cc b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm_loader.cc
+new file mode 100644
+index 0000000..672152d
+--- /dev/null
++++ b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm_loader.cc
+@@ -0,0 +1,74 @@
++// Copyright 2025 Google LLC.
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//      http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++#include <android/log.h>
++#include <dlfcn.h>
++#include <jni.h>
++
++#include <string>
++
++namespace {
++
++constexpr char kLogTag[] = "LiteRT-LM-Loader";
++
++std::string GetCurrentLibraryDirectory() {
++  Dl_info info;
++  if (dladdr(reinterpret_cast<void*>(&GetCurrentLibraryDirectory), &info) == 0 ||
++      info.dli_fname == nullptr) {
++    return "";
++  }
++
++  std::string path(info.dli_fname);
++  const std::size_t slash = path.find_last_of('/');
++  if (slash == std::string::npos) {
++    return "";
++  }
++
++  return path.substr(0, slash);
++}
++
++bool LoadLibraryGlobally(const std::string& library_dir,
++                         const char* library_name, bool required = true) {
++  const std::string library_path = library_dir.empty()
++                                       ? library_name
++                                       : library_dir + "/" + library_name;
++  void* handle = dlopen(library_path.c_str(), RTLD_NOW | RTLD_GLOBAL);
++  if (handle == nullptr) {
++    __android_log_print(required ? ANDROID_LOG_WARN : ANDROID_LOG_INFO, kLogTag,
++                        "Failed to preload %s globally: %s", library_name,
++                        dlerror());
++    return false;
++  }
++
++  __android_log_print(ANDROID_LOG_INFO, kLogTag, "Loaded %s globally: %s",
++                      library_name, library_path.c_str());
++  return true;
++}
++
++void LoadLiteRtLmLibrariesGlobally() {
++  const std::string library_dir = GetCurrentLibraryDirectory();
++  LoadLibraryGlobally(library_dir, "libLiteRt.so");
++  LoadLibraryGlobally(library_dir, "libLiteRtTopKOpenClSampler.so",
++                      /*required=*/false);
++  LoadLibraryGlobally(library_dir, "libLiteRtTopKWebGpuSampler.so",
++                      /*required=*/false);
++  LoadLibraryGlobally(library_dir, "liblitertlm_jni.so");
++}
++
++}  // namespace
++
++extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
++  LoadLiteRtLmLibrariesGlobally();
++  return JNI_VERSION_1_6;
++}
+diff --git a/kotlin/java/com/google/ai/edge/litertlm/unity/UnityLiteRtLmBridge.java b/kotlin/java/com/google/ai/edge/litertlm/unity/UnityLiteRtLmBridge.java
+new file mode 100644
+index 0000000..b23de08
+--- /dev/null
++++ b/kotlin/java/com/google/ai/edge/litertlm/unity/UnityLiteRtLmBridge.java
+@@ -0,0 +1,122 @@
++package com.google.ai.edge.litertlm.unity;
++
++public final class UnityLiteRtLmBridge {
++    static {
++        System.loadLibrary("litertlm_loader");
++        System.loadLibrary("litertlm_jni");
++    }
++
++    private long handle;
++
++    public synchronized boolean isInitialized() {
++        return handle != 0L;
++    }
++
++    public synchronized void initialize(
++            String modelPath,
++            String backend,
++            String cacheDir,
++            String nativeLibraryDir,
++            int maxNumTokens,
++            int maxNumImages,
++            int cpuThreads,
++            boolean enableSpeculativeDecoding,
++            String systemInstruction) {
++        if (handle != 0L) {
++            throw new IllegalStateException("UnityLiteRtLmBridge is already initialized.");
++        }
++
++        handle = nativeCreateBridge(
++                modelPath,
++                backend,
++                cacheDir,
++                nativeLibraryDir,
++                maxNumTokens,
++                maxNumImages,
++                cpuThreads,
++                enableSpeculativeDecoding,
++                systemInstruction);
++    }
++
++    public synchronized String sendMessage(String text, String extraContextJson) {
++        if (handle == 0L) {
++            throw new IllegalStateException("UnityLiteRtLmBridge is not initialized.");
++        }
++        return nativeSendMessage(handle, text == null ? "" : text);
++    }
++
++    public synchronized void resetConversation(String systemInstruction) {
++        if (handle == 0L) {
++            throw new IllegalStateException("UnityLiteRtLmBridge is not initialized.");
++        }
++        nativeResetConversation(handle, systemInstruction == null ? "" : systemInstruction);
++    }
++
++    public synchronized void close() {
++        if (handle != 0L) {
++            nativeClose(handle);
++            handle = 0L;
++        }
++    }
++
++    public void setNativeMinLogSeverity(String level) {
++        int severity;
++        switch (level == null ? "ERROR" : level.toUpperCase()) {
++            case "VERBOSE": severity = 0; break;
++            case "DEBUG": severity = 1; break;
++            case "INFO": severity = 2; break;
++            case "WARNING": severity = 3; break;
++            case "ERROR": severity = 4; break;
++            case "FATAL": severity = 5; break;
++            case "INFINITY": severity = 1000; break;
++            default: throw new IllegalArgumentException("Unsupported log severity: " + level);
++        }
++        nativeSetMinLogSeverity(severity);
++    }
++
++    public String runBenchmark(
++            String modelPath,
++            String backend,
++            String cacheDir,
++            String nativeLibraryDir,
++            int prefillTokens,
++            int decodeTokens,
++            boolean enableSpeculativeDecoding) {
++        return nativeRunBenchmark(
++                modelPath,
++                backend,
++                cacheDir,
++                nativeLibraryDir,
++                prefillTokens,
++                decodeTokens,
++                enableSpeculativeDecoding);
++    }
++
++    private static native long nativeCreateBridge(
++            String modelPath,
++            String backend,
++            String cacheDir,
++            String nativeLibraryDir,
++            int maxNumTokens,
++            int maxNumImages,
++            int cpuThreads,
++            boolean enableSpeculativeDecoding,
++            String systemInstruction);
++
++    private static native String nativeSendMessage(long handle, String text);
++
++    private static native void nativeResetConversation(long handle, String systemInstruction);
++
++    private static native void nativeClose(long handle);
++
++    private static native void nativeSetMinLogSeverity(int logSeverity);
++
++    private static native String nativeRunBenchmark(
++            String modelPath,
++            String backend,
++            String cacheDir,
++            String nativeLibraryDir,
++            int prefillTokens,
++            int decodeTokens,
++            boolean enableSpeculativeDecoding);
++}
+diff --git a/tools/docker/build_unity_aar.ps1 b/tools/docker/build_unity_aar.ps1
+new file mode 100644
+index 0000000..9fc9d74
+--- /dev/null
++++ b/tools/docker/build_unity_aar.ps1
+@@ -0,0 +1,73 @@
++param(
++    [string]$ImageName = "litert-lm-android-builder",
++    [string]$ArtifactDir = "",
++    [string]$UnityPluginsDir = "",
++    [switch]$SkipImageBuild,
++    [string]$ReuseContainer = "",
++    [switch]$SyncWorktree,
++    [switch]$SyncOnly,
++    [switch]$PackageOnly,
++    [string]$ReuseAar = "",
++    [string]$BazelJobs = "",
++    [Parameter(ValueFromRemainingArguments = $true)]
++    [string[]]$ExtraArgs
++)
++
++$ErrorActionPreference = "Stop"
++
++$BashScript = Join-Path $PSScriptRoot "build_unity_aar.sh"
++if (!(Test-Path $BashScript)) {
++    throw "Missing bash build script: $BashScript"
++}
++
++$BashCandidates = @(
++    "C:\Program Files\Git\bin\bash.exe",
++    "C:\Program Files\Git\usr\bin\bash.exe"
++)
++$BashPath = $BashCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
++if ([string]::IsNullOrWhiteSpace($BashPath)) {
++    $Command = Get-Command bash -ErrorAction SilentlyContinue
++    if ($Command) {
++        $BashPath = $Command.Source
++    }
++}
++if ([string]::IsNullOrWhiteSpace($BashPath)) {
++    throw "bash was not found. Install Git for Windows or run tools/docker/build_unity_aar.sh from an existing bash shell."
++}
++
++$Arguments = @($BashScript, "--image-name", $ImageName)
++if (![string]::IsNullOrWhiteSpace($ArtifactDir)) {
++    $Arguments += @("--artifact-dir", $ArtifactDir)
++}
++if (![string]::IsNullOrWhiteSpace($UnityPluginsDir)) {
++    $Arguments += @("--unity-plugins-dir", $UnityPluginsDir)
++}
++if ($SkipImageBuild) {
++    $Arguments += "--skip-image-build"
++}
++if (![string]::IsNullOrWhiteSpace($ReuseContainer)) {
++    $Arguments += @("--reuse-container", $ReuseContainer)
++}
++if ($SyncWorktree) {
++    $Arguments += "--sync-worktree"
++}
++if ($SyncOnly) {
++    $Arguments += "--sync-only"
++}
++if ($PackageOnly) {
++    $Arguments += "--package-only"
++}
++if (![string]::IsNullOrWhiteSpace($ReuseAar)) {
++    $Arguments += @("--reuse-aar", $ReuseAar)
++}
++if (![string]::IsNullOrWhiteSpace($BazelJobs)) {
++    $Arguments += @("--bazel-jobs", $BazelJobs)
++}
++if ($ExtraArgs -and $ExtraArgs.Count -gt 0) {
++    $Arguments += $ExtraArgs
++}
++
++& $BashPath @Arguments
++if ($LASTEXITCODE -ne 0) {
++    throw "Bash Unity AAR build failed with exit code $LASTEXITCODE."
++}
+diff --git a/tools/docker/build_unity_aar.sh b/tools/docker/build_unity_aar.sh
+new file mode 100644
+index 0000000..3ce02f8
+--- /dev/null
++++ b/tools/docker/build_unity_aar.sh
+@@ -0,0 +1,517 @@
++#!/usr/bin/env bash
++set -euo pipefail
++
++SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
++REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd -P)"
++
++IMAGE_NAME="litert-lm-android-builder"
++ARTIFACT_DIR="$REPO_ROOT/artifacts/unity-android"
++UNITY_PLUGINS_DIR="$REPO_ROOT/LiteRT-LM-Unity/Assets/Plugins/Android"
++REUSE_CONTAINER_NAME=""
++REUSE_AAR_PATH=""
++SKIP_IMAGE_BUILD=0
++SYNC_WORKTREE=0
++SYNC_ONLY=0
++PACKAGE_ONLY=0
++BAZEL_JOBS=""
++
++usage() {
++  cat <<'EOF'
++Usage: build_unity_aar.sh [options]
++
++Options:
++  --image-name NAME        Docker image name to build/use.
++  --artifact-dir DIR       Directory where litertlm-unity-bridge.aar is written.
++  --unity-plugins-dir DIR  Unity Android plugin directory to update.
++  --skip-image-build       Reuse an existing Docker image instead of rebuilding it.
++  --reuse-container NAME   Run the build in an existing warm container.
++  --sync-worktree          Sync AAR source inputs into --reuse-container first.
++  --sync-only              Only sync files, then exit. Requires --reuse-container.
++  --package-only           Skip Bazel build and repackage existing warm outputs.
++  --reuse-aar PATH         Fallback AAR to reuse classes/JNI from in --package-only mode.
++  --bazel-jobs N           Limit Bazel jobs for full builds.
++  -h, --help               Show this help.
++EOF
++}
++
++normalize_path() {
++  local path="$1"
++  if command -v cygpath >/dev/null 2>&1; then
++    case "$path" in
++      [A-Za-z]:/*|[A-Za-z]:\\*)
++        cygpath -u "$path"
++        return
++        ;;
++    esac
++  fi
++
++  case "$path" in
++    /*) printf '%s\n' "$path" ;;
++    *) printf '%s\n' "$PWD/$path" ;;
++  esac
++}
++
++absolute_dir() {
++  local path
++  path="$(normalize_path "$1")"
++  mkdir -p "$path"
++  (cd "$path" && pwd -P)
++}
++
++absolute_file() {
++  local path dir base
++  path="$(normalize_path "$1")"
++  dir="$(dirname "$path")"
++  base="$(basename "$path")"
++  (cd "$dir" && printf '%s/%s\n' "$(pwd -P)" "$base")
++}
++
++to_windows_path() {
++  local path="$1"
++  if command -v cygpath >/dev/null 2>&1; then
++    cygpath -w "$path"
++  else
++    printf '%s\n' "$path"
++  fi
++}
++
++while [[ $# -gt 0 ]]; do
++  case "$1" in
++    --image-name)
++      IMAGE_NAME="${2:?Missing value for --image-name}"
++      shift 2
++      ;;
++    --artifact-dir)
++      ARTIFACT_DIR="${2:?Missing value for --artifact-dir}"
++      shift 2
++      ;;
++    --unity-plugins-dir)
++      UNITY_PLUGINS_DIR="${2:?Missing value for --unity-plugins-dir}"
++      shift 2
++      ;;
++    --skip-image-build)
++      SKIP_IMAGE_BUILD=1
++      shift
++      ;;
++    --reuse-container)
++      REUSE_CONTAINER_NAME="${2:?Missing value for --reuse-container}"
++      SKIP_IMAGE_BUILD=1
++      shift 2
++      ;;
++    --sync-worktree)
++      SYNC_WORKTREE=1
++      shift
++      ;;
++    --sync-only)
++      SYNC_ONLY=1
++      SYNC_WORKTREE=1
++      shift
++      ;;
++    --package-only)
++      PACKAGE_ONLY=1
++      shift
++      ;;
++    --reuse-aar)
++      REUSE_AAR_PATH="${2:?Missing value for --reuse-aar}"
++      shift 2
++      ;;
++    --bazel-jobs)
++      BAZEL_JOBS="${2:?Missing value for --bazel-jobs}"
++      shift 2
++      ;;
++    -h|--help)
++      usage
++      exit 0
++      ;;
++    *)
++      echo "Unknown option: $1" >&2
++      usage >&2
++      exit 2
++      ;;
++  esac
++done
++
++if [[ "$PACKAGE_ONLY" -eq 1 && -z "$REUSE_CONTAINER_NAME" ]]; then
++  echo "--package-only requires --reuse-container so warm Bazel outputs can be reused." >&2
++  exit 2
++fi
++
++ARTIFACT_DIR="$(absolute_dir "$ARTIFACT_DIR")"
++UNITY_PLUGINS_DIR="$(absolute_dir "$UNITY_PLUGINS_DIR")"
++WORKSPACE_TEMP_ROOT="$(absolute_dir "$REPO_ROOT/temp/unity-android")"
++BAZEL_DISK_CACHE_DIR="$WORKSPACE_TEMP_ROOT/bazel-disk-cache"
++mkdir -p "$BAZEL_DISK_CACHE_DIR"
++
++AAR_PATH="$ARTIFACT_DIR/litertlm-unity-bridge.aar"
++CONTAINER_NAME="litert-lm-unity-aar-$(date +%Y%m%d%H%M%S)-$$"
++CONTAINER_STAGE_ROOT="/litert_lm/temp/unity-aar-stage"
++CONTAINER_AAR_PATH="/litert_lm/temp/litertlm-unity-bridge.aar"
++CONTAINER_REUSE_AAR_PATH="/litert_lm/temp/reuse-litertlm-unity-bridge.aar"
++CONTAINER_REUSE_AAR_ENV=""
++
++if [[ -n "$REUSE_AAR_PATH" ]]; then
++  REUSE_AAR_PATH="$(absolute_file "$REUSE_AAR_PATH")"
++  if [[ ! -s "$REUSE_AAR_PATH" ]]; then
++    echo "Fallback AAR does not exist or is empty: $REUSE_AAR_PATH" >&2
++    exit 2
++  fi
++fi
++
++cleanup() {
++  if [[ -z "$REUSE_CONTAINER_NAME" ]]; then
++    docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
++  fi
++}
++trap cleanup EXIT
++
++select_reuse_aar_path() {
++  local candidate
++
++  if [[ -n "$REUSE_AAR_PATH" ]]; then
++    printf '%s\n' "$REUSE_AAR_PATH"
++    return 0
++  fi
++
++  for candidate in "$AAR_PATH" "$UNITY_PLUGINS_DIR/litertlm-unity-bridge.aar"; do
++    if [[ -s "$candidate" ]]; then
++      printf '%s\n' "$candidate"
++      return 0
++    fi
++  done
++
++  return 1
++}
++
++prepare_reuse_aar_in_container() {
++  local container_name="$1"
++  local fallback_aar fallback_aar_win
++
++  CONTAINER_REUSE_AAR_ENV=""
++  if [[ "$PACKAGE_ONLY" -ne 1 ]]; then
++    return
++  fi
++
++  if ! fallback_aar="$(select_reuse_aar_path)"; then
++    echo "[LiteRT-LM] No previous AAR found for package-only fallback."
++    return
++  fi
++
++  echo "[LiteRT-LM] Copying package-only fallback AAR into warm container: $fallback_aar"
++  fallback_aar_win="$(to_windows_path "$fallback_aar")"
++  MSYS_NO_PATHCONV=1 docker exec "$container_name" bash -lc "mkdir -p '$(dirname "$CONTAINER_REUSE_AAR_PATH")'"
++  MSYS_NO_PATHCONV=1 docker cp "$fallback_aar_win" "$container_name:$CONTAINER_REUSE_AAR_PATH"
++  CONTAINER_REUSE_AAR_ENV="$CONTAINER_REUSE_AAR_PATH"
++}
++
++sync_worktree_to_container() {
++  local container_name="$1"
++  local paths=(
++    ".bazelrc"
++    ".bazelversion"
++    "WORKSPACE"
++    "BUILD"
++    "BUILD.antlr4"
++    "BUILD.directx_shader_compiler"
++    "BUILD.llguidance"
++    "BUILD.miniaudio"
++    "BUILD.minizip"
++    "BUILD.minja"
++    "BUILD.nanobind_json"
++    "BUILD.sentencepiece"
++    "BUILD.stb"
++    "BUILD.tokenizers_cpp"
++    "Cargo.lock"
++    "Cargo.toml"
++    "cargo-bazel-lock.json"
++    "android_ndk_env.bzl"
++    "rust_cxx_bridge.bzl"
++    "version.bzl"
++    "build_config"
++    "c"
++    "cxxbridge_cmd"
++    "kotlin"
++    "prebuilt"
++    "runtime"
++    "rust"
++    "schema"
++    "src"
++    "unity"
++  )
++  local rel_path host_path host_path_win target_dir
++
++  echo "[LiteRT-LM] Syncing AAR source inputs into warm container '$container_name'..."
++  for rel_path in "${paths[@]}"; do
++    host_path="$REPO_ROOT/$rel_path"
++    if [[ ! -e "$host_path" ]]; then
++      continue
++    fi
++
++    target_dir="/litert_lm/$(dirname "$rel_path")"
++    host_path_win="$(to_windows_path "$host_path")"
++    MSYS_NO_PATHCONV=1 docker exec "$container_name" bash -lc \
++      "rm -rf '/litert_lm/$rel_path' && mkdir -p '$target_dir'"
++    MSYS_NO_PATHCONV=1 docker cp "$host_path_win" "$container_name:/litert_lm/$rel_path"
++  done
++}
++
++read -r -d '' CONTAINER_COMMAND <<'EOF' || true
++set -euo pipefail
++cd /litert_lm
++
++patch_litert_android_runtime_exports() {
++  local output_base source_litert_repo patched_litert_repo litert_defs runtime_linux_lds
++
++  patched_litert_repo="/litert_lm/temp/litert-unity-unversioned"
++  litert_defs="$patched_litert_repo/litert/build_common/litert_build_defs.bzl"
++  runtime_linux_lds="$patched_litert_repo/litert/build_common/export_litert_runtime_only_linux.lds"
++  if [[ -f "$litert_defs" && -f "$runtime_linux_lds" ]] &&
++      grep -q "LITERT_LM_UNITY_UNVERSIONED_DYNSYM_EXPORTS_DF1_GLOBAL" "$runtime_linux_lds" &&
++      grep -q "LITERT_LM_UNITY_DF1_GLOBAL_RUNTIME" "$litert_defs"; then
++    printf '%s\n' "$patched_litert_repo"
++    return
++  fi
++
++  bazel query @litert//litert/c:litert_runtime_c_api_so >/dev/null
++  output_base="$(bazel info output_base)"
++  source_litert_repo="$output_base/external/litert"
++
++  if [[ ! -d "$source_litert_repo" ]]; then
++    echo "Could not find fetched LiteRT Bazel repository: $source_litert_repo" >&2
++    exit 1
++  fi
++
++  rm -rf "$patched_litert_repo"
++  mkdir -p "$(dirname "$patched_litert_repo")"
++  cp -a "$source_litert_repo" "$patched_litert_repo"
++
++  if [[ ! -f "$litert_defs" ]]; then
++    echo "Could not find LiteRT Bazel build definitions: $litert_defs" >&2
++    exit 1
++  fi
++  if [[ ! -f "$runtime_linux_lds" ]]; then
++    echo "Could not find LiteRT runtime export script: $runtime_linux_lds" >&2
++    exit 1
++  fi
++
++  perl -0pi -e '
++    s#"//litert:android": _EXPORT_LRT_COMMON_LINKOPTS_LINUX \+ _LRT_ANDROID_PAGE_SIZE_LINKOPTS \+ \[_EXPORT_LRT_RUNTIME_ONLY_LINKOPT_LINUX\]#"//litert:android": _EXPORT_LRT_COMMON_LINKOPTS_LINUX + _LRT_ANDROID_PAGE_SIZE_LINKOPTS + [_EXPORT_LRT_RUNTIME_ONLY_LINKOPT_LINUX] + ["-Wl,-z,global"]#g;
++  ' "$litert_defs"
++  sed -i '/def export_lrt_runtime_only_linkopt()/a\    # LITERT_LM_UNITY_DF1_GLOBAL_RUNTIME: Android sampler dlopen resolves LiteRt symbols from the linker global group.' "$litert_defs"
++
++  cat > "$runtime_linux_lds" <<'LDS'
++/* LITERT_LM_UNITY_UNVERSIONED_DYNSYM_EXPORTS_DF1_GLOBAL
++ * Unity Android sampler plugins dlopen LiteRT sampler .so files after startup.
++ * They require LiteRt C API symbols to be present in libLiteRt.so's dynamic
++ * symbol table, but Android rejects the upstream VERS_1.0-versioned exports
++ * for those undefined sampler references. Keep the export script for dynsym
++ * visibility, use an anonymous version script so symbols stay unversioned,
++ * and pair this with -z global in litert_build_defs.bzl so Android places
++ * libLiteRt.so in the linker global group.
++ */
++{
++  global:
++    LiteRt*;
++  local:
++    *;
++};
++LDS
++
++  bazel shutdown >/dev/null 2>&1 || true
++  printf '%s\n' "$patched_litert_repo"
++}
++
++if [[ "${LITERTLM_PACKAGE_ONLY:-0}" != "1" ]]; then
++  PATCHED_LITERT_REPO="$(patch_litert_android_runtime_exports)"
++  BAZEL_LITERT_OVERRIDE=(--override_repository=litert="$PATCHED_LITERT_REPO")
++  BAZEL_JOB_ARGS=()
++  if [[ -n "${LITERTLM_BAZEL_JOBS:-}" ]]; then
++    BAZEL_JOB_ARGS=(--jobs="${LITERTLM_BAZEL_JOBS}")
++  fi
++
++  bazel build \
++    "${BAZEL_LITERT_OVERRIDE[@]}" \
++    "${BAZEL_JOB_ARGS[@]}" \
++    --disk_cache=/root/.cache/bazel-android \
++    --config=android_arm64 \
++    --define=litert_link_capi_so=true \
++    --define=resolve_symbols_in_exec=false \
++    //kotlin/java/com/google/ai/edge/litertlm:litertlm-unity-bridge-jar \
++    //kotlin/java/com/google/ai/edge/litertlm/jni:litertlm_loader \
++    //kotlin/java/com/google/ai/edge/litertlm/jni:litertlm_jni
++else
++  echo "[LiteRT-LM] Package-only mode: skipping Bazel build and Bazel query."
++fi
++
++STAGE_ROOT="/litert_lm/temp/unity-aar-stage"
++rm -rf "$STAGE_ROOT"
++mkdir -p "$STAGE_ROOT/jni/arm64-v8a"
++
++REUSE_AAR_EXTRACT_DIR=""
++if [[ -n "${LITERTLM_REUSE_AAR_PATH:-}" && -s "${LITERTLM_REUSE_AAR_PATH:-}" ]]; then
++  REUSE_AAR_EXTRACT_DIR="$STAGE_ROOT/reuse-aar"
++  mkdir -p "$REUSE_AAR_EXTRACT_DIR"
++  (cd "$REUSE_AAR_EXTRACT_DIR" && jar xf "$LITERTLM_REUSE_AAR_PATH")
++fi
++
++copy_stage_file() {
++  local source_path="$1"
++  local fallback_rel_path="$2"
++  local dest_path="$3"
++  local label="$4"
++
++  if [[ -s "$source_path" ]]; then
++    cp -L "$source_path" "$dest_path"
++    return
++  fi
++
++  if [[ -n "$REUSE_AAR_EXTRACT_DIR" && -s "$REUSE_AAR_EXTRACT_DIR/$fallback_rel_path" ]]; then
++    echo "[LiteRT-LM] Reusing $label from fallback AAR."
++    cp -L "$REUSE_AAR_EXTRACT_DIR/$fallback_rel_path" "$dest_path"
++    return
++  fi
++
++  echo "Required AAR input is missing: $label" >&2
++  echo "  Bazel output: $source_path" >&2
++  if [[ -n "$REUSE_AAR_EXTRACT_DIR" ]]; then
++    echo "  Fallback AAR path: $fallback_rel_path" >&2
++  fi
++  echo "Run one full warm build first, then retry --package-only." >&2
++  exit 1
++}
++
++copy_stage_file \
++  /litert_lm/bazel-bin/kotlin/java/com/google/ai/edge/litertlm/liblitertlm-unity-bridge-jar.jar \
++  classes.jar \
++  "$STAGE_ROOT/classes.jar" \
++  classes.jar
++copy_stage_file \
++  /litert_lm/bazel-out/arm64-v8a-opt/bin/external/litert/litert/c/libLiteRt.so \
++  jni/arm64-v8a/libLiteRt.so \
++  "$STAGE_ROOT/jni/arm64-v8a/libLiteRt.so" \
++  libLiteRt.so
++copy_stage_file \
++  /litert_lm/bazel-out/arm64-v8a-opt/bin/kotlin/java/com/google/ai/edge/litertlm/jni/liblitertlm_loader.so \
++  jni/arm64-v8a/liblitertlm_loader.so \
++  "$STAGE_ROOT/jni/arm64-v8a/liblitertlm_loader.so" \
++  liblitertlm_loader.so
++copy_stage_file \
++  /litert_lm/bazel-out/arm64-v8a-opt/bin/kotlin/java/com/google/ai/edge/litertlm/jni/liblitertlm_jni.so \
++  jni/arm64-v8a/liblitertlm_jni.so \
++  "$STAGE_ROOT/jni/arm64-v8a/liblitertlm_jni.so" \
++  liblitertlm_jni.so
++
++shopt -s nullglob
++PREBUILT_LIBS=(/litert_lm/prebuilt/android_arm64/*.so)
++if [[ "${#PREBUILT_LIBS[@]}" -gt 0 ]]; then
++  cp -L "${PREBUILT_LIBS[@]}" "$STAGE_ROOT/jni/arm64-v8a/"
++elif [[ -n "$REUSE_AAR_EXTRACT_DIR" ]]; then
++  cp -L "$REUSE_AAR_EXTRACT_DIR"/jni/arm64-v8a/libLiteRt* "$STAGE_ROOT/jni/arm64-v8a/" 2>/dev/null || true
++fi
++
++LITERT_CREATE_ENVIRONMENT_SYMBOLS="$(
++  readelf --wide --dyn-syms "$STAGE_ROOT/jni/arm64-v8a/libLiteRt.so" | grep 'LiteRtCreateEnvironment' || true
++)"
++if ! grep -Eq '[[:space:]]LiteRtCreateEnvironment([[:space:]]|$)' <<<"$LITERT_CREATE_ENVIRONMENT_SYMBOLS"; then
++  echo "libLiteRt.so does not export unversioned LiteRtCreateEnvironment in .dynsym." >&2
++  printf '%s\n' "$LITERT_CREATE_ENVIRONMENT_SYMBOLS" >&2
++  exit 1
++fi
++if grep -q 'LiteRtCreateEnvironment@@' <<<"$LITERT_CREATE_ENVIRONMENT_SYMBOLS"; then
++  echo "libLiteRt.so still exports versioned LiteRtCreateEnvironment in .dynsym." >&2
++  printf '%s\n' "$LITERT_CREATE_ENVIRONMENT_SYMBOLS" >&2
++  exit 1
++fi
++if ! readelf -d "$STAGE_ROOT/jni/arm64-v8a/libLiteRt.so" | grep -Eq 'FLAGS_1.*GLOBAL|Flags:.*GLOBAL'; then
++  echo "libLiteRt.so is missing DF_1_GLOBAL. Android sampler dlopen needs libLiteRt in the linker global group." >&2
++  readelf -d "$STAGE_ROOT/jni/arm64-v8a/libLiteRt.so" | grep -E 'FLAGS|GLOBAL' >&2 || true
++  exit 1
++fi
++
++cat > "$STAGE_ROOT/AndroidManifest.xml" <<'MANIFEST'
++<manifest xmlns:android="http://schemas.android.com/apk/res/android"
++    package="com.google.ai.edge.litertlm.unitybridge">
++    <uses-sdk android:minSdkVersion="22" />
++    <application>
++        <uses-native-library android:name="libvndksupport.so" android:required="false" />
++        <uses-native-library android:name="libOpenCL.so" android:required="false" />
++        <uses-native-library android:name="libcdsprpc.so" android:required="false" />
++    </application>
++</manifest>
++MANIFEST
++
++(cd "$STAGE_ROOT" && jar cf "/litert_lm/temp/litertlm-unity-bridge.aar" classes.jar AndroidManifest.xml jni)
++test -s "/litert_lm/temp/litertlm-unity-bridge.aar"
++EOF
++
++REPO_ROOT_WIN="$(to_windows_path "$REPO_ROOT")"
++AAR_PATH_WIN="$(to_windows_path "$AAR_PATH")"
++BAZEL_DISK_CACHE_DIR_WIN="$(to_windows_path "$BAZEL_DISK_CACHE_DIR")"
++
++echo "[LiteRT-LM] Workspace temp: $WORKSPACE_TEMP_ROOT"
++MSYS_NO_PATHCONV=1 docker info >/dev/null
++
++if [[ "$SKIP_IMAGE_BUILD" -eq 0 ]]; then
++  echo "[LiteRT-LM] Building Docker image '$IMAGE_NAME'..."
++  MSYS_NO_PATHCONV=1 docker build -f "$REPO_ROOT_WIN/cmake/Containerfile" -t "$IMAGE_NAME" "$REPO_ROOT_WIN"
++else
++  echo "[LiteRT-LM] Skipping Docker image rebuild."
++fi
++
++if [[ -n "$REUSE_CONTAINER_NAME" ]]; then
++  CONTAINER_NAME="$REUSE_CONTAINER_NAME"
++  if ! MSYS_NO_PATHCONV=1 docker inspect "$CONTAINER_NAME" >/dev/null 2>&1; then
++    echo "Warm container does not exist: $CONTAINER_NAME" >&2
++    exit 1
++  fi
++  if [[ "$(MSYS_NO_PATHCONV=1 docker inspect -f '{{.State.Running}}' "$CONTAINER_NAME")" != "true" ]]; then
++    echo "[LiteRT-LM] Starting warm container '$CONTAINER_NAME'..."
++    MSYS_NO_PATHCONV=1 docker start "$CONTAINER_NAME" >/dev/null
++  fi
++  if [[ "$SYNC_WORKTREE" -eq 1 ]]; then
++    sync_worktree_to_container "$CONTAINER_NAME"
++  fi
++  if [[ "$SYNC_ONLY" -eq 1 ]]; then
++    echo "[LiteRT-LM] Sync-only mode complete."
++    exit 0
++  fi
++  prepare_reuse_aar_in_container "$CONTAINER_NAME"
++  echo "[LiteRT-LM] Building Unity AAR inputs in warm container '$CONTAINER_NAME'..."
++  MSYS_NO_PATHCONV=1 docker exec \
++    -e LITERTLM_PACKAGE_ONLY="$PACKAGE_ONLY" \
++    -e LITERTLM_REUSE_AAR_PATH="$CONTAINER_REUSE_AAR_ENV" \
++    -e LITERTLM_BAZEL_JOBS="$BAZEL_JOBS" \
++    "$CONTAINER_NAME" bash -lc "$CONTAINER_COMMAND"
++else
++  echo "[LiteRT-LM] Creating temporary AAR build container '$CONTAINER_NAME'..."
++  MSYS_NO_PATHCONV=1 docker create \
++    --name "$CONTAINER_NAME" \
++    --mount "type=bind,source=$BAZEL_DISK_CACHE_DIR_WIN,target=/root/.cache/bazel-android" \
++    -e LITERTLM_PACKAGE_ONLY="$PACKAGE_ONLY" \
++    -e LITERTLM_REUSE_AAR_PATH="" \
++    -e LITERTLM_BAZEL_JOBS="$BAZEL_JOBS" \
++    "$IMAGE_NAME" bash -lc "$CONTAINER_COMMAND" >/dev/null
++
++  echo "[LiteRT-LM] Building Unity AAR inputs inside Docker..."
++  MSYS_NO_PATHCONV=1 docker start -a "$CONTAINER_NAME"
++fi
++
++rm -f "$AAR_PATH"
++MSYS_NO_PATHCONV=1 docker cp "${CONTAINER_NAME}:${CONTAINER_AAR_PATH}" "$AAR_PATH_WIN"
++
++AAR_SIZE="$(wc -c < "$AAR_PATH" | tr -d '[:space:]')"
++if [[ -z "$AAR_SIZE" || "$AAR_SIZE" -lt 1000000 ]]; then
++  echo "Generated AAR is unexpectedly small: $AAR_PATH" >&2
++  exit 1
++fi
++
++LEGACY_ANDROIDLIB_PATH="$UNITY_PLUGINS_DIR/litertlm-unity-bridge.androidlib"
++if [[ -e "$LEGACY_ANDROIDLIB_PATH" ]]; then
++  echo "[LiteRT-LM] Removing stale Unity androidlib plugin '$LEGACY_ANDROIDLIB_PATH' to avoid duplicate Android namespaces."
++  rm -rf "$LEGACY_ANDROIDLIB_PATH"
++fi
++rm -f "$LEGACY_ANDROIDLIB_PATH.meta"
++
++cp -f "$AAR_PATH" "$UNITY_PLUGINS_DIR/litertlm-unity-bridge.aar"
++
++echo "[LiteRT-LM] Done. AAR exported to '$AAR_PATH'."
++echo "[LiteRT-LM] Copied into LiteRT-LM-Unity: '$UNITY_PLUGINS_DIR/litertlm-unity-bridge.aar'."
