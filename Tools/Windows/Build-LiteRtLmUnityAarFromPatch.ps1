@@ -21,21 +21,45 @@ $ErrorActionPreference = "Stop"
 
 $ScriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ProjectRoot = (Resolve-Path (Join-Path $ScriptDirectory "..\..")).Path
-$RepoRoot = (Resolve-Path (Join-Path $ProjectRoot "..")).Path
-$PatchPath = Join-Path $ProjectRoot "Tools\Patches\unity-aar\litert-lm-unity-aar.patch"
+$PatchPath = Join-Path $ProjectRoot "Tools\UnityAar\litert-lm-unity-aar.patch"
+
+function Test-LiteRtLmSourceRoot {
+    param([Parameter(Mandatory = $true)][string]$CandidatePath)
+
+    return (Test-Path (Join-Path $CandidatePath "WORKSPACE")) -and
+        (Test-Path (Join-Path $CandidatePath "kotlin")) -and
+        (Test-Path (Join-Path $CandidatePath "runtime")) -and
+        (Test-Path (Join-Path $CandidatePath "tools"))
+}
+
+function Resolve-DefaultLiteRtLmSourceRoot {
+    $candidates = @(
+        (Join-Path $ProjectRoot "External\LiteRT-LM"),
+        (Join-Path $ProjectRoot "LiteRT-LM"),
+        (Join-Path $ProjectRoot "ThirdParty\LiteRT-LM")
+    )
+
+    foreach ($candidate in $candidates) {
+        if ((Test-Path $candidate) -and (Test-LiteRtLmSourceRoot $candidate)) {
+            return [System.IO.Path]::GetFullPath($candidate)
+        }
+    }
+
+    throw "SourceRoot was not provided and no LiteRT-LM source checkout was found. Expected a Unity-local submodule such as External\LiteRT-LM, or pass -SourceRoot explicitly."
+}
 
 if ([string]::IsNullOrWhiteSpace($SourceRoot)) {
-    $SourceRoot = $RepoRoot
+    $SourceRoot = Resolve-DefaultLiteRtLmSourceRoot
 }
 $SourceRoot = [System.IO.Path]::GetFullPath($SourceRoot)
 
 if ([string]::IsNullOrWhiteSpace($PatchedRoot)) {
-    $PatchedRoot = Join-Path $RepoRoot "temp\unity-aar-patched\litert-lm"
+    $PatchedRoot = Join-Path $ProjectRoot "temp\unity-aar-patched\litert-lm"
 }
 $PatchedRoot = [System.IO.Path]::GetFullPath($PatchedRoot)
 
 if ([string]::IsNullOrWhiteSpace($ArtifactDir)) {
-    $ArtifactDir = Join-Path $RepoRoot "artifacts\unity-android"
+    $ArtifactDir = Join-Path $ProjectRoot "Builds\AndroidAar"
 }
 $ArtifactDir = [System.IO.Path]::GetFullPath($ArtifactDir)
 
@@ -286,9 +310,9 @@ if (!(Test-Path $SourceRoot)) {
     throw "SourceRoot not found: $SourceRoot"
 }
 
-$WorkspaceTempRoot = Join-Path $RepoRoot "temp"
+$WorkspaceTempRoot = Join-Path $ProjectRoot "temp"
 Assert-UnderPath -Path $PatchedRoot -Parent $WorkspaceTempRoot -Label "PatchedRoot"
-Assert-UnderPath -Path $ArtifactDir -Parent $RepoRoot -Label "ArtifactDir"
+Assert-UnderPath -Path $ArtifactDir -Parent $ProjectRoot -Label "ArtifactDir"
 
 if (Test-Path $PatchedRoot) {
     Remove-Item -LiteralPath $PatchedRoot -Recurse -Force
@@ -298,7 +322,7 @@ New-Item -ItemType Directory -Force -Path $PatchedRoot | Out-Null
 Write-Host "[LiteRT-LM] Copying LiteRT-LM source to patched workspace: $PatchedRoot"
 Copy-AarBuildSourceInputs -SourceRoot $SourceRoot -DestinationRoot $PatchedRoot
 
-Apply-UnityAarPatch -TargetRoot $PatchedRoot -PatchFile $PatchPath -RepositoryRoot $RepoRoot
+Apply-UnityAarPatch -TargetRoot $PatchedRoot -PatchFile $PatchPath -RepositoryRoot $ProjectRoot
 
 if ($PrepareOnly) {
     Write-Host "[LiteRT-LM] Prepare-only mode complete: $PatchedRoot"

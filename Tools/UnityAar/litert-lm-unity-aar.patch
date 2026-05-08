@@ -198,7 +198,7 @@ index c6db59f..7524bbe 100644
  #include <string>
  #include <utility>
  #include <variant>
-@@ -84,6 +88,175 @@ using litert::lm::Responses;
+@@ -84,6 +88,174 @@ using litert::lm::Responses;
  using litert::lm::SessionConfig;
  using litert::lm::proto::SamplerParameters;
 
@@ -331,7 +331,6 @@ index c6db59f..7524bbe 100644
 +        settings->GetMainExecutorSettings().GetAdvancedSettings().value_or(
 +            litert::lm::AdvancedSettings());
 +    if (*backend_enum == litert::lm::Backend::GPU) {
-+      advanced_settings.allow_partial_gpu_delegation = true;
 +    }
 +    if (enable_speculative_decoding) {
 +      advanced_settings.enable_speculative_decoding = true;
@@ -426,7 +425,7 @@ index c6db59f..7524bbe 100644
  // Converts a Java InputData array to a C++ vector of InputData.
  std::vector<InputData> GetNativeInputData(JNIEnv* env,
                                            jobjectArray input_data) {
-@@ -333,6 +551,217 @@ nlohmann::ordered_json GetExtraContextJson(JNIEnv* env,
+@@ -333,6 +551,216 @@ nlohmann::ordered_json GetExtraContextJson(JNIEnv* env,
 
  extern "C" {
 
@@ -590,7 +589,6 @@ index c6db59f..7524bbe 100644
 +        settings->GetMainExecutorSettings().GetAdvancedSettings().value_or(
 +            litert::lm::AdvancedSettings());
 +    if (*backend_enum == litert::lm::Backend::GPU) {
-+      advanced_settings.allow_partial_gpu_delegation = true;
 +    }
 +    if (enable_speculative_decoding == JNI_TRUE) {
 +      advanced_settings.enable_speculative_decoding = true;

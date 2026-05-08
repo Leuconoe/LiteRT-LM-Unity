@@ -8,9 +8,10 @@ manual UI steps.
 
 ## Requirements
 
-- Unity `6000.4.4f1`
+- Unity `6000.4.6f1`
 - Windows for the included Editor CLI fallback scripts
 - PowerShell
+- Docker Desktop and Git for Windows Bash for rebuilding the Android bridge AAR
 
 ## Included
 
@@ -48,7 +49,7 @@ and fallback/default responses.
 
 | Model | Recommended use | Benchmark result | Notes | Links |
 | --- | --- | --- | --- | --- |
-| `gemma3-1b-it-int4.litertlm` | Android physical-device default | Physical-device GPU smoke passed on two devices | Best current Android baseline. Native OpenCL model execution is verified; Top-K sampling still falls back to CPU. | [LiteRT model](https://huggingface.co/litert-community/Gemma3-1B-IT) |
+| `gemma3-1b-it-int4.litertlm` | Android physical-device default | Physical-device GPU smoke passed on two devices | Best current Android baseline. Native OpenCL model execution and OpenCL Top-K sampling are verified. | [LiteRT model](https://huggingface.co/litert-community/Gemma3-1B-IT) |
 | `Qwen2.5-0.5B-Instruct-q8.litertlm` | Fast Android CPU alternative | Physical-device CPU smoke passed: init 2.01s, turn 1 0.848s, turn 2 0.279s | Use when GPU is unavailable or unstable. The GPU path failed on the tested physical device because the WebGPU binding exceeded the storage-buffer limit. | [LiteRT model](https://huggingface.co/litert-community/Qwen2.5-0.5B-Instruct) |
 | `gemma-4-E2B-it.litertlm` | Windows function-calling quality baseline | 20/20, 100% accuracy, 8.01s average per turn | Best verified function-calling quality on the Windows/Editor path. Android physical-device GPU is not the default for this model yet. | [Official model](https://huggingface.co/google/gemma-4-e2b-it), [LiteRT-LM conversion](https://huggingface.co/DEEPBULE/gemma-4-E2B-it-litert-lm) |
 | `Qwen3-0.6B.litertlm` | Smaller-memory experiment | 20/20, 100% accuracy on Windows prompt-profile benchmark | Requires the Qwen Hermes/ChatML prompt profile and deterministic routing guards; Android generic smoke output was not usable. | [Official model](https://huggingface.co/Qwen/Qwen3-0.6B) |
@@ -78,22 +79,62 @@ model reuse `copied=False`, client initialization `56.411s` to `57.757s`,
 turn 1 `2.470s` to `2.508s`, turn 2 `0.457s` to `0.480s`, total smoke
 runtime `59.507s` to `60.848s`.
 
-## Build The Android Bridge AAR From A Patch
+## Custom LiteRT-LM Android Bridge Build
 
 Unity can use the committed `Assets/Plugins/Android/litertlm-unity-bridge.aar`
-without modifying the parent LiteRT-LM source tree. To rebuild that AAR from
-source, use the patch-based wrapper:
+without modifying a LiteRT-LM checkout. To rebuild that AAR from source, keep
+LiteRT-LM as a Unity-local submodule and apply the Unity AAR patch at build
+time.
+
+The intended repository layout is:
+
+```text
+LiteRT-LM-Unity/
+  Assets/
+  Tools/
+    UnityAar/
+      litert-lm-unity-aar.patch
+  External/
+    LiteRT-LM/              # git submodule
+```
+
+Add or refresh the submodule from the Unity project root:
+
+```powershell
+git submodule add https://github.com/Leuconoe/LiteRT-LM External/LiteRT-LM
+git submodule update --init --recursive
+git -C External\LiteRT-LM checkout c87189528a758db32ead241f4fc9c64836398ee7
+```
+
+The current patch is validated against LiteRT-LM `c87189528a758db32ead241f4fc9c64836398ee7`
+(`v0.11.0`). Update the patch when moving the submodule to a newer LiteRT-LM
+revision.
+
+Then build the patched AAR:
 
 ```powershell
 .\Tools\Windows\Build-LiteRtLmUnityAarFromPatch.ps1 `
   -BazelJobs 8
 ```
 
-The wrapper copies the parent LiteRT-LM source into `..\temp`, applies
-`Tools\Patches\unity-aar\litert-lm-unity-aar.patch` there, then runs the
-patched Docker/Bazel AAR build. The parent source tree is left untouched; only
-`Assets\Plugins\Android\litertlm-unity-bridge.aar` is updated in this Unity
-project.
+The wrapper resolves LiteRT-LM from `External\LiteRT-LM` by default, copies the
+source into `.\temp\unity-aar-patched`, applies
+`Tools\UnityAar\litert-lm-unity-aar.patch` there, then runs the patched
+Docker/Bazel AAR build through Bash. The submodule checkout is left untouched.
+The generated AAR is exported to `Builds\AndroidAar` and copied into
+`Assets\Plugins\Android\litertlm-unity-bridge.aar`.
+
+During the transition period where this Unity project is still checked out as a
+submodule inside a LiteRT-LM source tree, use `-SourceRoot` to point at a clean
+LiteRT-LM checkout pinned to the patch revision. Avoid pointing at a newer or
+dirty parent worktree unless the patch has already been refreshed for that
+revision.
+
+```powershell
+.\Tools\Windows\Build-LiteRtLmUnityAarFromPatch.ps1 `
+  -SourceRoot ..\LiteRT-LM-v0.11.0 `
+  -BazelJobs 8
+```
 
 For a quick patch-only check without Docker:
 
