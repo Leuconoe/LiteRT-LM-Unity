@@ -24,7 +24,12 @@ $RunId = Get-Date -Format "yyyyMMdd-HHmmssfff"
 $LogFileWasProvided = -not [string]::IsNullOrWhiteSpace($LogFile)
 $LogDirectory = Join-Path $ProjectRoot "Builds\Logs"
 
+if ([string]::IsNullOrWhiteSpace($TempRoot)) {
+    $TempRoot = Join-Path $RepoRoot "temp\unity-editor-self-test"
+}
+
 New-Item -ItemType Directory -Force -Path $LogDirectory | Out-Null
+New-Item -ItemType Directory -Force -Path $TempRoot | Out-Null
 
 if (-not $LogFileWasProvided) {
     $LogFile = Join-Path $LogDirectory ("LiteRtLmEditorSelfTest-" + $RunId + ".log")
@@ -60,9 +65,6 @@ function New-SelfTestProjectCopy {
     $candidateRoots = @()
     if (-not [string]::IsNullOrWhiteSpace($TempRoot)) {
         $candidateRoots += (Join-Path $TempRoot $copyRootName)
-    } else {
-        $candidateRoots += (Join-Path $env:SystemDrive $copyRootName)
-        $candidateRoots += (Join-Path (Join-Path $RepoRoot ".t") $copyRootName)
     }
 
     $copyRoot = ""

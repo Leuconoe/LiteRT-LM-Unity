@@ -36,6 +36,7 @@ namespace LiteRTLM.Unity
         [SerializeField] private string cacheDir = "";
         [SerializeField] private int maxNumTokens = 0;
         [SerializeField] private int cpuThreads = 0;
+        [SerializeField] private bool enableSpeculativeDecoding = true;
         [SerializeField] private bool resetConversationBeforeEachPrompt = true;
 
         private LiteRtLmUnityClient _client;
@@ -113,6 +114,9 @@ namespace LiteRTLM.Unity
                 resetConversationBeforeEachPrompt = GUILayout.Toggle(
                     resetConversationBeforeEachPrompt,
                     "Reset conversation before each prompt");
+                enableSpeculativeDecoding = GUILayout.Toggle(
+                    enableSpeculativeDecoding,
+                    "Enable Gemma 4 MTP speculative decoding");
             }
 
             if (canUseWindowsCli)
@@ -273,6 +277,7 @@ namespace LiteRTLM.Unity
                     cacheDir: cacheDir,
                     maxNumTokens: maxNumTokens,
                     cpuThreads: cpuThreads,
+                    enableSpeculativeDecoding: enableSpeculativeDecoding,
                     systemInstruction: systemInstruction);
                 _status = "Initialized";
             });

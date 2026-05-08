@@ -40,6 +40,7 @@ namespace LiteRTLM.Unity
             int maxNumTokens = 0,
             int maxNumImages = 0,
             int cpuThreads = 0,
+            bool enableSpeculativeDecoding = false,
             string systemInstruction = "")
         {
 #if UNITY_ANDROID && !UNITY_EDITOR
@@ -59,6 +60,7 @@ namespace LiteRTLM.Unity
                 maxNumTokens,
                 maxNumImages,
                 cpuThreads,
+                enableSpeculativeDecoding,
                 systemInstruction);
 #else
             throw new PlatformNotSupportedException("LiteRT-LM Unity wrapper currently supports Android device builds only.");
@@ -84,7 +86,8 @@ namespace LiteRTLM.Unity
             string backend = "CPU",
             string cacheDir = "",
             int prefillTokens = 64,
-            int decodeTokens = 32)
+            int decodeTokens = 32,
+            bool enableSpeculativeDecoding = false)
         {
 #if UNITY_ANDROID && !UNITY_EDITOR
             if (string.IsNullOrWhiteSpace(modelPath))
@@ -101,7 +104,8 @@ namespace LiteRTLM.Unity
                 cacheDir,
                 nativeLibraryDir,
                 prefillTokens,
-                decodeTokens);
+                decodeTokens,
+                enableSpeculativeDecoding);
 #else
             throw new PlatformNotSupportedException("LiteRT-LM Unity wrapper currently supports Android device builds only.");
 #endif

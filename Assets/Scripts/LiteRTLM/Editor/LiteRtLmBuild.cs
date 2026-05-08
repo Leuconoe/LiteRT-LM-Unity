@@ -100,70 +100,89 @@ namespace LiteRTLM.Unity.Editor
         public static void BuildAndroidAvdSmokeTestApk()
         {
             EnsureTestModelInStreamingAssets();
-            BuildAndroidAvdSmokeTestApk("model.litertlm", "GPU", "LiteRtLmAndroidSmokeTest.apk");
+            BuildAndroidAvdSmokeTestApk("model.litertlm", "GPU", "LiteRtLmAndroidSmokeTest.apk", false);
         }
 
         [MenuItem("LiteRT-LM/Android/Build AVD Smoke Test APK/gemma-4-E2B-it")]
         public static void BuildAndroidAvdSmokeTestApkGemma4()
         {
-            BuildAndroidAvdSmokeTestApk(FunctionCallingGemma4ModelPath, "GPU", "LiteRtLmAndroidSmokeTest-gemma-4-E2B-it.apk");
+            BuildAndroidAvdSmokeTestApk(FunctionCallingGemma4ModelPath, "GPU", "LiteRtLmAndroidSmokeTest-gemma-4-E2B-it.apk", true, 4000, 0, 128);
+        }
+
+        [MenuItem("LiteRT-LM/Android/Build AVD Smoke APK/Gemma 4 E2B IT GPU No Speculative")]
+        public static void BuildAndroidAvdSmokeTestApkGemma4NoSpeculative()
+        {
+            BuildAndroidAvdSmokeTestApk(FunctionCallingGemma4ModelPath, "GPU", "LiteRtLmAndroidSmokeTest-gemma-4-E2B-it-nospec.apk", false, 4000, 0, 128);
+        }
+
+        [MenuItem("LiteRT-LM/Android/Build AVD Smoke APK/Gemma 4 E2B IT CPU")]
+        public static void BuildAndroidAvdSmokeTestApkGemma4Cpu()
+        {
+            BuildAndroidAvdSmokeTestApk(FunctionCallingGemma4ModelPath, "CPU", "LiteRtLmAndroidSmokeTest-gemma-4-E2B-it-CPU.apk", false, 4000, 0, 128);
         }
 
         [MenuItem("LiteRT-LM/Android/Build AVD Smoke Test APK/gemma3-1b-it-int4")]
         public static void BuildAndroidAvdSmokeTestApkGemma1B()
         {
-            BuildAndroidAvdSmokeTestApk(FunctionCallingGemma1BModelPath, "GPU", "LiteRtLmAndroidSmokeTest-gemma3-1b-it-int4.apk");
+            BuildAndroidAvdSmokeTestApk(FunctionCallingGemma1BModelPath, "GPU", "LiteRtLmAndroidSmokeTest-gemma3-1b-it-int4.apk", false);
         }
 
         [MenuItem("LiteRT-LM/Android/Build AVD Smoke Test APK/gemma3-1b-it-int4 CPU")]
         public static void BuildAndroidAvdSmokeTestApkGemma1BCpu()
         {
-            BuildAndroidAvdSmokeTestApk(FunctionCallingGemma1BModelPath, "CPU", "LiteRtLmAndroidSmokeTest-gemma3-1b-it-int4-CPU.apk");
+            BuildAndroidAvdSmokeTestApk(FunctionCallingGemma1BModelPath, "CPU", "LiteRtLmAndroidSmokeTest-gemma3-1b-it-int4-CPU.apk", false);
         }
 
         [MenuItem("LiteRT-LM/Android/Build AVD Smoke Test APK/gemma3-270m-it-q8")]
         public static void BuildAndroidAvdSmokeTestApkGemma270M()
         {
-            BuildAndroidAvdSmokeTestApk(FunctionCallingGemma270MModelPath, "GPU", "LiteRtLmAndroidSmokeTest-gemma3-270m-it-q8.apk");
+            BuildAndroidAvdSmokeTestApk(FunctionCallingGemma270MModelPath, "GPU", "LiteRtLmAndroidSmokeTest-gemma3-270m-it-q8.apk", false);
         }
 
         [MenuItem("LiteRT-LM/Android/Build AVD Smoke Test APK/mobile_actions_q8_ekv1024")]
         public static void BuildAndroidAvdSmokeTestApkMobileActions()
         {
-            BuildAndroidAvdSmokeTestApk(FunctionCallingMobileActionsModelPath, "GPU", "LiteRtLmAndroidSmokeTest-mobile_actions_q8_ekv1024.apk");
+            BuildAndroidAvdSmokeTestApk(FunctionCallingMobileActionsModelPath, "GPU", "LiteRtLmAndroidSmokeTest-mobile_actions_q8_ekv1024.apk", false);
         }
 
         [MenuItem("LiteRT-LM/Android/Build AVD Smoke Test APK/Qwen3-0.6B")]
         public static void BuildAndroidAvdSmokeTestApkQwen3()
         {
-            BuildAndroidAvdSmokeTestApk(FunctionCallingQwen3ModelPath, "GPU", "LiteRtLmAndroidSmokeTest-Qwen3-0.6B.apk");
+            BuildAndroidAvdSmokeTestApk(FunctionCallingQwen3ModelPath, "GPU", "LiteRtLmAndroidSmokeTest-Qwen3-0.6B.apk", false);
         }
 
         [MenuItem("LiteRT-LM/Android/Build AVD Smoke Test APK/Qwen2.5-0.5B-Instruct")]
         public static void BuildAndroidAvdSmokeTestApkQwen25()
         {
-            BuildAndroidAvdSmokeTestApk(FunctionCallingQwen25ModelPath, "GPU", "LiteRtLmAndroidSmokeTest-Qwen2.5-0.5B-Instruct.apk");
+            BuildAndroidAvdSmokeTestApk(FunctionCallingQwen25ModelPath, "GPU", "LiteRtLmAndroidSmokeTest-Qwen2.5-0.5B-Instruct.apk", false);
         }
 
         [MenuItem("LiteRT-LM/Android/Build AVD Smoke Test APK/Qwen2.5-0.5B-Instruct CPU")]
         public static void BuildAndroidAvdSmokeTestApkQwen25Cpu()
         {
-            BuildAndroidAvdSmokeTestApk(FunctionCallingQwen25ModelPath, "CPU", "LiteRtLmAndroidSmokeTest-Qwen2.5-0.5B-Instruct-CPU.apk");
+            BuildAndroidAvdSmokeTestApk(FunctionCallingQwen25ModelPath, "CPU", "LiteRtLmAndroidSmokeTest-Qwen2.5-0.5B-Instruct-CPU.apk", false);
         }
 
         [MenuItem("LiteRT-LM/Android/Build AVD Smoke Test APK/Qwen2.5-1.5B-Instruct")]
         public static void BuildAndroidAvdSmokeTestApkQwen25_1_5B()
         {
-            BuildAndroidAvdSmokeTestApk(FunctionCallingQwen25_1_5BModelPath, "GPU", "LiteRtLmAndroidSmokeTest-Qwen2.5-1.5B-Instruct.apk");
+            BuildAndroidAvdSmokeTestApk(FunctionCallingQwen25_1_5BModelPath, "GPU", "LiteRtLmAndroidSmokeTest-Qwen2.5-1.5B-Instruct.apk", false);
         }
 
         [MenuItem("LiteRT-LM/Android/Build AVD Smoke Test APK/Qwen2.5-1.5B-Instruct CPU")]
         public static void BuildAndroidAvdSmokeTestApkQwen25_1_5BCpu()
         {
-            BuildAndroidAvdSmokeTestApk(FunctionCallingQwen25_1_5BModelPath, "CPU", "LiteRtLmAndroidSmokeTest-Qwen2.5-1.5B-Instruct-CPU.apk");
+            BuildAndroidAvdSmokeTestApk(FunctionCallingQwen25_1_5BModelPath, "CPU", "LiteRtLmAndroidSmokeTest-Qwen2.5-1.5B-Instruct-CPU.apk", false);
         }
 
-        private static void BuildAndroidAvdSmokeTestApk(string modelFileName, string backend, string outputFileName)
+        private static void BuildAndroidAvdSmokeTestApk(
+            string modelFileName,
+            string backend,
+            string outputFileName,
+            bool enableSpeculativeDecoding,
+            int maxNumTokens = 64,
+            int maxNumImages = 0,
+            int benchmarkPrefillTokens = 64)
         {
             if (string.IsNullOrWhiteSpace(modelFileName))
             {
@@ -195,7 +214,7 @@ namespace LiteRTLM.Unity.Editor
             var previousScriptingBackend = PlayerSettings.GetScriptingBackend(androidBuildTarget);
             var previousUseDefaultGraphicsApis = PlayerSettings.GetUseDefaultGraphicsAPIs(BuildTarget.Android);
             var previousGraphicsApis = PlayerSettings.GetGraphicsAPIs(BuildTarget.Android);
-            var buildScenePath = CreateAndroidSmokeBuildScene(modelFileName, backend);
+            var buildScenePath = CreateAndroidSmokeBuildScene(modelFileName, backend, enableSpeculativeDecoding, maxNumTokens, maxNumImages, benchmarkPrefillTokens);
 
             try
             {
@@ -221,7 +240,7 @@ namespace LiteRTLM.Unity.Editor
                     }
                 });
 
-                Debug.Log($"LiteRT-LM Android AVD smoke APK built successfully: {outputPath}, model={modelFileName}, backend={backend}");
+                Debug.Log($"LiteRT-LM Android AVD smoke APK built successfully: {outputPath}, model={modelFileName}, backend={backend}, speculative={enableSpeculativeDecoding}, maxNumTokens={maxNumTokens}, maxNumImages={maxNumImages}");
             }
             finally
             {
@@ -691,7 +710,12 @@ namespace LiteRTLM.Unity.Editor
                 return;
             }
 
-            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
+            var activeScene = SceneManager.GetActiveScene();
+            var hasSavedActiveScene = activeScene.IsValid() && !string.IsNullOrEmpty(activeScene.path);
+            var newSceneMode = Application.isBatchMode || !hasSavedActiveScene
+                ? NewSceneMode.Single
+                : NewSceneMode.Additive;
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, newSceneMode);
             var runnerObject = new GameObject("LiteRtLmAndroidSmokeTestRunner");
             SceneManager.MoveGameObjectToScene(runnerObject, scene);
             runnerObject.AddComponent<LiteRtLmAndroidSmokeTestRunner>();
@@ -712,11 +736,22 @@ namespace LiteRTLM.Unity.Editor
             AssetDatabase.Refresh();
         }
 
-        private static string CreateAndroidSmokeBuildScene(string modelFileName, string backend)
+        private static string CreateAndroidSmokeBuildScene(
+            string modelFileName,
+            string backend,
+            bool enableSpeculativeDecoding,
+            int maxNumTokens,
+            int maxNumImages,
+            int benchmarkPrefillTokens)
         {
             DeleteGeneratedAndroidSmokeBuildScene(AndroidSmokeBuildScenePath);
 
-            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
+            var activeScene = SceneManager.GetActiveScene();
+            var hasSavedActiveScene = activeScene.IsValid() && !string.IsNullOrEmpty(activeScene.path);
+            var newSceneMode = Application.isBatchMode || !hasSavedActiveScene
+                ? NewSceneMode.Single
+                : NewSceneMode.Additive;
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, newSceneMode);
             try
             {
                 var runnerObject = new GameObject("LiteRtLmAndroidSmokeTestRunner");
@@ -726,19 +761,31 @@ namespace LiteRTLM.Unity.Editor
                 var serializedRunner = new SerializedObject(runner);
                 var modelPathProperty = serializedRunner.FindProperty("modelPath");
                 var backendProperty = serializedRunner.FindProperty("backend");
+                var maxNumTokensProperty = serializedRunner.FindProperty("maxNumTokens");
+                var maxNumImagesProperty = serializedRunner.FindProperty("maxNumImages");
+                var enableSpeculativeDecodingProperty = serializedRunner.FindProperty("enableSpeculativeDecoding");
                 var runStandaloneBenchmarkProperty = serializedRunner.FindProperty("runStandaloneBenchmark");
+                var benchmarkPrefillTokensProperty = serializedRunner.FindProperty("benchmarkPrefillTokens");
                 var benchmarkRunsProperty = serializedRunner.FindProperty("benchmarkRuns");
 
-                if (modelPathProperty == null || backendProperty == null)
+                if (modelPathProperty == null || backendProperty == null || maxNumTokensProperty == null || maxNumImagesProperty == null || enableSpeculativeDecodingProperty == null)
                 {
                     throw new InvalidOperationException($"{nameof(LiteRtLmAndroidSmokeTestRunner)} does not expose required serialized build settings.");
                 }
 
                 modelPathProperty.stringValue = modelFileName;
                 backendProperty.stringValue = backend;
+                maxNumTokensProperty.intValue = Math.Max(1, maxNumTokens);
+                maxNumImagesProperty.intValue = Math.Max(0, maxNumImages);
+                enableSpeculativeDecodingProperty.boolValue = enableSpeculativeDecoding;
                 if (runStandaloneBenchmarkProperty != null)
                 {
                     runStandaloneBenchmarkProperty.boolValue = true;
+                }
+
+                if (benchmarkPrefillTokensProperty != null)
+                {
+                    benchmarkPrefillTokensProperty.intValue = Math.Max(1, benchmarkPrefillTokens);
                 }
 
                 if (benchmarkRunsProperty != null)
@@ -761,7 +808,7 @@ namespace LiteRTLM.Unity.Editor
 
                 EditorSceneManager.CloseScene(scene, true);
                 AssetDatabase.ImportAsset(AndroidSmokeBuildScenePath, ImportAssetOptions.ForceUpdate);
-                Debug.Log($"LiteRT-LM Android smoke build scene generated: {AndroidSmokeBuildScenePath}, model={modelFileName}, backend={backend}");
+                Debug.Log($"LiteRT-LM Android smoke build scene generated: {AndroidSmokeBuildScenePath}, model={modelFileName}, backend={backend}, speculative={enableSpeculativeDecoding}, maxNumTokens={maxNumTokens}, maxNumImages={maxNumImages}");
                 return AndroidSmokeBuildScenePath;
             }
             catch
@@ -791,7 +838,7 @@ namespace LiteRTLM.Unity.Editor
             }
         }
 
-        private static (string ModelPath, string Backend) SetAndroidSmokeTestSceneSettings(string modelFileName, string backend)
+        private static (string ModelPath, string Backend) SetAndroidSmokeTestSceneSettings(string modelFileName, string backend, bool enableSpeculativeDecoding)
         {
             var scene = EditorSceneManager.OpenScene(AndroidSmokeTestScenePath, OpenSceneMode.Single);
             var runner = UnityEngine.Object.FindAnyObjectByType<LiteRtLmAndroidSmokeTestRunner>();
@@ -803,6 +850,7 @@ namespace LiteRTLM.Unity.Editor
             var serializedRunner = new SerializedObject(runner);
             var modelPathProperty = serializedRunner.FindProperty("modelPath");
             var backendProperty = serializedRunner.FindProperty("backend");
+            var enableSpeculativeDecodingProperty = serializedRunner.FindProperty("enableSpeculativeDecoding");
             var runStandaloneBenchmarkProperty = serializedRunner.FindProperty("runStandaloneBenchmark");
             var benchmarkRunsProperty = serializedRunner.FindProperty("benchmarkRuns");
             if (modelPathProperty == null)
@@ -815,11 +863,17 @@ namespace LiteRTLM.Unity.Editor
                 throw new InvalidOperationException($"{nameof(LiteRtLmAndroidSmokeTestRunner)} does not expose serialized backend.");
             }
 
+            if (enableSpeculativeDecodingProperty == null)
+            {
+                throw new InvalidOperationException($"{nameof(LiteRtLmAndroidSmokeTestRunner)} does not expose serialized enableSpeculativeDecoding.");
+            }
+
             var previousModelPath = modelPathProperty.stringValue;
             var previousBackend = backendProperty.stringValue;
             var changed = false;
             if (string.Equals(previousModelPath, modelFileName, StringComparison.Ordinal) &&
-                string.Equals(previousBackend, backend, StringComparison.OrdinalIgnoreCase))
+                string.Equals(previousBackend, backend, StringComparison.OrdinalIgnoreCase) &&
+                enableSpeculativeDecodingProperty.boolValue == enableSpeculativeDecoding)
             {
                 if (runStandaloneBenchmarkProperty == null ||
                     runStandaloneBenchmarkProperty.boolValue &&
@@ -831,6 +885,7 @@ namespace LiteRTLM.Unity.Editor
 
             modelPathProperty.stringValue = modelFileName;
             backendProperty.stringValue = backend;
+            enableSpeculativeDecodingProperty.boolValue = enableSpeculativeDecoding;
             changed = true;
             if (runStandaloneBenchmarkProperty != null && !runStandaloneBenchmarkProperty.boolValue)
             {

@@ -151,6 +151,7 @@ MonoBehaviour:
   modelPath: Qwen2.5-0.5B-Instruct-q8.litertlm
   backend: GPU
   maxNumTokens: 64
+  enableSpeculativeDecoding: 0
   runStandaloneBenchmark: 0
   benchmarkPrefillTokens: 64
   benchmarkDecodeTokens: 32

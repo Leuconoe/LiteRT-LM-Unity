@@ -14,6 +14,8 @@ namespace LiteRTLM.Unity
         [SerializeField] private string modelPath = "model.litertlm";
         [SerializeField] private string backend = "GPU";
         [SerializeField] private int maxNumTokens = 64;
+        [SerializeField] private int maxNumImages;
+        [SerializeField] private bool enableSpeculativeDecoding;
         [SerializeField] private bool runStandaloneBenchmark;
         [SerializeField] private int benchmarkPrefillTokens = 64;
         [SerializeField] private int benchmarkDecodeTokens = 32;
@@ -44,7 +46,7 @@ namespace LiteRTLM.Unity
 
         private IEnumerator RunSmokeTest()
         {
-            WriteStatus("START", $"backend={backend}, model={modelPath}, platform={Application.platform}, resetConversationBeforeEachPrompt={resetConversationBeforeEachPrompt}");
+            WriteStatus("START", $"backend={backend}, model={modelPath}, platform={Application.platform}, speculativeDecoding={enableSpeculativeDecoding}, resetConversationBeforeEachPrompt={resetConversationBeforeEachPrompt}");
 
 #if UNITY_ANDROID && !UNITY_EDITOR
             var resolvedModelPath = string.Empty;
@@ -73,15 +75,16 @@ namespace LiteRTLM.Unity
             {
                 var testStartedAt = Time.realtimeSinceStartup;
                 client.SetNativeMinLogSeverity("INFO");
-                WriteStatus("INITIALIZE", $"resolvedModel={resolvedModelPath}, cacheDir={Application.temporaryCachePath}");
+                WriteStatus("INITIALIZE", $"resolvedModel={resolvedModelPath}, cacheDir={Application.temporaryCachePath}, maxNumTokens={maxNumTokens}, maxNumImages={maxNumImages}, speculativeDecoding={enableSpeculativeDecoding}");
                 var initializeStartedAt = Time.realtimeSinceStartup;
                 client.Initialize(
                     resolvedModelPath,
                     backend,
                     Application.temporaryCachePath,
                     maxNumTokens,
+                    maxNumImages,
                     0,
-                    0,
+                    enableSpeculativeDecoding,
                     systemInstruction);
                 var initializeElapsedSeconds = Time.realtimeSinceStartup - initializeStartedAt;
                 WriteStatus("INITIALIZED", $"isInitialized={client.IsInitialized}, elapsedSeconds={initializeElapsedSeconds:0.###}");
@@ -129,7 +132,8 @@ namespace LiteRTLM.Unity
                             backend,
                             Application.temporaryCachePath,
                             benchmarkPrefillTokens,
-                            benchmarkDecodeTokens);
+                            benchmarkDecodeTokens,
+                            enableSpeculativeDecoding);
                         var benchmarkElapsedSeconds = Time.realtimeSinceStartup - benchmarkStartedAt;
                         elapsedTotalSeconds += benchmarkElapsedSeconds;
                         WriteStatus("BENCHMARK_RESULT", $"run={run}/{runs}, elapsedSeconds={benchmarkElapsedSeconds:0.###}, {OneLine(benchmark)}");

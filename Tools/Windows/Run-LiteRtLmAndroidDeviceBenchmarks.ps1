@@ -18,6 +18,8 @@ New-Item -ItemType Directory -Force -Path $LogDirectory | Out-Null
 
 $Benchmarks = @(
     @{ Name = "gemma-4-E2B-it-gpu"; Apk = "LiteRtLmAndroidSmokeTest-gemma-4-E2B-it.apk" },
+    @{ Name = "gemma-4-E2B-it-gpu-nospec"; Apk = "LiteRtLmAndroidSmokeTest-gemma-4-E2B-it-nospec.apk" },
+    @{ Name = "gemma-4-E2B-it-cpu"; Apk = "LiteRtLmAndroidSmokeTest-gemma-4-E2B-it-CPU.apk" },
     @{ Name = "gemma3-1b-it-gpu"; Apk = "LiteRtLmAndroidSmokeTest-gemma3-1b-it-int4.apk" },
     @{ Name = "gemma3-1b-it-cpu"; Apk = "LiteRtLmAndroidSmokeTest-gemma3-1b-it-int4-CPU.apk" },
     @{ Name = "gemma3-270m-it-gpu"; Apk = "LiteRtLmAndroidSmokeTest-gemma3-270m-it-q8.apk" },

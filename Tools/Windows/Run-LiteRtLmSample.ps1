@@ -18,6 +18,9 @@ $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 
 $ScriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ProjectRoot = Split-Path -Parent (Split-Path -Parent $ScriptDirectory)
+$RepoRoot = Split-Path -Parent $ProjectRoot
+$WorkspaceTempRoot = Join-Path $RepoRoot "temp\windows-cli"
+New-Item -ItemType Directory -Force -Path $WorkspaceTempRoot | Out-Null
 
 $ExecutablePath = Join-Path $ScriptDirectory "litert_lm_main.windows_x86_64.exe"
 if (-not (Test-Path $ExecutablePath)) {
@@ -38,7 +41,7 @@ if (-not [string]::IsNullOrWhiteSpace($PromptFilePath)) {
     }
 }
 else {
-    $PromptFilePath = Join-Path $env:TEMP "litertlm-standalone-prompt.txt"
+    $PromptFilePath = Join-Path $WorkspaceTempRoot ("litertlm-standalone-prompt-" + [guid]::NewGuid().ToString("N") + ".txt")
     Set-Content -Path $PromptFilePath -Value $Prompt
 }
 

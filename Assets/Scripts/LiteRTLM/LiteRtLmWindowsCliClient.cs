@@ -106,11 +106,12 @@ namespace LiteRTLM.Unity
                 throw new ArgumentOutOfRangeException(nameof(timeout), "Timeout must be greater than zero or infinite.");
             }
 
-            var promptFilePath = Path.Combine(Path.GetTempPath(), $"litertlm-unity-prompt-{Guid.NewGuid():N}.txt");
+            var tempDirectory = GetWorkspaceTempDirectory();
+            var promptFilePath = Path.Combine(tempDirectory, $"litertlm-unity-prompt-{Guid.NewGuid():N}.txt");
             File.WriteAllText(promptFilePath, prompt ?? string.Empty);
-            var systemMessageFilePath = WriteOptionalTempFile("litertlm-unity-system", systemMessage);
-            var toolsJsonFilePath = WriteOptionalTempFile("litertlm-unity-tools", toolsJson);
-            var messagesJsonFilePath = WriteOptionalTempFile("litertlm-unity-messages", messagesJson);
+            var systemMessageFilePath = WriteOptionalTempFile(tempDirectory, "litertlm-unity-system", systemMessage);
+            var toolsJsonFilePath = WriteOptionalTempFile(tempDirectory, "litertlm-unity-tools", toolsJson);
+            var messagesJsonFilePath = WriteOptionalTempFile(tempDirectory, "litertlm-unity-messages", messagesJson);
 
             var executableName = Path.GetFileName(executablePath);
             var isMainExecutable = executableName.StartsWith("litert_lm_main", StringComparison.OrdinalIgnoreCase);
@@ -235,16 +236,29 @@ namespace LiteRTLM.Unity
             }
         }
 
-        private static string WriteOptionalTempFile(string prefix, string content)
+        private static string WriteOptionalTempFile(string tempDirectory, string prefix, string content)
         {
             if (string.IsNullOrWhiteSpace(content))
             {
                 return string.Empty;
             }
 
-            var path = Path.Combine(Path.GetTempPath(), $"{prefix}-{Guid.NewGuid():N}.txt");
+            var path = Path.Combine(tempDirectory, $"{prefix}-{Guid.NewGuid():N}.txt");
             File.WriteAllText(path, content, Encoding.UTF8);
             return path;
+        }
+
+        private static string GetWorkspaceTempDirectory()
+        {
+#if UNITY_EDITOR
+            var projectRoot = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, ".."));
+            var repoRoot = Directory.GetParent(projectRoot)?.FullName ?? projectRoot;
+            var tempDirectory = Path.Combine(repoRoot, "temp", "windows-cli");
+#else
+            var tempDirectory = Path.Combine(UnityEngine.Application.temporaryCachePath, "LiteRTLM");
+#endif
+            Directory.CreateDirectory(tempDirectory);
+            return tempDirectory;
         }
 
         private static string BuildOptionalArguments(
