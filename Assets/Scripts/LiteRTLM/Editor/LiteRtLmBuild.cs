@@ -87,6 +87,31 @@ namespace LiteRTLM.Unity.Editor
                 benchmarkPrefillTokens);
         }
 
+        private static string GetCommandLineValue(string[] args, string key, string defaultValue)
+        {
+            for (var i = 0; i < args.Length - 1; i++)
+            {
+                if (string.Equals(args[i], key, StringComparison.OrdinalIgnoreCase))
+                {
+                    return args[i + 1];
+                }
+            }
+
+            return defaultValue;
+        }
+
+        private static int GetCommandLineInt(string[] args, string key, int defaultValue)
+        {
+            var value = GetCommandLineValue(args, key, string.Empty);
+            return int.TryParse(value, out var parsed) ? parsed : defaultValue;
+        }
+
+        private static bool GetCommandLineBool(string[] args, string key, bool defaultValue)
+        {
+            var value = GetCommandLineValue(args, key, string.Empty);
+            return bool.TryParse(value, out var parsed) ? parsed : defaultValue;
+        }
+
         private static readonly string[] ConversationTestPrompts =
         {
             "짧게 인사해 주세요.",
@@ -148,6 +173,37 @@ namespace LiteRTLM.Unity.Editor
         {
             EnsureTestModelInStreamingAssets();
             BuildAndroidAvdSmokeTestApk(AndroidSmokeSettings("model.litertlm", "GPU", "LiteRtLmAndroidSmokeTest.apk", false));
+        }
+
+        public static void BuildAndroidAvdSmokeTestApkFromCommandLine()
+        {
+            var args = Environment.GetCommandLineArgs();
+            var modelFileName = GetCommandLineValue(args, "-litertlmModel", string.Empty);
+            var backend = GetCommandLineValue(args, "-litertlmBackend", "GPU");
+            var outputFileName = GetCommandLineValue(args, "-litertlmOutputApk", string.Empty);
+            var enableSpeculativeDecoding = GetCommandLineBool(args, "-litertlmSpeculative", false);
+            var maxNumTokens = GetCommandLineInt(args, "-litertlmMaxNumTokens", 64);
+            var maxNumImages = GetCommandLineInt(args, "-litertlmMaxNumImages", 0);
+            var benchmarkPrefillTokens = GetCommandLineInt(args, "-litertlmBenchmarkPrefillTokens", 64);
+
+            if (string.IsNullOrWhiteSpace(modelFileName))
+            {
+                throw new ArgumentException("-litertlmModel is required.");
+            }
+
+            if (string.IsNullOrWhiteSpace(outputFileName))
+            {
+                outputFileName = $"LiteRtLmAndroidSmokeTest-{Path.GetFileNameWithoutExtension(modelFileName)}-{backend}.apk";
+            }
+
+            BuildAndroidAvdSmokeTestApk(AndroidSmokeSettings(
+                modelFileName,
+                backend,
+                outputFileName,
+                enableSpeculativeDecoding,
+                maxNumTokens,
+                maxNumImages,
+                benchmarkPrefillTokens));
         }
 
         [MenuItem("LiteRT-LM/Android/Build AVD Smoke Test APK/gemma-4-E2B-it")]

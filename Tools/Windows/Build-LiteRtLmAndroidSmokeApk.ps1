@@ -108,6 +108,8 @@ try {
             "*.sln",
             "*.litertlm",
             "*.litertlm.meta",
+            "*.task",
+            "*.task.meta",
             "*.xnnpack_cache"
         )
 
@@ -138,7 +140,21 @@ try {
         "-executeMethod",
         $benchmark.Method,
         "-logFile",
-        $unityLogPath
+        $unityLogPath,
+        "-litertlmModel",
+        $benchmark.Model,
+        "-litertlmBackend",
+        $benchmark.Backend,
+        "-litertlmOutputApk",
+        $benchmark.Apk,
+        "-litertlmSpeculative",
+        ([string]$benchmark.Speculative),
+        "-litertlmMaxNumTokens",
+        ([string]$benchmark.MaxNumTokens),
+        "-litertlmMaxNumImages",
+        ([string]$benchmark.MaxNumImages),
+        "-litertlmBenchmarkPrefillTokens",
+        ([string]$benchmark.BenchmarkPrefillTokens)
     )
     $unityArgumentLine = ($unityArguments | ForEach-Object { ConvertTo-ProcessArgument $_ }) -join " "
     $unityProcess = Start-Process -FilePath $resolvedUnityPath -ArgumentList $unityArgumentLine -PassThru -Wait
