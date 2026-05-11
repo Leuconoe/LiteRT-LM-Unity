@@ -1,0 +1,3 @@
+[submodule "External/LiteRT-LM"]
+	path = External/LiteRT-LM
+	url = https://github.com/Leuconoe/LiteRT-LM

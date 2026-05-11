@@ -114,9 +114,9 @@ Failure and coverage notes:
 ## Custom LiteRT-LM Android Bridge Build
 
 Unity can use the committed `Assets/Plugins/Android/litertlm-unity-bridge.aar`
-without modifying a LiteRT-LM checkout. To rebuild that AAR from source, keep
-LiteRT-LM as a Unity-local submodule and apply the Unity AAR patch at build
-time.
+without modifying a LiteRT-LM checkout. This Unity repository is the root
+project; LiteRT-LM is kept as a Unity-local submodule under `External/LiteRT-LM`
+and the Unity AAR patch is applied at build time.
 
 The intended repository layout is:
 
@@ -130,10 +130,9 @@ LiteRT-LM-Unity/
     LiteRT-LM/              # git submodule
 ```
 
-Add or refresh the submodule from the Unity project root:
+Initialize or refresh the submodule from the Unity project root:
 
 ```powershell
-git submodule add https://github.com/Leuconoe/LiteRT-LM External/LiteRT-LM
 git submodule update --init --recursive
 git -C External\LiteRT-LM checkout c87189528a758db32ead241f4fc9c64836398ee7
 ```

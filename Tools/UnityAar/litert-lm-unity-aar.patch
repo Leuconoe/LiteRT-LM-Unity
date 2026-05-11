@@ -198,7 +198,7 @@ index c6db59f..7524bbe 100644
  #include <string>
  #include <utility>
  #include <variant>
-@@ -84,6 +88,174 @@ using litert::lm::Responses;
+@@ -84,6 +88,175 @@ using litert::lm::Responses;
  using litert::lm::SessionConfig;
  using litert::lm::proto::SamplerParameters;
 
@@ -331,6 +331,7 @@ index c6db59f..7524bbe 100644
 +        settings->GetMainExecutorSettings().GetAdvancedSettings().value_or(
 +            litert::lm::AdvancedSettings());
 +    if (*backend_enum == litert::lm::Backend::GPU) {
++      advanced_settings.allow_partial_gpu_delegation = true;
 +    }
 +    if (enable_speculative_decoding) {
 +      advanced_settings.enable_speculative_decoding = true;
@@ -425,7 +426,7 @@ index c6db59f..7524bbe 100644
  // Converts a Java InputData array to a C++ vector of InputData.
  std::vector<InputData> GetNativeInputData(JNIEnv* env,
                                            jobjectArray input_data) {
-@@ -333,6 +551,216 @@ nlohmann::ordered_json GetExtraContextJson(JNIEnv* env,
+@@ -333,6 +551,217 @@ nlohmann::ordered_json GetExtraContextJson(JNIEnv* env,
 
  extern "C" {
 
@@ -589,6 +590,7 @@ index c6db59f..7524bbe 100644
 +        settings->GetMainExecutorSettings().GetAdvancedSettings().value_or(
 +            litert::lm::AdvancedSettings());
 +    if (*backend_enum == litert::lm::Backend::GPU) {
++      advanced_settings.allow_partial_gpu_delegation = true;
 +    }
 +    if (enable_speculative_decoding == JNI_TRUE) {
 +      advanced_settings.enable_speculative_decoding = true;
@@ -871,6 +873,482 @@ index 0000000..b23de08
 +            int prefillTokens,
 +            int decodeTokens,
 +            boolean enableSpeculativeDecoding);
++}
+diff --git a/runtime/engine/litert_lm_main.cc b/runtime/engine/litert_lm_main.cc
+index 573316e..c4574a9 100644
+--- a/runtime/engine/litert_lm_main.cc
++++ b/runtime/engine/litert_lm_main.cc
+@@ -22,6 +22,7 @@
+ #include <fstream>
+ #include <iostream>
+ #include <memory>
++#include <optional>
+ #include <sstream>
+ #include <string>
+ #include <utility>
+@@ -55,6 +56,20 @@ ABSL_FLAG(std::string, model_path, "", "Model path to use for LLM execution.");
+ ABSL_FLAG(std::string, input_prompt, "",
+           "Input prompt to use for testing LLM execution.");
+ ABSL_FLAG(std::string, input_prompt_file, "", "File path to the input prompt.");
++ABSL_FLAG(std::string, system_message, "",
++          "Optional system message to use for conversation preface.");
++ABSL_FLAG(std::string, system_message_file, "",
++          "Optional file path containing the system message.");
++ABSL_FLAG(std::string, tools_json, "",
++          "Optional JSON array describing tools for function calling.");
++ABSL_FLAG(std::string, tools_json_file, "",
++          "Optional file path containing a JSON array of tools.");
++ABSL_FLAG(std::string, messages_json_file, "",
++          "Optional file path containing previous messages as a JSON array.");
++ABSL_FLAG(bool, enable_constrained_decoding, false,
++          "Enable constrained decoding for tool/function call output.");
++ABSL_FLAG(bool, output_message_json, false,
++          "Print the full assistant message JSON instead of content text only.");
+
+ namespace {
+
+@@ -65,10 +80,11 @@ using ::litert::lm::EngineSettings;
+ using ::litert::lm::InputData;
+ using ::litert::lm::Message;
+ using ::litert::lm::ModelAssets;
+-using ::nlohmann::json;
++using ::nlohmann::ordered_json;
+
+-absl::AnyInvocable<void(absl::StatusOr<Message>)> CreateMessageCallback() {
+-  return [](absl::StatusOr<Message> message) {
++absl::AnyInvocable<void(absl::StatusOr<Message>)> CreateMessageCallback(
++    bool output_message_json) {
++  return [output_message_json](absl::StatusOr<Message> message) {
+     if (!message.ok()) {
+       std::cout << "Error: " << message.status() << std::endl;
+       return;
+@@ -77,6 +93,10 @@ absl::AnyInvocable<void(absl::StatusOr<Message>)> CreateMessageCallback() {
+       std::cout << std::endl << std::flush;
+       return;
+     }
++    if (output_message_json) {
++      std::cout << message->dump() << std::flush;
++      return;
++    }
+     for (const auto& content : (*message)["content"]) {
+       std::cout << content["text"].get<std::string>();
+     }
+@@ -84,6 +104,38 @@ absl::AnyInvocable<void(absl::StatusOr<Message>)> CreateMessageCallback() {
+   };
+ }
+
++absl::StatusOr<std::string> ReadTextFile(absl::string_view file_path) {
++  std::ifstream file{std::string(file_path)};
++  if (!file.is_open()) {
++    return absl::InvalidArgumentError(
++        std::string("Could not open file: ") + std::string(file_path));
++  }
++
++  std::stringstream buffer;
++  buffer << file.rdbuf();
++  return buffer.str();
++}
++
++absl::StatusOr<std::string> GetFlagTextOrFile(absl::string_view direct_value,
++                                              absl::string_view file_path,
++                                              absl::string_view flag_name) {
++  if (!direct_value.empty() && !file_path.empty()) {
++    return absl::InvalidArgumentError(
++        std::string("Only one of --") + std::string(flag_name) + " and --" +
++        std::string(flag_name) + "_file can be specified.");
++  }
++
++  if (!direct_value.empty()) {
++    return std::string(direct_value);
++  }
++
++  if (!file_path.empty()) {
++    return ReadTextFile(file_path);
++  }
++
++  return std::string();
++}
++
+ // Gets the input prompt from the command line flag or file.
+ std::string GetInputPrompt() {
+   const std::string input_prompt = absl::GetFlag(FLAGS_input_prompt);
+@@ -110,6 +162,21 @@ std::string GetInputPrompt() {
+   return "What is the tallest building in the world?";
+ }
+
++absl::StatusOr<std::optional<ordered_json>> ParseOptionalJson(
++    absl::string_view value, absl::string_view name) {
++  if (value.empty()) {
++    return std::nullopt;
++  }
++
++  auto parsed = ordered_json::parse(value, nullptr, false);
++  if (parsed.is_discarded()) {
++    return absl::InvalidArgumentError(
++        std::string("Failed to parse JSON for ") + std::string(name) + ".");
++  }
++
++  return parsed;
++}
++
+ absl::Status MainHelper(int argc, char** argv) {
+   absl::ParseCommandLine(argc, argv);
+   // Overrides the default for FLAGS_minloglevel to error.
+@@ -139,15 +206,69 @@ absl::Status MainHelper(int argc, char** argv) {
+   // Create the conversation.
+   std::unique_ptr<Conversation> conversation;
+   auto session_config = litert::lm::SessionConfig::CreateDefault();
+-  ASSIGN_OR_RETURN(auto conversation_config,
+-                   ConversationConfig::Builder()
+-                       .SetSessionConfig(session_config)
+-                       .Build(*engine));
++  litert::lm::JsonPreface json_preface;
++  ASSIGN_OR_RETURN(
++      const std::string system_message,
++      GetFlagTextOrFile(absl::GetFlag(FLAGS_system_message),
++                        absl::GetFlag(FLAGS_system_message_file),
++                        "system_message"));
++  ASSIGN_OR_RETURN(const std::string tools_json,
++                   GetFlagTextOrFile(absl::GetFlag(FLAGS_tools_json),
++                                     absl::GetFlag(FLAGS_tools_json_file),
++                                     "tools_json"));
++  std::string messages_json;
++  const std::string messages_json_file =
++      absl::GetFlag(FLAGS_messages_json_file);
++  if (!messages_json_file.empty()) {
++    ASSIGN_OR_RETURN(messages_json, ReadTextFile(messages_json_file));
++  }
++  if (!system_message.empty()) {
++    ordered_json system_message_json;
++    system_message_json["role"] = "system";
++    system_message_json["content"] = system_message;
++    json_preface.messages = ordered_json::array({system_message_json});
++  }
++
++  ASSIGN_OR_RETURN(auto parsed_messages,
++                   ParseOptionalJson(messages_json, "messages_json_file"));
++  if (parsed_messages.has_value()) {
++    if (!parsed_messages->is_array()) {
++      return absl::InvalidArgumentError(
++          "messages_json_file must contain a JSON array.");
++    }
++
++    if (json_preface.messages.is_array()) {
++      json_preface.messages.insert(json_preface.messages.end(),
++                                   parsed_messages->begin(),
++                                   parsed_messages->end());
++    } else {
++      json_preface.messages = std::move(parsed_messages.value());
++    }
++  }
++
++  ASSIGN_OR_RETURN(auto parsed_tools,
++                   ParseOptionalJson(tools_json, "tools_json"));
++  if (parsed_tools.has_value()) {
++    if (!parsed_tools->is_array()) {
++      return absl::InvalidArgumentError("tools_json must be a JSON array.");
++    }
++
++    json_preface.tools = std::move(parsed_tools.value());
++  }
++
++  ASSIGN_OR_RETURN(
++      auto conversation_config,
++      ConversationConfig::Builder()
++          .SetSessionConfig(session_config)
++          .SetPreface(json_preface)
++          .SetEnableConstrainedDecoding(
++              absl::GetFlag(FLAGS_enable_constrained_decoding))
++          .Build(*engine));
+   ASSIGN_OR_RETURN(conversation,
+                    Conversation::Create(*engine, conversation_config));
+
+   // Prepare the message to send.
+-  json content_list = json::array();
++  ordered_json content_list = ordered_json::array();
+   const std::string input_prompt = GetInputPrompt();
+   std::cout << "input_prompt: " << input_prompt << std::endl;
+   content_list.push_back({{"type", "text"}, {"text", input_prompt}});
+@@ -155,8 +276,8 @@ absl::Status MainHelper(int argc, char** argv) {
+   // Send the message and wait for the response, asynchronously log the
+   // response.
+   RETURN_IF_ERROR(conversation->SendMessageAsync(
+-      json::object({{"role", "user"}, {"content", content_list}}),
+-      CreateMessageCallback()));
++      ordered_json::object({{"role", "user"}, {"content", content_list}}),
++      CreateMessageCallback(absl::GetFlag(FLAGS_output_message_json))));
+   RETURN_IF_ERROR(engine->WaitUntilDone(absl::Minutes(10)));
+
+   // Print the benchmark info.
+diff --git a/runtime/executor/audio_executor_settings_test.cc b/runtime/executor/audio_executor_settings_test.cc
+index 481f81b..f18c998 100644
+--- a/runtime/executor/audio_executor_settings_test.cc
++++ b/runtime/executor/audio_executor_settings_test.cc
+@@ -165,4 +165,3 @@ TEST(AudioExecutorSettingsTest, GetProgramCacheFile) {
+
+ }  // namespace
+ }  // namespace litert::lm
+-
+diff --git a/runtime/executor/audio_litert_compiled_model_executor.cc b/runtime/executor/audio_litert_compiled_model_executor.cc
+index e9e347e..a856fb6 100644
+--- a/runtime/executor/audio_litert_compiled_model_executor.cc
++++ b/runtime/executor/audio_litert_compiled_model_executor.cc
+@@ -961,4 +961,3 @@ absl::Status AudioLiteRtCompiledModelExecutor::RestoreContext(
+ }
+
+ }  // namespace litert::lm
+-
+diff --git a/runtime/executor/llm_executor_settings.cc b/runtime/executor/llm_executor_settings.cc
+index a6736e5..b5e2e13 100644
+--- a/runtime/executor/llm_executor_settings.cc
++++ b/runtime/executor/llm_executor_settings.cc
+@@ -99,6 +99,8 @@ std::ostream& operator<<(std::ostream& os, const AdvancedSettings& settings) {
+   } else {
+     os << "allow_src_quantized_fc_conv_ops: Not set\n";
+   }
++  os << "allow_partial_gpu_delegation: "
++     << settings.allow_partial_gpu_delegation << "\n";
+   if (settings.hint_waiting_for_completion.has_value()) {
+     os << "hint_waiting_for_completion: "
+        << settings.hint_waiting_for_completion.value() << "\n";
+diff --git a/runtime/executor/llm_executor_settings.h b/runtime/executor/llm_executor_settings.h
+index 8704efe..574a60f 100644
+--- a/runtime/executor/llm_executor_settings.h
++++ b/runtime/executor/llm_executor_settings.h
+@@ -227,6 +227,10 @@ struct AdvancedSettings {
+   // performance at the risk of reducing quality.
+   std::optional<bool> allow_src_quantized_fc_conv_ops;
+
++  // If true, the GPU delegate may leave unsupported ops on CPU instead of
++  // failing model compilation when the graph cannot be fully delegated.
++  bool allow_partial_gpu_delegation = false;
++
+   // If true, the executor hints waiting for completion. This is to wait for all
+   // the enqueued commands to be completed after each invoke.
+   // This feature is only applied to the OpenCL backend and the goal is to fix
+@@ -285,6 +289,8 @@ struct AdvancedSettings {
+            sampler_handles_input == other.sampler_handles_input &&
+            allow_src_quantized_fc_conv_ops ==
+                other.allow_src_quantized_fc_conv_ops &&
++           allow_partial_gpu_delegation ==
++               other.allow_partial_gpu_delegation &&
+            hint_waiting_for_completion == other.hint_waiting_for_completion &&
+            gpu_context_low_priority == other.gpu_context_low_priority &&
+            enable_speculative_decoding == other.enable_speculative_decoding &&
+diff --git a/runtime/executor/llm_executor_settings_test.cc b/runtime/executor/llm_executor_settings_test.cc
+index 5d4b5b4..d119ffb 100644
+--- a/runtime/executor/llm_executor_settings_test.cc
++++ b/runtime/executor/llm_executor_settings_test.cc
+@@ -329,6 +329,7 @@ cache_compiled_shaders_only: 1
+ share_constant_tensors: 0
+ sampler_handles_input: 0
+ allow_src_quantized_fc_conv_ops: 1
++allow_partial_gpu_delegation: 0
+ hint_waiting_for_completion: 0
+ gpu_context_low_priority: Not set
+ enable_speculative_decoding: 0
+diff --git a/runtime/executor/llm_executor_settings_utils.cc b/runtime/executor/llm_executor_settings_utils.cc
+index bc87e77..c62358d 100644
+--- a/runtime/executor/llm_executor_settings_utils.cc
++++ b/runtime/executor/llm_executor_settings_utils.cc
+@@ -191,8 +191,8 @@ absl::StatusOr<litert::Options> CreateCompilationOptions(
+           gpu_compilation_options.AddExternalTensorPattern("logits");
+         }
+       }
+-      // Prefill and decode are always fully delegated to single delegate.
+-      gpu_compilation_options.SetHintFullyDelegatedToSingleDelegate(true);
++      gpu_compilation_options.SetHintFullyDelegatedToSingleDelegate(
++          !advanced_settings.allow_partial_gpu_delegation);
+
+       gpu_compilation_options.SetMadviseOriginalSharedTensors(
+           advanced_settings.gpu_madvise_original_shared_tensors);
+diff --git a/runtime/executor/vision_executor_settings_test.cc b/runtime/executor/vision_executor_settings_test.cc
+index 6a168f9..e84b74b 100644
+--- a/runtime/executor/vision_executor_settings_test.cc
++++ b/runtime/executor/vision_executor_settings_test.cc
+@@ -185,4 +185,3 @@ TEST(VisionExecutorSettingsTest, GetProgramCacheFile) {
+
+ }  // namespace
+ }  // namespace litert::lm
+-
+diff --git a/tools/docker/build_android.ps1 b/tools/docker/build_android.ps1
+new file mode 100644
+index 0000000..4f10bd1
+--- /dev/null
++++ b/tools/docker/build_android.ps1
+@@ -0,0 +1,40 @@
++param(
++    [string]$ImageName = "litert-lm-android-builder",
++    [string]$ArtifactDir = ""
++)
++
++$ErrorActionPreference = "Stop"
++
++$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\.." )).Path
++if ([string]::IsNullOrWhiteSpace($ArtifactDir)) {
++    $ArtifactDir = Join-Path $RepoRoot "artifacts\android"
++}
++
++$ContainerName = "litert-lm-android-build-" + [guid]::NewGuid().ToString("N")
++$BuildCommand = @(
++    "set -euo pipefail",
++    "bazel build --disk_cache=/root/.cache/bazel-android --config=android_arm64 //runtime/engine:litert_lm_main",
++    "cp bazel-bin/runtime/engine/litert_lm_main /tmp/litert_lm_main.android_arm64"
++) -join " && "
++
++Write-Host "[LiteRT-LM] Building Docker image '$ImageName'..."
++docker build -f "$RepoRoot/cmake/Containerfile" -t $ImageName "$RepoRoot"
++
++try {
++    Write-Host "[LiteRT-LM] Creating temporary build container '$ContainerName'..."
++    docker create --name $ContainerName $ImageName bash -lc $BuildCommand | Out-Null
++
++    Write-Host "[LiteRT-LM] Running Android Bazel build inside Docker..."
++    docker start -a $ContainerName
++
++    New-Item -ItemType Directory -Force -Path $ArtifactDir | Out-Null
++    $OutputPath = Join-Path $ArtifactDir "litert_lm_main.android_arm64"
++
++    Write-Host "[LiteRT-LM] Copying build artifact to '$OutputPath'..."
++    docker cp "${ContainerName}:/tmp/litert_lm_main.android_arm64" $OutputPath
++
++    Write-Host "[LiteRT-LM] Done. Android binary exported to '$OutputPath'."
++}
++finally {
++    docker rm -f $ContainerName | Out-Null 2>$null
++}
+diff --git a/tools/docker/build_litertlm.ps1 b/tools/docker/build_litertlm.ps1
+new file mode 100644
+index 0000000..12f153b
+--- /dev/null
++++ b/tools/docker/build_litertlm.ps1
+@@ -0,0 +1,127 @@
++param(
++    [string]$ImageName = "litert-lm-android-builder",
++    [string]$OutputPath = "",
++    [string]$TokenizerFile = "schema/testdata/gemma3_tokenizer.spiece",
++    [string]$HfTokenizerJsonFile = "",
++    [string]$TfliteFile = "schema/testdata/attention.tflite",
++    [string]$LlmMetadata = "schema/testdata/llm_metadata.pb",
++    [string]$LlmMetadataText = "",
++    [string]$BinaryData = "",
++    [string]$SectionMetadata = "tokenizer:vocab_size=10000,algorithm=bpe;tflite:quantized=true,model_size=1234567;llm_metadata:model=gemma3",
++    [string]$CacheVolume = "litert-lm-bazel-cache",
++    [switch]$SkipImageBuild,
++    [switch]$PrintCommandOnly
++)
++
++$ErrorActionPreference = "Stop"
++
++$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\.." )).Path
++if ([string]::IsNullOrWhiteSpace($OutputPath)) {
++    $OutputPath = Join-Path $RepoRoot "artifacts\litertlm\generated-test_tok_tfl_llm.litertlm"
++}
++
++function Convert-ToContainerPath {
++    param([string]$Path)
++
++    if ([string]::IsNullOrWhiteSpace($Path)) {
++        return ""
++    }
++
++    $resolvedPath = (Resolve-Path (Join-Path $RepoRoot $Path)).Path
++    $rootWithSeparator = $RepoRoot
++    if (!$rootWithSeparator.EndsWith([System.IO.Path]::DirectorySeparatorChar)) {
++        $rootWithSeparator += [System.IO.Path]::DirectorySeparatorChar
++    }
++
++    $rootUri = [System.Uri]::new($rootWithSeparator)
++    $fileUri = [System.Uri]::new($resolvedPath)
++    $relativePath = [System.Uri]::UnescapeDataString($rootUri.MakeRelativeUri($fileUri).ToString())
++    return "/host/" + ($relativePath -replace "\\", "/")
++}
++
++function Add-Flag {
++    param(
++        [System.Collections.Generic.List[string]]$TargetArgs,
++        [string]$Name,
++        [string]$Value
++    )
++
++    if (![string]::IsNullOrWhiteSpace($Value)) {
++        $TargetArgs.Add("--$Name='$Value'") | Out-Null
++    }
++}
++
++function Invoke-Native {
++    param(
++        [string]$Program,
++        [string[]]$Arguments
++    )
++
++    & $Program @Arguments
++    if ($LASTEXITCODE -ne 0) {
++        throw "Command failed with exit code $LASTEXITCODE`: $Program $($Arguments -join ' ')"
++    }
++}
++
++$outputDirectory = Split-Path -Parent $OutputPath
++if (![string]::IsNullOrWhiteSpace($outputDirectory)) {
++    New-Item -ItemType Directory -Force -Path $outputDirectory | Out-Null
++}
++
++$containerOutputPath = "/tmp/output.litertlm"
++$argsList = [System.Collections.Generic.List[string]]::new()
++Add-Flag $argsList "tokenizer_file" (Convert-ToContainerPath $TokenizerFile)
++Add-Flag $argsList "hf_tokenizer_json_file" (Convert-ToContainerPath $HfTokenizerJsonFile)
++Add-Flag $argsList "tflite_file" (Convert-ToContainerPath $TfliteFile)
++Add-Flag $argsList "llm_metadata" (Convert-ToContainerPath $LlmMetadata)
++Add-Flag $argsList "llm_metadata_text" (Convert-ToContainerPath $LlmMetadataText)
++Add-Flag $argsList "binary_data" (Convert-ToContainerPath $BinaryData)
++Add-Flag $argsList "section_metadata" $SectionMetadata
++$argsList.Add("--output_path='$containerOutputPath'") | Out-Null
++
++$containerName = "litert-lm-export-" + [guid]::NewGuid().ToString("N")
++$exporterArgs = [string]::Join(" ", $argsList.ToArray())
++$containerCommand = @(
++    "set -euo pipefail",
++    "cd /litert_lm",
++    "bazel run --disk_cache=/root/.cache/bazel-linux --config=linux_x86_64 //schema/cc:litertlm_export_main -- $exporterArgs",
++    "ls -lh '$containerOutputPath'"
++) -join " && "
++
++if ($PrintCommandOnly) {
++    Write-Host $containerCommand
++    return
++}
++
++if (!$SkipImageBuild) {
++    Write-Host "[LiteRT-LM] Building Docker image '$ImageName'..."
++    Invoke-Native "docker" @("build", "-f", "$RepoRoot/cmake/Containerfile", "-t", $ImageName, "$RepoRoot")
++}
++
++try {
++    Write-Host "[LiteRT-LM] Creating temporary exporter container '$ContainerName'..."
++    Invoke-Native "docker" @(
++        "create",
++        "--name",
++        $containerName,
++        "-v",
++        "${CacheVolume}:/root/.cache",
++        "-v",
++        "${RepoRoot}:/host",
++        $ImageName,
++        "bash",
++        "-lc",
++        $containerCommand) | Out-Null
++
++    Write-Host "[LiteRT-LM] Building .litertlm inside Docker..."
++    Invoke-Native "docker" @("start", "-a", $containerName)
++
++    Write-Host "[LiteRT-LM] Copying .litertlm to '$OutputPath'..."
++    Invoke-Native "docker" @("cp", "${containerName}:${containerOutputPath}", $OutputPath)
++
++    $outputItem = Get-Item $OutputPath
++    Write-Host "[LiteRT-LM] Done. Output: '$($outputItem.FullName)' ($($outputItem.Length) bytes)."
++}
++finally {
++    docker rm -f $containerName | Out-Null 2>$null
 +}
 diff --git a/tools/docker/build_unity_aar.ps1 b/tools/docker/build_unity_aar.ps1
 new file mode 100644
@@ -1474,3 +1952,110 @@ index 0000000..3ce02f8
 +
 +echo "[LiteRT-LM] Done. AAR exported to '$AAR_PATH'."
 +echo "[LiteRT-LM] Copied into LiteRT-LM-Unity: '$UNITY_PLUGINS_DIR/litertlm-unity-bridge.aar'."
+diff --git a/tools/docker/export_qwen25_gpu_candidate.ps1 b/tools/docker/export_qwen25_gpu_candidate.ps1
+new file mode 100644
+index 0000000..f549397
+--- /dev/null
++++ b/tools/docker/export_qwen25_gpu_candidate.ps1
+@@ -0,0 +1,101 @@
++param(
++    [string]$ImageName = "litert-lm-torch-nightly",
++    [string]$BaseImageName = "litert-lm-android-builder",
++    [string]$ModelId = "Qwen/Qwen2.5-0.5B-Instruct",
++    [string]$OutputDir = "artifacts/models/qwen2p5-0p5b-split-cache-q8",
++    [string]$PrefillLengths = "8,64,128",
++    [int]$CacheLength = 1280,
++    [string]$QuantizationRecipe = "dynamic_wi8_afp32",
++    [string]$HfCacheVolume = "litert-hf-cache",
++    [string]$PipCacheVolume = "litert-torch-pip-cache",
++    [switch]$SkipImageBuild
++)
++
++$ErrorActionPreference = "Stop"
++
++$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\.." )).Path
++$ResolvedOutputDir = Join-Path $RepoRoot $OutputDir
++New-Item -ItemType Directory -Force -Path $ResolvedOutputDir | Out-Null
++
++function Invoke-Native {
++    param(
++        [string]$Program,
++        [string[]]$Arguments
++    )
++
++    & $Program @Arguments
++    if ($LASTEXITCODE -ne 0) {
++        throw "Command failed with exit code $LASTEXITCODE`: $Program $($Arguments -join ' ')"
++    }
++}
++
++function Test-DockerImage {
++    param([string]$Name)
++
++    docker image inspect $Name *> $null
++    return $LASTEXITCODE -eq 0
++}
++
++if (!$SkipImageBuild -and !(Test-DockerImage $ImageName)) {
++    Write-Host "[LiteRT-LM] Creating '$ImageName' with litert-torch-nightly..."
++    $containerName = "litert-torch-nightly-tool-" + [guid]::NewGuid().ToString("N")
++    try {
++        Invoke-Native "docker" @(
++            "run",
++            "--name", $containerName,
++            "-v", "${PipCacheVolume}:/root/.cache/pip",
++            $BaseImageName,
++            "bash",
++            "-lc",
++            "set -euo pipefail; python3 -m pip install --break-system-packages --ignore-installed --pre litert-torch-nightly huggingface_hub >/tmp/litert-torch-install.log 2>&1; litert-torch export_hf --help >/tmp/export_hf_help.txt 2>&1 || true"
++        )
++        Invoke-Native "docker" @("commit", $containerName, $ImageName)
++    }
++    finally {
++        docker rm -f $containerName *> $null
++    }
++}
++
++if (!(Test-DockerImage $ImageName)) {
++    throw "Docker image '$ImageName' was not found. Run without -SkipImageBuild or build it first."
++}
++
++$exportCommand = @(
++    "set -euo pipefail",
++    "mkdir -p '/host/$OutputDir'",
++    "cd /host",
++    "litert-torch export_hf '$ModelId' '/host/$OutputDir' --prefill_lengths=$PrefillLengths --cache_length=$CacheLength --quantization_recipe=$QuantizationRecipe --split_cache=True --bundle_litert_lm=False --keep_temporary_files=True 2>&1 | tee '/host/$OutputDir/export.log'"
++) -join "; "
++
++Write-Host "[LiteRT-LM] Exporting GPU candidate graph..."
++Invoke-Native "docker" @(
++    "run",
++    "--rm",
++    "-v", "${RepoRoot}:/host",
++    "-v", "${HfCacheVolume}:/root/.cache/huggingface",
++    $ImageName,
++    "bash",
++    "-lc",
++    $exportCommand
++)
++
++$tfliteFiles = @(
++    "model_quantized.tflite",
++    "embedder_quantized.tflite",
++    "auxiliary.tflite"
++)
++
++foreach ($file in $tfliteFiles) {
++    $path = Join-Path $ResolvedOutputDir $file
++    if (!(Test-Path $path)) {
++        throw "Expected export output was not found: $path"
++    }
++
++    $reportPath = Join-Path $ResolvedOutputDir ($file -replace "\.tflite$", ".gpu_preflight.json")
++    Write-Host "[LiteRT-LM] GPU preflight: $file"
++    python (Join-Path $RepoRoot "tools\inspect_tflite_graph.py") $path --blocker-limit 20 --json |
++        Set-Content -Encoding UTF8 $reportPath
++    python (Join-Path $RepoRoot "tools\inspect_tflite_graph.py") $path --blocker-limit 12
++}
++
++Write-Host "[LiteRT-LM] Done. Output: $ResolvedOutputDir"
