@@ -202,6 +202,7 @@ function Copy-AarBuildSourceInputs {
         "Cargo.lock",
         "Cargo.toml",
         "cargo-bazel-lock.json",
+        "requirements.txt",
         "android_ndk_env.bzl",
         "rust_cxx_bridge.bzl",
         "version.bzl",
@@ -221,6 +222,11 @@ function Copy-AarBuildSourceInputs {
     foreach ($relativePath in $paths) {
         Copy-SourceInput -SourceRoot $SourceRoot -DestinationRoot $DestinationRoot -RelativePath $relativePath
     }
+
+    Get-ChildItem -LiteralPath $SourceRoot -Filter "PATCH.*" -File |
+        ForEach-Object {
+            Copy-SourceInput -SourceRoot $SourceRoot -DestinationRoot $DestinationRoot -RelativePath $_.Name
+        }
 }
 
 function ConvertTo-RelativeGitPath {
