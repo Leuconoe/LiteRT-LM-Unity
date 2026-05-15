@@ -1,3 +1,4 @@
+[CmdletBinding(PositionalBinding = $false)]
 param(
     [string]$DeviceSerial = "",
     [string]$PackageName = "com.Leuconoe.LiteRTLMUnity",
@@ -6,6 +7,7 @@ param(
     [double]$ThermalMaxCelsius = 45.0,
     [int]$ThermalPollSeconds = 15,
     [switch]$SkipThermalWait,
+    [switch]$SkipModelPush,
     [switch]$ClearAppData
 )
 
@@ -166,33 +168,94 @@ function Get-ModelSizeBytes {
     return (Get-Item $modelPath).Length
 }
 
+function Push-BenchmarkModel {
+    param(
+        [string]$Serial,
+        [string]$PackageName,
+        [string]$ModelFileName
+    )
+
+    if ($SkipModelPush) {
+        return $false
+    }
+
+    $modelPath = Join-Path (Join-Path $ProjectRoot "Assets\StreamingAssets") $ModelFileName
+    if (!(Test-Path $modelPath)) {
+        throw "Model file not found for device push: $modelPath"
+    }
+
+    $deviceDirectory = "/sdcard/Android/data/$PackageName/files/LiteRTLM"
+    $devicePath = "$deviceDirectory/$ModelFileName"
+    Write-Host "Pushing model to device: $ModelFileName -> $devicePath"
+    $mkdirOutput = @(Invoke-Adb $Serial @("shell", "mkdir", "-p", $deviceDirectory))
+    $mkdirOutput | ForEach-Object { Write-Host $_ }
+    $pushOutput = @(Invoke-Adb $Serial @("push", $modelPath, $devicePath))
+    $pushOutput | ForEach-Object { Write-Host $_ }
+    return $true
+}
+
+function Get-DeviceStatusPath {
+    param([string]$PackageName)
+
+    return "/sdcard/Android/data/$PackageName/files/LiteRtLmAndroidSmokeTest.status.txt"
+}
+
+function Get-DeviceStatusText {
+    param(
+        [string]$Serial,
+        [string]$DeviceStatusPath
+    )
+
+    try {
+        $lines = & adb -s $Serial shell cat $DeviceStatusPath 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            return ""
+        }
+
+        return (@($lines) -join [Environment]::NewLine)
+    }
+    catch {
+        return ""
+    }
+}
+
+function Test-RunStatusMatched {
+    param([string]$StatusText)
+
+    return $StatusText -match "(?m)\]\s+(SUCCESS|FAILURE):"
+}
+
 function Get-DeviceThermalSnapshot {
     param([string]$Serial)
 
-    $script = @'
-for z in /sys/class/thermal/thermal_zone*; do
-  [ -f "$z/type" ] || continue
-  [ -f "$z/temp" ] || continue
-  type="$(cat "$z/type" 2>/dev/null)"
-  temp="$(cat "$z/temp" 2>/dev/null)"
-  [ -n "$type" ] || continue
-  [ -n "$temp" ] || continue
-  case "$temp" in
-    -*|*[!0-9]*) continue ;;
-  esac
-  echo "$type=$temp"
-done
-'@
-
-    $lines = & adb -s $Serial shell $script 2>$null
     $readings = @()
-    foreach ($line in @($lines)) {
-        if ($line -notmatch "^([^=]+)=([0-9]+)$") {
+    $zoneNames = & adb -s $Serial shell ls /sys/class/thermal 2>$null
+    foreach ($zoneNameRaw in @($zoneNames)) {
+        $zoneName = ([string]$zoneNameRaw).Trim()
+        if ($zoneName -notmatch "^thermal_zone[0-9]+$") {
             continue
         }
 
-        $name = $matches[1]
-        $raw = [double]$matches[2]
+        $zonePath = "/sys/class/thermal/$zoneName"
+        try {
+            $name = ((& adb -s $Serial shell cat "$zonePath/type" 2>$null) | Select-Object -First 1)
+            $temp = ((& adb -s $Serial shell cat "$zonePath/temp" 2>$null) | Select-Object -First 1)
+        }
+        catch {
+            continue
+        }
+
+        if ($null -eq $name -or $null -eq $temp) {
+            continue
+        }
+
+        $name = ([string]$name).Trim()
+        $temp = ([string]$temp).Trim()
+        if ([string]::IsNullOrWhiteSpace($name) -or $temp -notmatch "^[0-9]+$") {
+            continue
+        }
+
+        $raw = [double]$temp
         if ($raw -le 0) {
             continue
         }
@@ -290,6 +353,11 @@ $DeviceDescription = (& adb -s $Serial shell getprop ro.product.manufacturer).Tr
 Write-Host "Device: $Serial ($DeviceDescription)"
 
 $Results = New-Object System.Collections.Generic.List[object]
+$csvPath = Join-Path $LogDirectory "$RunId-results.csv"
+
+function Save-BenchmarkResults {
+    $script:Results | Export-Csv -NoTypeInformation -Encoding utf8 -Path $script:csvPath
+}
 
 foreach ($benchmark in $Benchmarks) {
     $name = $benchmark.Name
@@ -302,6 +370,9 @@ foreach ($benchmark in $Benchmarks) {
     $rawLog = Join-Path $LogDirectory "$RunId-$name.logcat.txt"
     $summaryLog = Join-Path $LogDirectory "$RunId-$name.summary.txt"
     $meminfoLog = Join-Path $LogDirectory "$RunId-$name.meminfo.txt"
+    $statusLog = Join-Path $LogDirectory "$RunId-$name.status.txt"
+    $deviceStatusPath = Get-DeviceStatusPath $PackageName
+    $modelPushed = $false
 
     Write-Host "=== $name ==="
     $thermalBefore = @(Wait-DeviceThermalReady $Serial)
@@ -333,8 +404,10 @@ foreach ($benchmark in $Benchmarks) {
             Apk = $benchmark.Apk
             Status = "INSTALL_FAIL"
             Matched = $false
+            ModelPushed = $modelPushed
             ModelCopied = ""
             BackendRequested = $benchmark.Backend
+            StartedModel = ""
             GpuEvidence = ""
             ThermalBeforeMaxCelsius = $thermalBeforeMax
             ThermalAfterMaxCelsius = ""
@@ -355,8 +428,10 @@ foreach ($benchmark in $Benchmarks) {
             TotalSeconds = ""
             RawLog = ""
             SummaryLog = ""
+            StatusLog = ""
             MemInfoLog = ""
         }) | Out-Null
+        Save-BenchmarkResults
         Write-Warning "Install failed for $name with exit code $installExitCode. Continuing with the next benchmark."
         continue
     }
@@ -367,31 +442,59 @@ foreach ($benchmark in $Benchmarks) {
             & adb -s $Serial shell pm clear $PackageName | Out-Null
         }
 
+        $modelPushed = Push-BenchmarkModel -Serial $Serial -PackageName $PackageName -ModelFileName $benchmark.Model
         Invoke-AdbBestEffort $Serial @("shell", "am", "force-stop", $PackageName) "Pre-run force-stop failed"
+        Invoke-AdbBestEffort $Serial @("shell", "rm", "-f", $deviceStatusPath) "Pre-run status cleanup failed"
         Invoke-Adb $Serial @("logcat", "-c")
         Invoke-Adb $Serial @("shell", "monkey", "-p", $PackageName, "-c", "android.intent.category.LAUNCHER", "1")
 
         $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
         $matched = $false
+        $statusText = ""
         while ((Get-Date) -lt $deadline) {
             Start-Sleep -Seconds 5
+            $statusText = Get-DeviceStatusText -Serial $Serial -DeviceStatusPath $deviceStatusPath
+            if (![string]::IsNullOrWhiteSpace($statusText)) {
+                $statusText | Out-File -FilePath $statusLog -Encoding utf8
+                if (Test-RunStatusMatched $statusText) {
+                    $matched = $true
+                    break
+                }
+            }
+
             & adb -s $Serial logcat -d -v threadtime | Out-File -FilePath $rawLog -Encoding utf8
             $content = Get-Content $rawLog -Raw
-        if ($content -match "\[LiteRT-LM AndroidSmoke\] (SUCCESS|FAILURE)" -or
-            $content -match "lowmemorykiller: Kill '$([regex]::Escape($PackageName))'" -or
-            $content -match "Process $([regex]::Escape($PackageName)).* has died") {
+            if ($content -match "lowmemorykiller: Kill '$([regex]::Escape($PackageName))'" -or
+                $content -match "Process $([regex]::Escape($PackageName)).* has died") {
                 $matched = $true
                 break
             }
         }
 
+        if (![string]::IsNullOrWhiteSpace($statusText)) {
+            $statusText | Out-File -FilePath $statusLog -Encoding utf8
+        }
+
+        & adb -s $Serial logcat -d -v threadtime | Out-File -FilePath $rawLog -Encoding utf8
         $patterns = "LiteRT-LM AndroidSmoke|MODEL_READY|COPY_MODEL|INITIALIZED|RESPONSE|BENCHMARK|SUCCESS|FAILURE|WebGPU|OpenCL|GPU sampler|GPU|compiled model|Binding size|lowmemorykiller|Process $([regex]::Escape($PackageName)).* has died|AndroidRuntime|FATAL|ERROR"
         Select-String -Path $rawLog -Pattern $patterns | ForEach-Object { $_.Line } | Out-File -FilePath $summaryLog -Encoding utf8
+        if (Test-Path $statusLog) {
+            Add-Content -Path $summaryLog -Encoding utf8 -Value ""
+            Add-Content -Path $summaryLog -Encoding utf8 -Value "STATUS_FILE:"
+            Get-Content $statusLog | Add-Content -Path $summaryLog -Encoding utf8
+        }
+
         $summaryText = Get-Content $summaryLog -Raw
-        $status = if ($summaryText -match "\[LiteRT-LM AndroidSmoke\] SUCCESS") { "PASS" } elseif ($summaryText -match "\[LiteRT-LM AndroidSmoke\] FAILURE" -or $summaryText -match "lowmemorykiller|Process $([regex]::Escape($PackageName)).* has died") { "FAIL" } else { "TIMEOUT" }
-        $backendRequested = Get-FirstRegexGroup $summaryText "START: backend=([^,]+)"
+        $statusParseText = if (Test-Path $statusLog) { Get-Content $statusLog -Raw } else { $summaryText }
+        $status = if ($statusParseText -match "(?m)\]\s+SUCCESS:") { "PASS" } elseif ($statusParseText -match "(?m)\]\s+FAILURE:" -or $summaryText -match "lowmemorykiller|Process $([regex]::Escape($PackageName)).* has died") { "FAIL" } else { "TIMEOUT" }
+        $backendRequested = Get-FirstRegexGroup $statusParseText "START: backend=([^,]+)"
         if ([string]::IsNullOrWhiteSpace($backendRequested)) {
             $backendRequested = Get-BackendFromName $name
+        }
+        $startedModel = Get-FirstRegexGroup $statusParseText "START: backend=[^,]+, model=([^,]+)"
+        if ((![string]::IsNullOrWhiteSpace($startedModel) -and ![string]::Equals($startedModel, $benchmark.Model, [StringComparison]::OrdinalIgnoreCase)) -or
+            (![string]::IsNullOrWhiteSpace($backendRequested) -and ![string]::Equals($backendRequested, $benchmark.Backend, [StringComparison]::OrdinalIgnoreCase))) {
+            $status = "MISMATCH"
         }
         $gpuEvidence = Get-GpuEvidence $summaryText
         $memorySnapshot = Get-MemInfoSnapshot -Serial $Serial -PackageName $PackageName -OutputPath $meminfoLog
@@ -408,8 +511,10 @@ foreach ($benchmark in $Benchmarks) {
             Apk = $benchmark.Apk
             Status = $status
             Matched = $matched
+            ModelPushed = $modelPushed
             ModelCopied = Get-FirstRegexGroup $summaryText "MODEL_READY: .*copied=(True|False)"
             BackendRequested = $backendRequested
+            StartedModel = $startedModel
             GpuEvidence = $gpuEvidence
             ThermalBeforeMaxCelsius = $thermalBeforeMax
             ThermalAfterMaxCelsius = $thermalAfterMax
@@ -430,8 +535,10 @@ foreach ($benchmark in $Benchmarks) {
             TotalSeconds = Get-FirstRegexGroup $summaryText "SUCCESS: .*totalElapsedSeconds=([0-9.]+)"
             RawLog = $rawLog
             SummaryLog = $summaryLog
+            StatusLog = $statusLog
             MemInfoLog = $meminfoLog
         }) | Out-Null
+        Save-BenchmarkResults
 
         Get-Content $summaryLog -Tail 80
     }
@@ -445,8 +552,10 @@ foreach ($benchmark in $Benchmarks) {
             Apk = $benchmark.Apk
             Status = "RUN_ERROR"
             Matched = $false
+            ModelPushed = $modelPushed
             ModelCopied = ""
             BackendRequested = $benchmark.Backend
+            StartedModel = ""
             GpuEvidence = ""
             ThermalBeforeMaxCelsius = $thermalBeforeMax
             ThermalAfterMaxCelsius = ""
@@ -467,13 +576,14 @@ foreach ($benchmark in $Benchmarks) {
             TotalSeconds = ""
             RawLog = $rawLog
             SummaryLog = $summaryLog
+            StatusLog = $statusLog
             MemInfoLog = $meminfoLog
         }) | Out-Null
+        Save-BenchmarkResults
         Write-Warning "Run failed for $name`: $($_.Exception.Message). Continuing with the next benchmark."
     }
 }
 
-$csvPath = Join-Path $LogDirectory "$RunId-results.csv"
-$Results | Export-Csv -NoTypeInformation -Encoding utf8 -Path $csvPath
+Save-BenchmarkResults
 Write-Host "Results: $csvPath"
 $Results | Format-Table -AutoSize

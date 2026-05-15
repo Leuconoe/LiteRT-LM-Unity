@@ -16,6 +16,7 @@ namespace LiteRTLM.Unity.Editor
     {
         private const string ScenePath = "Assets/Scenes/LiteRtLmSampleScene.unity";
         private const string AndroidSmokeBuildScenePath = "Assets/Scenes/LiteRtLmAndroidSmokeTestBuildScene.generated.unity";
+        private const string AndroidAsrSmokeBuildScenePath = "Assets/Scenes/LiteRtLmAsrSmokeTestBuildScene.generated.unity";
         private const string ConversationTestScenePath = "Assets/Scenes/LiteRtLmConversationTestScene.unity";
         private const string FunctionCallingBenchmarkScenePath = "Assets/Scenes/LiteRtLmFunctionCallingBenchmarkScene.unity";
         private const string StreamingAssetsModelPath = "Assets/StreamingAssets/model.litertlm";
@@ -34,6 +35,9 @@ namespace LiteRTLM.Unity.Editor
         private const string FunctionCallingQwen25_1_5BModelPath = "Qwen2.5-1.5B-Instruct-q8.litertlm";
         private const string FunctionCallingQwen3ModelPath = "Qwen3-0.6B.litertlm";
         private const string FunctionCallingMobileActionsModelPath = "mobile_actions_q8_ekv1024.litertlm";
+        private const string AsrSmokeDefaultModelPath = "parakeet_tdt_0.6b_v3_5s_i8.tflite";
+        private const string AsrSmokeDefaultAudioPath = "Tactical Evaluation Results Report - March 5, 2025.mp3";
+        private const string AsrSmokeTokenizerJsonPath = "parakeet-tdt-0.6b-v3/tokenizer.json";
 
         private static bool functionCallingBenchmarkConsoleMirrorActive;
         private static long functionCallingBenchmarkConsoleMirrorPosition;
@@ -48,7 +52,8 @@ namespace LiteRTLM.Unity.Editor
                 bool enableSpeculativeDecoding,
                 int maxNumTokens = 64,
                 int maxNumImages = 0,
-                int benchmarkPrefillTokens = 64)
+                int benchmarkPrefillTokens = 64,
+                bool packageModel = true)
             {
                 ModelFileName = modelFileName;
                 Backend = backend;
@@ -57,6 +62,7 @@ namespace LiteRTLM.Unity.Editor
                 MaxNumTokens = maxNumTokens;
                 MaxNumImages = maxNumImages;
                 BenchmarkPrefillTokens = benchmarkPrefillTokens;
+                PackageModel = packageModel;
             }
 
             public string ModelFileName { get; }
@@ -66,6 +72,23 @@ namespace LiteRTLM.Unity.Editor
             public int MaxNumTokens { get; }
             public int MaxNumImages { get; }
             public int BenchmarkPrefillTokens { get; }
+            public bool PackageModel { get; }
+        }
+
+        private readonly struct AndroidAsrSmokeBuildSettings
+        {
+            public AndroidAsrSmokeBuildSettings(string modelFileName, string audioFileName, string backend, string outputFileName)
+            {
+                ModelFileName = modelFileName;
+                AudioFileName = audioFileName;
+                Backend = backend;
+                OutputFileName = outputFileName;
+            }
+
+            public string ModelFileName { get; }
+            public string AudioFileName { get; }
+            public string Backend { get; }
+            public string OutputFileName { get; }
         }
 
         private static AndroidSmokeBuildSettings AndroidSmokeSettings(
@@ -75,7 +98,8 @@ namespace LiteRTLM.Unity.Editor
             bool enableSpeculativeDecoding,
             int maxNumTokens = 64,
             int maxNumImages = 0,
-            int benchmarkPrefillTokens = 64)
+            int benchmarkPrefillTokens = 64,
+            bool packageModel = true)
         {
             return new AndroidSmokeBuildSettings(
                 modelFileName,
@@ -84,7 +108,8 @@ namespace LiteRTLM.Unity.Editor
                 enableSpeculativeDecoding,
                 maxNumTokens,
                 maxNumImages,
-                benchmarkPrefillTokens);
+                benchmarkPrefillTokens,
+                packageModel);
         }
 
         private static string GetCommandLineValue(string[] args, string key, string defaultValue)
@@ -185,6 +210,7 @@ namespace LiteRTLM.Unity.Editor
             var maxNumTokens = GetCommandLineInt(args, "-litertlmMaxNumTokens", 64);
             var maxNumImages = GetCommandLineInt(args, "-litertlmMaxNumImages", 0);
             var benchmarkPrefillTokens = GetCommandLineInt(args, "-litertlmBenchmarkPrefillTokens", 64);
+            var packageModel = GetCommandLineBool(args, "-litertlmPackageModel", true);
 
             if (string.IsNullOrWhiteSpace(modelFileName))
             {
@@ -203,7 +229,8 @@ namespace LiteRTLM.Unity.Editor
                 enableSpeculativeDecoding,
                 maxNumTokens,
                 maxNumImages,
-                benchmarkPrefillTokens));
+                benchmarkPrefillTokens,
+                packageModel));
         }
 
         [MenuItem("LiteRT-LM/Android/Build AVD Smoke Test APK/gemma-4-E2B-it")]
@@ -278,6 +305,27 @@ namespace LiteRTLM.Unity.Editor
             BuildAndroidAvdSmokeTestApk(AndroidSmokeSettings(FunctionCallingQwen25_1_5BModelPath, "CPU", "LiteRtLmAndroidSmokeTest-Qwen2.5-1.5B-Instruct-CPU.apk", false));
         }
 
+        [MenuItem("LiteRT-LM/Android/Build ASR Smoke Test APK/Parakeet TFLite Inspect")]
+        public static void BuildAndroidAsrSmokeTestApk()
+        {
+            BuildAndroidAsrSmokeTestApk(new AndroidAsrSmokeBuildSettings(
+                AsrSmokeDefaultModelPath,
+                AsrSmokeDefaultAudioPath,
+                "GPU_FP16",
+                "LiteRtLmAndroidAsrSmokeTest-parakeet-tdt-0.6b-v3.apk"));
+        }
+
+        public static void BuildAndroidAsrSmokeTestApkFromCommandLine()
+        {
+            var args = Environment.GetCommandLineArgs();
+            var modelFileName = GetCommandLineValue(args, "-litertlmAsrModel", AsrSmokeDefaultModelPath);
+            var audioFileName = GetCommandLineValue(args, "-litertlmAsrAudio", AsrSmokeDefaultAudioPath);
+            var backend = GetCommandLineValue(args, "-litertlmBackend", "GPU_FP16");
+            var outputFileName = GetCommandLineValue(args, "-litertlmOutputApk", "LiteRtLmAndroidAsrSmokeTest-parakeet-tdt-0.6b-v3.apk");
+
+            BuildAndroidAsrSmokeTestApk(new AndroidAsrSmokeBuildSettings(modelFileName, audioFileName, backend, outputFileName));
+        }
+
         private static void BuildAndroidAvdSmokeTestApk(AndroidSmokeBuildSettings settings)
         {
             if (string.IsNullOrWhiteSpace(settings.ModelFileName))
@@ -292,7 +340,7 @@ namespace LiteRTLM.Unity.Editor
 
             var projectRoot = GetProjectRoot();
             var modelAssetPath = Path.Combine(projectRoot, "Assets", "StreamingAssets", settings.ModelFileName);
-            if (!File.Exists(modelAssetPath))
+            if (settings.PackageModel && !File.Exists(modelAssetPath))
             {
                 throw new FileNotFoundException($"Android smoke test model not found: {modelAssetPath}", modelAssetPath);
             }
@@ -319,7 +367,7 @@ namespace LiteRTLM.Unity.Editor
                 PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.Android, false);
                 PlayerSettings.SetGraphicsAPIs(BuildTarget.Android, new[] { GraphicsDeviceType.OpenGLES3 });
 
-                WithAndroidSmokeStreamingAssets(settings.ModelFileName, () =>
+                WithAndroidSmokeStreamingAssets(settings.ModelFileName, settings.PackageModel, () =>
                 {
                     var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
                     {
@@ -336,11 +384,107 @@ namespace LiteRTLM.Unity.Editor
                     }
                 });
 
-                Debug.Log($"LiteRT-LM Android AVD smoke APK built successfully: {outputPath}, model={settings.ModelFileName}, backend={settings.Backend}, speculative={settings.EnableSpeculativeDecoding}, maxNumTokens={settings.MaxNumTokens}, maxNumImages={settings.MaxNumImages}");
+                Debug.Log($"LiteRT-LM Android AVD smoke APK built successfully: {outputPath}, model={settings.ModelFileName}, backend={settings.Backend}, packageModel={settings.PackageModel}, speculative={settings.EnableSpeculativeDecoding}, maxNumTokens={settings.MaxNumTokens}, maxNumImages={settings.MaxNumImages}");
             }
             finally
             {
-                DeleteGeneratedAndroidSmokeBuildScene(buildScenePath);
+                DeleteGeneratedBuildScene(buildScenePath);
+                PlayerSettings.Android.targetArchitectures = previousArchitectures;
+                PlayerSettings.SetScriptingBackend(androidBuildTarget, previousScriptingBackend);
+                PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.Android, previousUseDefaultGraphicsApis);
+                PlayerSettings.SetGraphicsAPIs(BuildTarget.Android, previousGraphicsApis);
+            }
+        }
+
+        private static void BuildAndroidAsrSmokeTestApk(AndroidAsrSmokeBuildSettings settings)
+        {
+            if (string.IsNullOrWhiteSpace(settings.ModelFileName))
+            {
+                throw new ArgumentException("Android ASR smoke test model file name is required.", nameof(settings));
+            }
+
+            if (string.IsNullOrWhiteSpace(settings.AudioFileName))
+            {
+                throw new ArgumentException("Android ASR smoke test audio file name is required.", nameof(settings));
+            }
+            if (string.IsNullOrWhiteSpace(settings.Backend))
+            {
+                throw new ArgumentException("Android ASR smoke test backend is required.", nameof(settings));
+            }
+
+            var projectRoot = GetProjectRoot();
+            var modelAssetPath = Path.Combine(projectRoot, "Assets", "StreamingAssets", settings.ModelFileName);
+            if (!File.Exists(modelAssetPath))
+            {
+                throw new FileNotFoundException($"Android ASR smoke test model not found: {modelAssetPath}", modelAssetPath);
+            }
+
+            var audioAssetPath = Path.Combine(projectRoot, "Assets", "StreamingAssets", settings.AudioFileName);
+            if (!File.Exists(audioAssetPath))
+            {
+                throw new FileNotFoundException($"Android ASR smoke test audio not found: {audioAssetPath}", audioAssetPath);
+            }
+
+            var tokenizerAssetPath = Path.Combine(projectRoot, "Assets", "StreamingAssets", AsrSmokeTokenizerJsonPath);
+            if (!File.Exists(tokenizerAssetPath))
+            {
+                throw new FileNotFoundException($"Android ASR smoke test tokenizer not found: {tokenizerAssetPath}", tokenizerAssetPath);
+            }
+
+            var outputDirectory = Path.Combine(projectRoot, "Builds", "Android");
+            Directory.CreateDirectory(outputDirectory);
+            var outputPath = Path.Combine(outputDirectory, settings.OutputFileName);
+            if (File.Exists(outputPath))
+            {
+                File.Delete(outputPath);
+            }
+
+            var previousArchitectures = PlayerSettings.Android.targetArchitectures;
+            var androidBuildTarget = UnityEditor.Build.NamedBuildTarget.Android;
+            var previousScriptingBackend = PlayerSettings.GetScriptingBackend(androidBuildTarget);
+            var previousUseDefaultGraphicsApis = PlayerSettings.GetUseDefaultGraphicsAPIs(BuildTarget.Android);
+            var previousGraphicsApis = PlayerSettings.GetGraphicsAPIs(BuildTarget.Android);
+            var buildScenePath = CreateAndroidAsrSmokeBuildScene(settings);
+
+            try
+            {
+                PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
+                PlayerSettings.SetScriptingBackend(androidBuildTarget, ScriptingImplementation.IL2CPP);
+                PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.Android, false);
+                PlayerSettings.SetGraphicsAPIs(BuildTarget.Android, new[] { GraphicsDeviceType.OpenGLES3 });
+
+                var packagedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    settings.ModelFileName,
+                    settings.ModelFileName + ".meta",
+                    settings.AudioFileName,
+                    settings.AudioFileName + ".meta",
+                    AsrSmokeTokenizerJsonPath,
+                    AsrSmokeTokenizerJsonPath + ".meta",
+                };
+
+                WithAndroidSelectedStreamingAssets(packagedFiles, () =>
+                {
+                    var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
+                    {
+                        scenes = new[] { buildScenePath },
+                        locationPathName = outputPath,
+                        target = BuildTarget.Android,
+                        options = BuildOptions.Development,
+                    });
+
+                    if (report.summary.result != BuildResult.Succeeded)
+                    {
+                        throw new InvalidOperationException(
+                            $"Android ASR smoke build failed with result {report.summary.result}. See Unity Editor log for details.");
+                    }
+                });
+
+                Debug.Log($"LiteRT-LM Android ASR smoke APK built successfully: {outputPath}, model={settings.ModelFileName}, audio={settings.AudioFileName}, backend={settings.Backend}");
+            }
+            finally
+            {
+                DeleteGeneratedBuildScene(buildScenePath);
                 PlayerSettings.Android.targetArchitectures = previousArchitectures;
                 PlayerSettings.SetScriptingBackend(androidBuildTarget, previousScriptingBackend);
                 PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.Android, previousUseDefaultGraphicsApis);
@@ -801,7 +945,7 @@ namespace LiteRTLM.Unity.Editor
 
         private static string CreateAndroidSmokeBuildScene(AndroidSmokeBuildSettings settings)
         {
-            DeleteGeneratedAndroidSmokeBuildScene(AndroidSmokeBuildScenePath);
+            DeleteGeneratedBuildScene(AndroidSmokeBuildScenePath);
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, GetTemporarySceneMode());
             try
@@ -834,7 +978,47 @@ namespace LiteRTLM.Unity.Editor
                     EditorSceneManager.CloseScene(scene, true);
                 }
 
-                DeleteGeneratedAndroidSmokeBuildScene(AndroidSmokeBuildScenePath);
+                DeleteGeneratedBuildScene(AndroidSmokeBuildScenePath);
+                throw;
+            }
+        }
+
+        private static string CreateAndroidAsrSmokeBuildScene(AndroidAsrSmokeBuildSettings settings)
+        {
+            DeleteGeneratedBuildScene(AndroidAsrSmokeBuildScenePath);
+
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, GetTemporarySceneMode());
+            try
+            {
+                var runnerObject = new GameObject("LiteRtLmAsrSmokeTestRunner");
+                SceneManager.MoveGameObjectToScene(runnerObject, scene);
+                var runner = runnerObject.AddComponent<LiteRtLmAsrSmokeTestRunner>();
+                ApplyAndroidAsrSmokeBuildSettings(runner, settings);
+
+                var sceneDirectory = Path.GetDirectoryName(Path.Combine(GetProjectRoot(), AndroidAsrSmokeBuildScenePath));
+                if (!string.IsNullOrWhiteSpace(sceneDirectory))
+                {
+                    Directory.CreateDirectory(sceneDirectory);
+                }
+
+                if (!EditorSceneManager.SaveScene(scene, AndroidAsrSmokeBuildScenePath))
+                {
+                    throw new InvalidOperationException($"Failed to save Android ASR smoke test build scene: {AndroidAsrSmokeBuildScenePath}");
+                }
+
+                EditorSceneManager.CloseScene(scene, true);
+                AssetDatabase.ImportAsset(AndroidAsrSmokeBuildScenePath, ImportAssetOptions.ForceUpdate);
+                Debug.Log($"LiteRT-LM Android ASR smoke build scene generated: {AndroidAsrSmokeBuildScenePath}, model={settings.ModelFileName}, audio={settings.AudioFileName}, backend={settings.Backend}");
+                return AndroidAsrSmokeBuildScenePath;
+            }
+            catch
+            {
+                if (scene.IsValid() && scene.isLoaded)
+                {
+                    EditorSceneManager.CloseScene(scene, true);
+                }
+
+                DeleteGeneratedBuildScene(AndroidAsrSmokeBuildScenePath);
                 throw;
             }
         }
@@ -882,21 +1066,33 @@ namespace LiteRTLM.Unity.Editor
             serializedRunner.ApplyModifiedPropertiesWithoutUndo();
         }
 
+        private static void ApplyAndroidAsrSmokeBuildSettings(
+            LiteRtLmAsrSmokeTestRunner runner,
+            AndroidAsrSmokeBuildSettings settings)
+        {
+            var serializedRunner = new SerializedObject(runner);
+            FindRequiredProperty(serializedRunner, "modelPath").stringValue = settings.ModelFileName;
+            FindRequiredProperty(serializedRunner, "audioPath").stringValue = settings.AudioFileName;
+            FindRequiredProperty(serializedRunner, "backend").stringValue = settings.Backend;
+            serializedRunner.ApplyModifiedPropertiesWithoutUndo();
+        }
+
         private static SerializedProperty FindRequiredProperty(SerializedObject serializedObject, string propertyName)
         {
             var property = serializedObject.FindProperty(propertyName);
             if (property == null)
             {
-                throw new InvalidOperationException($"{nameof(LiteRtLmAndroidSmokeTestRunner)} does not expose serialized {propertyName}.");
+                throw new InvalidOperationException($"{serializedObject.targetObject.GetType().Name} does not expose serialized {propertyName}.");
             }
 
             return property;
         }
 
-        private static void DeleteGeneratedAndroidSmokeBuildScene(string scenePath)
+        private static void DeleteGeneratedBuildScene(string scenePath)
         {
             if (string.IsNullOrWhiteSpace(scenePath) ||
-                !string.Equals(scenePath, AndroidSmokeBuildScenePath, StringComparison.Ordinal))
+                (!string.Equals(scenePath, AndroidSmokeBuildScenePath, StringComparison.Ordinal) &&
+                 !string.Equals(scenePath, AndroidAsrSmokeBuildScenePath, StringComparison.Ordinal)))
             {
                 return;
             }
@@ -908,7 +1104,24 @@ namespace LiteRTLM.Unity.Editor
             }
         }
 
-        private static void WithAndroidSmokeStreamingAssets(string modelFileName, Action buildAction)
+        private static void WithAndroidSmokeStreamingAssets(string modelFileName, bool packageModel, Action buildAction)
+        {
+            var allowedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "README.txt",
+                "README.txt.meta",
+            };
+
+            if (packageModel)
+            {
+                allowedFiles.Add(modelFileName);
+                allowedFiles.Add(modelFileName + ".meta");
+            }
+
+            WithAndroidSelectedStreamingAssets(allowedFiles, buildAction);
+        }
+
+        private static void WithAndroidSelectedStreamingAssets(HashSet<string> allowedFiles, Action buildAction)
         {
             var projectRoot = GetProjectRoot();
             var streamingAssetsDirectory = Path.Combine(projectRoot, "Assets", "StreamingAssets");
@@ -927,7 +1140,7 @@ namespace LiteRTLM.Unity.Editor
                     foreach (var filePath in Directory.EnumerateFiles(streamingAssetsDirectory, "*", SearchOption.TopDirectoryOnly))
                     {
                         var fileName = Path.GetFileName(filePath);
-                        if (IsAndroidSmokeStreamingAsset(fileName, modelFileName))
+                        if (allowedFiles.Contains(fileName))
                         {
                             continue;
                         }
@@ -940,7 +1153,7 @@ namespace LiteRTLM.Unity.Editor
                 }
 
                 AssetDatabase.Refresh();
-                Debug.Log($"LiteRT-LM Android AVD smoke build staged StreamingAssets. StashedFiles={movedFiles.Count}");
+                Debug.Log($"LiteRT-LM Android build staged StreamingAssets. AllowedFiles={allowedFiles.Count}, StashedFiles={movedFiles.Count}");
                 buildAction();
             }
             finally
@@ -967,14 +1180,6 @@ namespace LiteRTLM.Unity.Editor
 
                 AssetDatabase.Refresh();
             }
-        }
-
-        private static bool IsAndroidSmokeStreamingAsset(string fileName, string modelFileName)
-        {
-            return string.Equals(fileName, modelFileName, StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(fileName, modelFileName + ".meta", StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(fileName, "README.txt", StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(fileName, "README.txt.meta", StringComparison.OrdinalIgnoreCase);
         }
 
         private static string Truncate(string value, int maxLength)

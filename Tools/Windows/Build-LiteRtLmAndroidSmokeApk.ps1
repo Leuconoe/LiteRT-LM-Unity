@@ -2,6 +2,7 @@ param(
     [string]$BenchmarkName = "gemma-4-E2B-it-gpu",
     [string]$UnityPath = "",
     [string]$TempRoot = "",
+    [switch]$EmbedModel,
     [switch]$KeepProjectCopy
 )
 
@@ -10,7 +11,7 @@ $ErrorActionPreference = "Stop"
 $ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $RepoRoot = (Resolve-Path (Join-Path $ProjectRoot "..")).Path
 if ([string]::IsNullOrWhiteSpace($TempRoot)) {
-    $TempRoot = Join-Path $RepoRoot "temp\unity-android-build"
+    $TempRoot = Join-Path $ProjectRoot "temp\unity-android-build"
 }
 
 . (Join-Path $PSScriptRoot "LiteRtLmAndroidBenchmarks.ps1")
@@ -70,8 +71,8 @@ if (!(Test-Path $modelSource)) {
 }
 
 $TempRoot = [System.IO.Path]::GetFullPath($TempRoot)
-if (!$TempRoot.StartsWith($RepoRoot, [StringComparison]::OrdinalIgnoreCase)) {
-    throw "TempRoot must stay inside the repository workspace. RepoRoot=$RepoRoot TempRoot=$TempRoot"
+if (!$TempRoot.StartsWith($ProjectRoot, [StringComparison]::OrdinalIgnoreCase)) {
+    throw "TempRoot must stay inside the Unity workspace. ProjectRoot=$ProjectRoot TempRoot=$TempRoot"
 }
 
 $runId = Get-Date -Format "yyyyMMdd-HHmmss"
@@ -79,10 +80,9 @@ $runRoot = Join-Path $TempRoot $runId
 $buildProjectRoot = Join-Path $runRoot "p"
 $buildLogs = Join-Path $ProjectRoot "Builds\Logs\AndroidBuilds"
 $unityLogPath = Join-Path $buildLogs "$runId-$BenchmarkName-unity.log"
-$outputApkInCopy = Join-Path $buildProjectRoot "Builds\Android\$($benchmark.Apk)"
 $outputApk = Join-Path $ProjectRoot "Builds\Android\$($benchmark.Apk)"
 
-New-Item -ItemType Directory -Force -Path $runRoot, $buildLogs | Out-Null
+New-Item -ItemType Directory -Force -Path $runRoot, $buildLogs, (Split-Path -Parent $outputApk) | Out-Null
 
 try {
     Write-Host "[LiteRT-LM] Preparing isolated Unity project copy: $buildProjectRoot"
@@ -115,15 +115,17 @@ try {
 
     $streamingAssetsCopy = Join-Path $buildProjectRoot "Assets\StreamingAssets"
     New-Item -ItemType Directory -Force -Path $streamingAssetsCopy | Out-Null
-    Copy-Item -Force $modelSource (Join-Path $streamingAssetsCopy $benchmark.Model)
+    if ($EmbedModel) {
+        Copy-Item -Force $modelSource (Join-Path $streamingAssetsCopy $benchmark.Model)
 
-    $modelMetaSource = "$modelSource.meta"
-    if (Test-Path $modelMetaSource) {
-        Copy-Item -Force $modelMetaSource (Join-Path $streamingAssetsCopy "$($benchmark.Model).meta")
+        $modelMetaSource = "$modelSource.meta"
+        if (Test-Path $modelMetaSource) {
+            Copy-Item -Force $modelMetaSource (Join-Path $streamingAssetsCopy "$($benchmark.Model).meta")
+        }
     }
 
     $resolvedUnityPath = Resolve-UnityPath
-    $workspaceTemp = Join-Path $RepoRoot "temp"
+    $workspaceTemp = Join-Path $ProjectRoot "temp"
     New-Item -ItemType Directory -Force -Path $workspaceTemp | Out-Null
     $env:TEMP = $workspaceTemp
     $env:TMP = $workspaceTemp
@@ -146,7 +148,7 @@ try {
         "-litertlmBackend",
         $benchmark.Backend,
         "-litertlmOutputApk",
-        $benchmark.Apk,
+        $outputApk,
         "-litertlmSpeculative",
         ([string]$benchmark.Speculative),
         "-litertlmMaxNumTokens",
@@ -154,7 +156,9 @@ try {
         "-litertlmMaxNumImages",
         ([string]$benchmark.MaxNumImages),
         "-litertlmBenchmarkPrefillTokens",
-        ([string]$benchmark.BenchmarkPrefillTokens)
+        ([string]$benchmark.BenchmarkPrefillTokens),
+        "-litertlmPackageModel",
+        ([string]$EmbedModel.IsPresent)
     )
     $unityArgumentLine = ($unityArguments | ForEach-Object { ConvertTo-ProcessArgument $_ }) -join " "
     $unityProcess = Start-Process -FilePath $resolvedUnityPath -ArgumentList $unityArgumentLine -PassThru -Wait
@@ -163,13 +167,11 @@ try {
         throw "Unity batchmode failed with exit code $unityExitCode. Log: $unityLogPath"
     }
 
-    if (!(Test-Path $outputApkInCopy)) {
-        throw "Unity batchmode exited successfully but APK was not found: $outputApkInCopy"
+    if (!(Test-Path $outputApk)) {
+        throw "Unity batchmode exited successfully but APK was not found: $outputApk"
     }
 
-    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $outputApk) | Out-Null
-    Copy-Item -Force $outputApkInCopy $outputApk
-    Write-Host "[LiteRT-LM] APK copied to: $outputApk"
+    Write-Host "[LiteRT-LM] APK written to: $outputApk"
 }
 finally {
     if (!$KeepProjectCopy -and (Test-Path $runRoot)) {

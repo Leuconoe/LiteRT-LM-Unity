@@ -3,9 +3,9 @@ index 2e1a816..ad41e4b 100644
 --- a/cmake/Containerfile
 +++ b/cmake/Containerfile
 @@ -15,19 +15,30 @@
-
+ 
  FROM docker.io/library/ubuntu:24.04
-
+ 
 +ARG BAZELISK_VERSION=v1.28.1
 +ARG ANDROID_NDK_VERSION=r28b
 +ARG ANDROID_CMDLINE_TOOLS_VERSION=14742923
@@ -15,7 +15,7 @@ index 2e1a816..ad41e4b 100644
 +ENV PATH="${JAVA_HOME}/bin:${PATH}"
 +ENV ANDROID_HOME="/opt/android-sdk"
 +ENV ANDROID_SDK_ROOT="/opt/android-sdk"
-
+ 
  RUN apt-get update && apt-get install -y \
 +    ca-certificates \
      build-essential \
@@ -37,7 +37,7 @@ index 2e1a816..ad41e4b 100644
 @@ -54,6 +65,35 @@ RUN wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/nul
  RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
  ENV PATH="/root/.cargo/bin:${PATH}"
-
+ 
 +RUN wget -O /usr/local/bin/bazelisk \
 +      "https://github.com/bazelbuild/bazelisk/releases/download/${BAZELISK_VERSION}/bazelisk-linux-amd64" \
 +    && chmod +x /usr/local/bin/bazelisk \
@@ -68,7 +68,7 @@ index 2e1a816..ad41e4b 100644
 +RUN git lfs install --system
 +
  WORKDIR /litert_lm
-
+ 
  COPY . .
 diff --git a/kotlin/java/com/google/ai/edge/litertlm/BUILD b/kotlin/java/com/google/ai/edge/litertlm/BUILD
 index 46eba4a..c5162a5 100644
@@ -144,13 +144,13 @@ index 0000000..26534a0
 +    }
 +}
 diff --git a/kotlin/java/com/google/ai/edge/litertlm/jni/BUILD b/kotlin/java/com/google/ai/edge/litertlm/jni/BUILD
-index 03c4367..e15f484 100644
+index 03c4367..58cf20f 100644
 --- a/kotlin/java/com/google/ai/edge/litertlm/jni/BUILD
 +++ b/kotlin/java/com/google/ai/edge/litertlm/jni/BUILD
-@@ -19,10 +19,31 @@ package(
+@@ -19,10 +19,34 @@ package(
      default_visibility = ["//kotlin:__subpackages__"],
  )
-
+ 
 +cc_binary(
 +    name = "litertlm_loader",
 +    srcs = ["litertlm_loader.cc"],
@@ -173,35 +173,85 @@ index 03c4367..e15f484 100644
 +        "@platforms//os:linux": [],
 +        "//conditions:default": ["-Wl,--export-dynamic-symbol=LiteRt*"],
 +    }) + select({
-+        "@platforms//os:android": ["-lEGL", "-lGLESv3"],
++        "@platforms//os:android": [
++            "-lEGL",
++            "-lGLESv3",
++        ],
 +        "//conditions:default": [],
 +    }),
      deps = [
          "@com_google_absl//absl/base:log_severity",
          "@com_google_absl//absl/container:flat_hash_map",
+@@ -34,7 +58,11 @@ cc_binary(
+         "@com_google_absl//absl/time",
+         "@nlohmann_json//:json",
+         "@litert//litert/c/internal:litert_logging",
++        "@litert//litert/c:litert_model",
++        "@litert//litert/cc:litert_api_with_dynamic_runtime",
++        "@kissfft//:kissfftr",
+         "//runtime/components:model_resources",
++        "//runtime/components/preprocessor:audio_preprocessor_miniaudio",
+         "//runtime/components:prompt_template",
+         "//runtime/conversation",
+         "//runtime/conversation:io_types",
 diff --git a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
-index c6db59f..7524bbe 100644
+index c6db59f..b39ebce 100644
 --- a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
 +++ b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
-@@ -13,10 +13,14 @@
+@@ -13,10 +13,20 @@
  // limitations under the License.
-
+ 
  #include <jni.h>
 +#if defined(__ANDROID__)
 +#include <dlfcn.h>
 +#endif
  #include <sys/stat.h>
-
+ 
++#include <algorithm>
++#include <cctype>
++#include <cmath>
++#include <cstdint>
++#include <cstring>
++#include <fstream>
  #include <memory>
  #include <optional>
 +#include <sstream>
  #include <string>
  #include <utility>
  #include <variant>
-@@ -84,6 +88,175 @@ using litert::lm::Responses;
+@@ -28,9 +38,20 @@
+ #include "absl/log/globals.h"  // from @com_google_absl
+ #include "absl/status/status.h"  // from @com_google_absl
+ #include "absl/status/statusor.h"  // from @com_google_absl
++#include "absl/strings/str_cat.h"  // from @com_google_absl
+ #include "absl/time/time.h"  // from @com_google_absl
++#include "nlohmann/json.hpp"  // from @nlohmann_json
+ #include "nlohmann/json_fwd.hpp"  // from @nlohmann_json
+ #include "litert/c/internal/litert_logging.h"  // from @litert
++#include "litert/c/litert_model.h"  // from @litert
++#include "litert/cc/litert_compiled_model.h"  // from @litert
++#include "litert/cc/litert_environment.h"  // from @litert
++#include "litert/cc/litert_macros.h"  // from @litert
++#include "litert/cc/litert_options.h"  // from @litert
++#include "litert/cc/litert_tensor_buffer.h"  // from @litert
++#include "litert/cc/options/litert_cpu_options.h"  // from @litert
++#include "litert/cc/options/litert_gpu_options.h"  // from @litert
++#include "runtime/components/preprocessor/audio_preprocessor_miniaudio.h"
+ #include "runtime/components/prompt_template.h"
+ #include "runtime/conversation/conversation.h"
+ #include "runtime/conversation/io_types.h"
+@@ -46,6 +67,7 @@
+ #include "schema/capabilities/capabilities_c.h"
+ #include "tflite/logger.h"  // from @litert
+ #include "tflite/minimal_logging.h"  // from @litert
++#include "kiss_fftr.h"  // from @kissfft
+ 
+ // For Windows, __declspec( dllexport ) is required to export function in .dll.
+ // https://learn.microsoft.com/en-us/cpp/cpp/using-dllimport-and-dllexport-in-cpp-classes?view=msvc-170
+@@ -84,6 +106,890 @@ using litert::lm::Responses;
  using litert::lm::SessionConfig;
  using litert::lm::proto::SamplerParameters;
-
+ 
 +struct UnityBridgeContext {
 +  std::unique_ptr<Engine> engine;
 +  std::unique_ptr<Conversation> conversation;
@@ -217,6 +267,721 @@ index c6db59f..7524bbe 100644
 +  if (chars != nullptr) {
 +    env->ReleaseStringUTFChars(value, chars);
 +  }
++  return result;
++}
++
++std::string ElementTypeToString(LiteRtElementType element_type) {
++  switch (element_type) {
++    case kLiteRtElementTypeNone:
++      return "none";
++    case kLiteRtElementTypeBool:
++      return "bool";
++    case kLiteRtElementTypeInt2:
++      return "int2";
++    case kLiteRtElementTypeInt4:
++      return "int4";
++    case kLiteRtElementTypeInt8:
++      return "int8";
++    case kLiteRtElementTypeInt16:
++      return "int16";
++    case kLiteRtElementTypeInt32:
++      return "int32";
++    case kLiteRtElementTypeInt64:
++      return "int64";
++    case kLiteRtElementTypeUInt8:
++      return "uint8";
++    case kLiteRtElementTypeUInt16:
++      return "uint16";
++    case kLiteRtElementTypeUInt32:
++      return "uint32";
++    case kLiteRtElementTypeUInt64:
++      return "uint64";
++    case kLiteRtElementTypeFloat16:
++      return "float16";
++    case kLiteRtElementTypeBFloat16:
++      return "bfloat16";
++    case kLiteRtElementTypeFloat32:
++      return "float32";
++    case kLiteRtElementTypeFloat64:
++      return "float64";
++    case kLiteRtElementTypeComplex64:
++      return "complex64";
++    case kLiteRtElementTypeComplex128:
++      return "complex128";
++    case kLiteRtElementTypeTfResource:
++      return "tf_resource";
++    case kLiteRtElementTypeTfString:
++      return "tf_string";
++    case kLiteRtElementTypeTfVariant:
++      return "tf_variant";
++  }
++  return "unknown";
++}
++
++std::string LiteRtStatusToString(LiteRtStatus status) {
++  const char* status_string = LiteRtGetStatusString(status);
++  if (status_string == nullptr) {
++    return "LiteRtStatus(" + std::to_string(static_cast<int>(status)) + ")";
++  }
++  return std::string(status_string) + " (" +
++         std::to_string(static_cast<int>(status)) + ")";
++}
++
++nlohmann::ordered_json TensorInfoToJson(LiteRtTensor tensor) {
++  nlohmann::ordered_json result;
++  LiteRtTensorTypeId type_id;
++  LiteRtStatus status = LiteRtGetTensorTypeId(tensor, &type_id);
++  if (status != kLiteRtStatusOk) {
++    result["error"] = LiteRtStatusToString(status);
++    return result;
++  }
++
++  if (type_id == kLiteRtUnrankedTensorType) {
++    LiteRtUnrankedTensorType tensor_type;
++    status = LiteRtGetUnrankedTensorType(tensor, &tensor_type);
++    if (status != kLiteRtStatusOk) {
++      result["error"] = LiteRtStatusToString(status);
++      return result;
++    }
++    result["ranked"] = false;
++    result["elementType"] = ElementTypeToString(tensor_type.element_type);
++    return result;
++  }
++
++  LiteRtRankedTensorType tensor_type;
++  status = LiteRtGetRankedTensorType(tensor, &tensor_type);
++  if (status != kLiteRtStatusOk) {
++    result["error"] = LiteRtStatusToString(status);
++    return result;
++  }
++  result["ranked"] = true;
++  result["elementType"] = ElementTypeToString(tensor_type.element_type);
++  result["shape"] = nlohmann::ordered_json::array();
++  for (int i = 0; i < tensor_type.layout.rank; ++i) {
++    result["shape"].push_back(tensor_type.layout.dimensions[i]);
++  }
++  return result;
++}
++
++nlohmann::ordered_json InspectLiteRtModelToJson(const std::string& model_path) {
++  nlohmann::ordered_json result;
++  result["modelPath"] = model_path;
++  result["exists"] = false;
++  result["loaded"] = false;
++
++  struct stat buffer;
++  if (stat(model_path.c_str(), &buffer) != 0) {
++    result["error"] = "Model file not found.";
++    return result;
++  }
++  result["exists"] = true;
++  result["fileSizeBytes"] = static_cast<long long>(buffer.st_size);
++
++  LiteRtModel model = nullptr;
++  LiteRtStatus status = LiteRtCreateModelFromFile(model_path.c_str(), &model);
++  if (status != kLiteRtStatusOk) {
++    result["error"] = LiteRtStatusToString(status);
++    return result;
++  }
++  result["loaded"] = true;
++
++  LiteRtParamIndex num_signatures = 0;
++  status = LiteRtGetNumModelSignatures(model, &num_signatures);
++  if (status != kLiteRtStatusOk) {
++    result["error"] = LiteRtStatusToString(status);
++    LiteRtDestroyModel(model);
++    return result;
++  }
++  result["numSignatures"] = num_signatures;
++  result["signatures"] = nlohmann::ordered_json::array();
++
++  for (LiteRtParamIndex i = 0; i < num_signatures; ++i) {
++    LiteRtSignature signature = nullptr;
++    status = LiteRtGetModelSignature(model, i, &signature);
++    if (status != kLiteRtStatusOk) {
++      nlohmann::ordered_json signature_error;
++      signature_error["index"] = i;
++      signature_error["error"] = LiteRtStatusToString(status);
++      result["signatures"].push_back(signature_error);
++      continue;
++    }
++
++    nlohmann::ordered_json signature_json;
++    signature_json["index"] = i;
++    const char* signature_key = nullptr;
++    status = LiteRtGetSignatureKey(signature, &signature_key);
++    signature_json["key"] =
++        status == kLiteRtStatusOk && signature_key != nullptr
++            ? std::string(signature_key)
++            : "";
++    signature_json["inputs"] = nlohmann::ordered_json::array();
++
++    LiteRtParamIndex num_inputs = 0;
++    status = LiteRtGetNumSignatureInputs(signature, &num_inputs);
++    if (status == kLiteRtStatusOk) {
++      for (LiteRtParamIndex input_index = 0; input_index < num_inputs;
++           ++input_index) {
++        const char* input_name = nullptr;
++        LiteRtTensor tensor = nullptr;
++        nlohmann::ordered_json input_json;
++        status = LiteRtGetSignatureInputName(signature, input_index,
++                                             &input_name);
++        input_json["name"] =
++            status == kLiteRtStatusOk && input_name != nullptr
++                ? std::string(input_name)
++                : "";
++        status =
++            LiteRtGetSignatureInputTensorByIndex(signature, input_index,
++                                                 &tensor);
++        if (status == kLiteRtStatusOk && tensor != nullptr) {
++          input_json["tensor"] = TensorInfoToJson(tensor);
++        } else {
++          input_json["error"] = LiteRtStatusToString(status);
++        }
++        signature_json["inputs"].push_back(input_json);
++      }
++    } else {
++      nlohmann::ordered_json input_json;
++      input_json["error"] = LiteRtStatusToString(status);
++      signature_json["inputs"].push_back(input_json);
++    }
++
++    signature_json["outputs"] = nlohmann::ordered_json::array();
++
++    LiteRtParamIndex num_outputs = 0;
++    status = LiteRtGetNumSignatureOutputs(signature, &num_outputs);
++    if (status == kLiteRtStatusOk) {
++      for (LiteRtParamIndex output_index = 0; output_index < num_outputs;
++           ++output_index) {
++        const char* output_name = nullptr;
++        LiteRtTensor tensor = nullptr;
++        nlohmann::ordered_json output_json;
++        status = LiteRtGetSignatureOutputName(signature, output_index,
++                                              &output_name);
++        output_json["name"] =
++            status == kLiteRtStatusOk && output_name != nullptr
++                ? std::string(output_name)
++                : "";
++        status =
++            LiteRtGetSignatureOutputTensorByIndex(signature, output_index,
++                                                  &tensor);
++        if (status == kLiteRtStatusOk && tensor != nullptr) {
++          output_json["tensor"] = TensorInfoToJson(tensor);
++        } else {
++          output_json["error"] = LiteRtStatusToString(status);
++        }
++        signature_json["outputs"].push_back(output_json);
++      }
++    } else {
++      nlohmann::ordered_json output_json;
++      output_json["error"] = LiteRtStatusToString(status);
++      signature_json["outputs"].push_back(output_json);
++    }
++
++    result["signatures"].push_back(signature_json);
++  }
++
++  LiteRtDestroyModel(model);
++  return result;
++}
++
++absl::StatusOr<std::string> ReadBinaryFile(const std::string& path) {
++  std::ifstream stream(path, std::ios::binary);
++  if (!stream) {
++    return absl::NotFoundError(absl::StrCat("Failed to open file: ", path));
++  }
++  stream.seekg(0, std::ios::end);
++  const std::streamoff size = stream.tellg();
++  if (size < 0) {
++    return absl::InternalError(absl::StrCat("Failed to read size: ", path));
++  }
++  std::string data(static_cast<size_t>(size), '\0');
++  stream.seekg(0, std::ios::beg);
++  if (!data.empty()) {
++    stream.read(data.data(), size);
++  }
++  if (!stream) {
++    return absl::InternalError(absl::StrCat("Failed to read file: ", path));
++  }
++  return data;
++}
++
++std::vector<float> HannWindow(int length) {
++  std::vector<float> window(length);
++  for (int i = 0; i < length; ++i) {
++    window[i] =
++        0.5f - 0.5f * std::cos(2.0f * static_cast<float>(M_PI) * i /
++                               static_cast<float>(length - 1));
++  }
++  return window;
++}
++
++double HzToSlaneyMel(double hz) {
++  constexpr double kMinLogHz = 1000.0;
++  constexpr double kMinLogMel = 15.0;
++  constexpr double kLogStep = 0.06875177742094912;  // log(6.4) / 27
++  if (hz < kMinLogHz) {
++    return hz / (200.0 / 3.0);
++  }
++  return kMinLogMel + std::log(hz / kMinLogHz) / kLogStep;
++}
++
++double SlaneyMelToHz(double mel) {
++  constexpr double kMinLogHz = 1000.0;
++  constexpr double kMinLogMel = 15.0;
++  constexpr double kLogStep = 0.06875177742094912;  // log(6.4) / 27
++  if (mel < kMinLogMel) {
++    return mel * (200.0 / 3.0);
++  }
++  return kMinLogHz * std::exp(kLogStep * (mel - kMinLogMel));
++}
++
++std::vector<float> CreateSlaneyMelFilterbank(int sample_rate, int n_fft,
++                                             int n_mels) {
++  const int fft_bins = n_fft / 2 + 1;
++  std::vector<double> mel_points(n_mels + 2);
++  const double mel_min = HzToSlaneyMel(0.0);
++  const double mel_max = HzToSlaneyMel(sample_rate / 2.0);
++  for (int i = 0; i < n_mels + 2; ++i) {
++    const double mel =
++        mel_min + (mel_max - mel_min) * i / static_cast<double>(n_mels + 1);
++    mel_points[i] = SlaneyMelToHz(mel);
++  }
++
++  std::vector<float> weights(n_mels * fft_bins, 0.0f);
++  for (int mel = 0; mel < n_mels; ++mel) {
++    const double lower = mel_points[mel];
++    const double center = mel_points[mel + 1];
++    const double upper = mel_points[mel + 2];
++    const double enorm = 2.0 / (upper - lower);
++    for (int bin = 0; bin < fft_bins; ++bin) {
++      const double freq =
++          (sample_rate / 2.0) * bin / static_cast<double>(fft_bins - 1);
++      const double left = (freq - lower) / (center - lower);
++      const double right = (upper - freq) / (upper - center);
++      const double value = std::max(0.0, std::min(left, right)) * enorm;
++      weights[mel * fft_bins + bin] = static_cast<float>(value);
++    }
++  }
++  return weights;
++}
++
++absl::StatusOr<std::vector<float>> CreateParakeetInputFeatures(
++    const std::string& audio_path, int* pcm_sample_count, int* valid_frames) {
++  ASSIGN_OR_RETURN(const std::string audio_bytes, ReadBinaryFile(audio_path));
++  std::vector<float> pcm;
++  RETURN_IF_ERROR(litert::lm::AudioPreprocessorMiniAudio::DecodeAudio(
++      audio_bytes, /*num_channels=*/1, /*sample_rate_hz=*/16000, pcm));
++  *pcm_sample_count = static_cast<int>(pcm.size());
++
++  constexpr int kSampleRate = 16000;
++  constexpr int kNumMels = 128;
++  constexpr int kMaxFrames = 500;
++  constexpr int kNfft = 512;
++  constexpr int kWinLength = 400;
++  constexpr int kHopLength = 160;
++  constexpr float kPreemphasis = 0.97f;
++  constexpr float kLogZeroGuard = 5.960464477539063e-8f;  // 2^-24
++  const int fft_bins = kNfft / 2 + 1;
++
++  if (pcm.empty()) {
++    return absl::InvalidArgumentError("Decoded audio is empty.");
++  }
++  for (int i = static_cast<int>(pcm.size()) - 1; i >= 1; --i) {
++    pcm[i] = pcm[i] - kPreemphasis * pcm[i - 1];
++  }
++
++  std::vector<float> padded(pcm.size() + kNfft, 0.0f);
++  std::copy(pcm.begin(), pcm.end(), padded.begin() + kNfft / 2);
++  const int frame_count =
++      std::min(kMaxFrames, 1 + static_cast<int>(pcm.size()) / kHopLength);
++  *valid_frames = frame_count;
++
++  std::vector<float> mel_features(frame_count * kNumMels, 0.0f);
++  const std::vector<float> window = HannWindow(kWinLength);
++  const std::vector<float> mel_filters =
++      CreateSlaneyMelFilterbank(kSampleRate, kNfft, kNumMels);
++  kiss_fftr_cfg fft =
++      kiss_fftr_alloc(kNfft, /*inverse_fft=*/0, /*mem=*/nullptr,
++                      /*lenmem=*/nullptr);
++  std::vector<float> frame(kNfft, 0.0f);
++  std::vector<float> power(fft_bins, 0.0f);
++  std::vector<kiss_fft_cpx> fft_out(fft_bins);
++
++  for (int t = 0; t < frame_count; ++t) {
++    std::fill(frame.begin(), frame.end(), 0.0f);
++    const int source_start = t * kHopLength;
++    const int window_offset = (kNfft - kWinLength) / 2;
++    for (int i = 0; i < kWinLength; ++i) {
++      frame[window_offset + i] = padded[source_start + i] * window[i];
++    }
++    kiss_fftr(fft, frame.data(), fft_out.data());
++    for (int bin = 0; bin < fft_bins; ++bin) {
++      power[bin] =
++          fft_out[bin].r * fft_out[bin].r + fft_out[bin].i * fft_out[bin].i;
++    }
++    for (int mel = 0; mel < kNumMels; ++mel) {
++      double value = 0.0;
++      for (int bin = 0; bin < fft_bins; ++bin) {
++        value += mel_filters[mel * fft_bins + bin] * power[bin];
++      }
++      mel_features[t * kNumMels + mel] =
++          std::log(static_cast<float>(value) + kLogZeroGuard);
++    }
++  }
++  kiss_fftr_free(fft);
++
++  for (int mel = 0; mel < kNumMels; ++mel) {
++    double sum = 0.0;
++    for (int t = 0; t < frame_count; ++t) {
++      sum += mel_features[t * kNumMels + mel];
++    }
++    const double mean = sum / frame_count;
++    double variance = 0.0;
++    for (int t = 0; t < frame_count; ++t) {
++      const double diff = mel_features[t * kNumMels + mel] - mean;
++      variance += diff * diff;
++    }
++    const double stddev =
++        std::sqrt(variance / std::max(1, frame_count - 1)) + 1e-5;
++    for (int t = 0; t < frame_count; ++t) {
++      mel_features[t * kNumMels + mel] =
++          static_cast<float>((mel_features[t * kNumMels + mel] - mean) /
++                             stddev);
++    }
++  }
++
++  std::vector<float> model_input(kNumMels * kMaxFrames, 0.0f);
++  for (int t = 0; t < frame_count; ++t) {
++    for (int mel = 0; mel < kNumMels; ++mel) {
++      model_input[mel * kMaxFrames + t] = mel_features[t * kNumMels + mel];
++    }
++  }
++  return model_input;
++}
++
++template <typename T>
++absl::StatusOr<std::vector<T>> ReadTensorBufferVector(
++    ::litert::TensorBuffer& buffer) {
++  LITERT_ASSIGN_OR_RETURN(auto tensor_type, buffer.TensorType());
++  LITERT_ASSIGN_OR_RETURN(auto elements, tensor_type.Layout().NumElements());
++  std::vector<T> data(elements);
++  LITERT_RETURN_IF_ERROR(buffer.Read<T>(absl::MakeSpan(data)));
++  return data;
++}
++
++std::string DecodeParakeetTokens(const std::string& tokenizer_json_path,
++                                 const std::vector<int>& token_ids) {
++  auto tokenizer_data = ReadBinaryFile(tokenizer_json_path);
++  if (!tokenizer_data.ok()) {
++    return "";
++  }
++  auto tokenizer_json = nlohmann::json::parse(*tokenizer_data, nullptr, false);
++  if (tokenizer_json.is_discarded() || !tokenizer_json.contains("model") ||
++      !tokenizer_json["model"].contains("vocab")) {
++    return "";
++  }
++
++  std::vector<std::string> vocab(8193);
++  for (const auto& item : tokenizer_json["model"]["vocab"].items()) {
++    if (item.value().is_number_integer()) {
++      const int id = item.value().get<int>();
++      if (id >= 0 && id < static_cast<int>(vocab.size())) {
++        vocab[id] = item.key();
++      }
++    }
++  }
++
++  std::string text;
++  for (int token_id : token_ids) {
++    if (token_id < 0 || token_id >= static_cast<int>(vocab.size())) {
++      continue;
++    }
++    const std::string& token = vocab[token_id];
++    if (token.empty() || token[0] == '<') {
++      continue;
++    }
++    if (token == "▁") {
++      text += " ";
++    } else if (token.rfind("▁", 0) == 0) {
++      text += " ";
++      text += token.substr(std::string("▁").size());
++    } else {
++      text += token;
++    }
++  }
++  while (!text.empty() && text.front() == ' ') {
++    text.erase(text.begin());
++  }
++  return text;
++}
++
++nlohmann::ordered_json RunParakeetAsrSmokeToJson(
++    const std::string& model_path, const std::string& audio_path,
++    const std::string& tokenizer_json_path, const std::string& backend) {
++  nlohmann::ordered_json result;
++  result["modelPath"] = model_path;
++  result["audioPath"] = audio_path;
++  result["tokenizerJsonPath"] = tokenizer_json_path;
++  result["backendRequested"] = backend;
++  result["success"] = false;
++
++  int pcm_sample_count = 0;
++  int valid_feature_frames = 0;
++  auto feature_result = CreateParakeetInputFeatures(
++      audio_path, &pcm_sample_count, &valid_feature_frames);
++  if (!feature_result.ok()) {
++    result["error"] = std::string(feature_result.status().message());
++    return result;
++  }
++  result["pcmSamples"] = pcm_sample_count;
++  result["audioSeconds"] = pcm_sample_count / 16000.0;
++  result["validFeatureFrames"] = valid_feature_frames;
++
++  auto started = absl::Now();
++  auto env_or = ::litert::Environment::Create({});
++  if (!env_or.HasValue()) {
++    result["error"] = env_or.Error().Message();
++    return result;
++  }
++  auto env = std::move(env_or.Value());
++  auto options_or = ::litert::Options::Create();
++  if (!options_or.HasValue()) {
++    result["error"] = options_or.Error().Message();
++    return result;
++  }
++  auto options = std::move(options_or.Value());
++  auto cpu_options = options.GetCpuOptions();
++  if (cpu_options.HasValue()) {
++    cpu_options->SetNumThreads(4);
++  }
++  std::string normalized_backend = backend;
++  std::transform(normalized_backend.begin(), normalized_backend.end(),
++                 normalized_backend.begin(),
++                 [](unsigned char c) { return std::toupper(c); });
++  const bool use_gpu = normalized_backend.rfind("GPU", 0) == 0;
++  if (use_gpu) {
++    auto gpu_options = options.GetGpuOptions();
++    if (!gpu_options.HasValue()) {
++      result["error"] = gpu_options.Error().Message();
++      return result;
++    }
++    const bool use_fp16 = normalized_backend.find("FP16") != std::string::npos;
++    const bool use_texture_weights =
++        normalized_backend.find("NO_TEXTURE") == std::string::npos;
++    const bool convert_weights_on_gpu =
++        normalized_backend.find("NO_CONVERT") == std::string::npos;
++    const bool relaxed_delegation =
++        normalized_backend.find("RELAXED") != std::string::npos;
++
++    gpu_options->SetPrecision(use_fp16 ? ::litert::GpuOptions::Precision::kFp16
++                                       : ::litert::GpuOptions::Precision::kFp32);
++    gpu_options->EnableConstantTensorSharing(true);
++#if !defined(__APPLE__)
++    gpu_options->SetPreferTextureWeights(use_texture_weights);
++#endif
++    gpu_options->SetMadviseOriginalSharedTensors(true);
++    gpu_options->SetConvertWeightsOnGpu(convert_weights_on_gpu);
++    if (!relaxed_delegation) {
++      gpu_options->SetHintFullyDelegatedToSingleDelegate(true);
++    }
++    gpu_options->EnableInfiniteFloatCapping(true);
++    options.SetHardwareAccelerators(::litert::HwAccelerators::kGpu);
++    result["backendUsed"] = normalized_backend;
++    result["gpuPrecision"] = use_fp16 ? "fp16" : "fp32";
++    result["gpuPreferTextureWeights"] = use_texture_weights;
++    result["gpuConvertWeightsOnGpu"] = convert_weights_on_gpu;
++    result["gpuRelaxedDelegation"] = relaxed_delegation;
++  } else {
++    options.SetHardwareAccelerators(::litert::HwAccelerators::kCpu);
++    result["backendUsed"] = "CPU";
++  }
++
++  auto compiled_model_or =
++      ::litert::CompiledModel::Create(env, model_path, options);
++  if (!compiled_model_or.HasValue()) {
++    result["error"] = compiled_model_or.Error().Message();
++    return result;
++  }
++  auto compiled_model = std::move(compiled_model_or.Value());
++  result["compileSeconds"] = absl::ToDoubleSeconds(absl::Now() - started);
++
++  auto encode_index_or = compiled_model.GetSignatureIndex("encode");
++  if (!encode_index_or.HasValue()) {
++    result["error"] = encode_index_or.Error().Message();
++    return result;
++  }
++  auto decode_index_or = compiled_model.GetSignatureIndex("decode");
++  if (!decode_index_or.HasValue()) {
++    result["error"] = decode_index_or.Error().Message();
++    return result;
++  }
++  const int encode_index = encode_index_or.Value();
++  const int decode_index = decode_index_or.Value();
++
++  auto encode_started = absl::Now();
++  auto encode_inputs_or = compiled_model.CreateInputBuffers(encode_index);
++  if (!encode_inputs_or.HasValue()) {
++    result["error"] = encode_inputs_or.Error().Message();
++    return result;
++  }
++  auto encode_inputs = std::move(encode_inputs_or.Value());
++  auto encode_outputs_or = compiled_model.CreateOutputBuffers(encode_index);
++  if (!encode_outputs_or.HasValue()) {
++    result["error"] = encode_outputs_or.Error().Message();
++    return result;
++  }
++  auto encode_outputs = std::move(encode_outputs_or.Value());
++  auto encode_write_status =
++      encode_inputs[0].Write<float>(absl::MakeSpan(*feature_result));
++  if (!encode_write_status.HasValue()) {
++    result["error"] = encode_write_status.Error().Message();
++    return result;
++  }
++  auto encode_status =
++      compiled_model.Run(encode_index, encode_inputs, encode_outputs);
++  if (!encode_status.HasValue()) {
++    result["error"] = encode_status.Error().Message();
++    return result;
++  }
++  auto encoder_output_or = ReadTensorBufferVector<float>(encode_outputs[0]);
++  if (!encoder_output_or.ok()) {
++    result["error"] = std::string(encoder_output_or.status().message());
++    return result;
++  }
++  auto encoder_output = std::move(*encoder_output_or);
++  result["encodeSeconds"] = absl::ToDoubleSeconds(absl::Now() - encode_started);
++  result["encoderOutputValues"] = encoder_output.size();
++
++  constexpr int kEncodedFrames = 63;
++  constexpr int kTargetLength = 64;
++  constexpr int kVocabSize = 8193;
++  constexpr int kBlankToken = 8192;
++  constexpr int kOutputClasses = 8198;
++  constexpr int kStateValues = 2 * 1 * 640;
++  const int durations[5] = {0, 1, 2, 3, 4};
++
++  std::vector<int32_t> target(kTargetLength, kBlankToken);
++  std::vector<float> state_1(kStateValues, 0.0f);
++  std::vector<float> state_2(kStateValues, 0.0f);
++  std::vector<int> token_ids;
++  int time_index = 0;
++  int decode_steps = 0;
++  auto decode_started = absl::Now();
++
++  while (time_index < kEncodedFrames &&
++         token_ids.size() < static_cast<size_t>(kTargetLength)) {
++    int symbols_added = 0;
++    int last_skip = 1;
++    bool need_loop = true;
++    while (need_loop && symbols_added < 10 &&
++           token_ids.size() < static_cast<size_t>(kTargetLength)) {
++      auto decode_inputs_or = compiled_model.CreateInputBuffers(decode_index);
++      if (!decode_inputs_or.HasValue()) {
++        result["error"] = decode_inputs_or.Error().Message();
++        return result;
++      }
++      auto decode_inputs = std::move(decode_inputs_or.Value());
++      auto decode_outputs_or = compiled_model.CreateOutputBuffers(decode_index);
++      if (!decode_outputs_or.HasValue()) {
++        result["error"] = decode_outputs_or.Error().Message();
++        return result;
++      }
++      auto decode_outputs = std::move(decode_outputs_or.Value());
++      target[0] = token_ids.empty() ? kBlankToken : token_ids.back();
++      auto write_status =
++          decode_inputs[0].Write<float>(absl::MakeSpan(encoder_output));
++      if (!write_status.HasValue()) {
++        result["error"] = write_status.Error().Message();
++        return result;
++      }
++      write_status = decode_inputs[1].Write<int32_t>(absl::MakeSpan(target));
++      if (!write_status.HasValue()) {
++        result["error"] = write_status.Error().Message();
++        return result;
++      }
++      write_status = decode_inputs[2].Write<float>(absl::MakeSpan(state_1));
++      if (!write_status.HasValue()) {
++        result["error"] = write_status.Error().Message();
++        return result;
++      }
++      write_status = decode_inputs[3].Write<float>(absl::MakeSpan(state_2));
++      if (!write_status.HasValue()) {
++        result["error"] = write_status.Error().Message();
++        return result;
++      }
++      auto decode_status =
++          compiled_model.Run(decode_index, decode_inputs, decode_outputs);
++      if (!decode_status.HasValue()) {
++        result["error"] = decode_status.Error().Message();
++        return result;
++      }
++      auto logits_or = ReadTensorBufferVector<float>(decode_outputs[0]);
++      if (!logits_or.ok()) {
++        result["error"] = std::string(logits_or.status().message());
++        return result;
++      }
++      auto logits = std::move(*logits_or);
++      auto state_1_or = ReadTensorBufferVector<float>(decode_outputs[1]);
++      if (!state_1_or.ok()) {
++        result["error"] = std::string(state_1_or.status().message());
++        return result;
++      }
++      state_1 = std::move(*state_1_or);
++      auto state_2_or = ReadTensorBufferVector<float>(decode_outputs[2]);
++      if (!state_2_or.ok()) {
++        result["error"] = std::string(state_2_or.status().message());
++        return result;
++      }
++      state_2 = std::move(*state_2_or);
++
++      const size_t offset =
++          (static_cast<size_t>(time_index) * kTargetLength) * kOutputClasses;
++      int best_token = 0;
++      float best_token_score = logits[offset];
++      for (int i = 1; i < kVocabSize; ++i) {
++        if (logits[offset + i] > best_token_score) {
++          best_token_score = logits[offset + i];
++          best_token = i;
++        }
++      }
++      int best_duration = 0;
++      float best_duration_score = logits[offset + kVocabSize];
++      for (int i = 1; i < 5; ++i) {
++        if (logits[offset + kVocabSize + i] > best_duration_score) {
++          best_duration_score = logits[offset + kVocabSize + i];
++          best_duration = i;
++        }
++      }
++      const int skip = durations[best_duration];
++      last_skip = skip;
++      if (best_token != kBlankToken) {
++        token_ids.push_back(best_token);
++      }
++      ++symbols_added;
++      ++decode_steps;
++      time_index += skip;
++      need_loop = skip == 0;
++    }
++    if (last_skip == 0) {
++      ++time_index;
++    }
++    if (symbols_added == 10) {
++      ++time_index;
++    }
++  }
++
++  result["decodeSeconds"] = absl::ToDoubleSeconds(absl::Now() - decode_started);
++  result["decodeSteps"] = decode_steps;
++  result["tokenCount"] = token_ids.size();
++  result["tokenIds"] = token_ids;
++  result["transcriptCandidate"] =
++      DecodeParakeetTokens(tokenizer_json_path, token_ids);
++  if (token_ids.empty()) {
++    result["error"] = "No ASR tokens were decoded.";
++    return result;
++  }
++  result["success"] = true;
 +  return result;
 +}
 +
@@ -374,10 +1139,10 @@ index c6db59f..7524bbe 100644
  void ThrowLiteRtLmJniException(JNIEnv* env, const std::string& message) {
    jclass exClass =
        env->FindClass("com/google/ai/edge/litertlm/LiteRtLmJniException");
-@@ -193,6 +366,51 @@ jobject CreateBenchmarkInfoJni(
+@@ -193,6 +1099,51 @@ jobject CreateBenchmarkInfoJni(
        last_decode_tokens_per_second);
  }
-
+ 
 +std::string FormatBenchmarkInfo(
 +    const litert::lm::BenchmarkInfo& benchmark_info) {
 +  int last_prefill_token_count = 0;
@@ -426,10 +1191,10 @@ index c6db59f..7524bbe 100644
  // Converts a Java InputData array to a C++ vector of InputData.
  std::vector<InputData> GetNativeInputData(JNIEnv* env,
                                            jobjectArray input_data) {
-@@ -333,6 +551,217 @@ nlohmann::ordered_json GetExtraContextJson(JNIEnv* env,
-
+@@ -333,6 +1284,253 @@ nlohmann::ordered_json GetExtraContextJson(JNIEnv* env,
+ 
  extern "C" {
-
+ 
 +LITERTLM_JNIEXPORT jlong JNICALL
 +Java_com_google_ai_edge_litertlm_unity_UnityLiteRtLmBridge_nativeCreateBridge(
 +    JNIEnv* env, jclass thiz, jstring model_path, jstring backend,
@@ -641,13 +1406,49 @@ index c6db59f..7524bbe 100644
 +  return NewStringStandardUTF(env, FormatBenchmarkInfo(*benchmark_info));
 +}
 +
++LITERTLM_JNIEXPORT jstring JNICALL
++Java_com_google_ai_edge_litertlm_unity_UnityLiteRtLmBridge_nativeInspectLiteRtModel(
++    JNIEnv* env, jclass thiz, jstring model_path) {
++  const std::string model_path_str = JStringToStdString(env, model_path);
++  if (model_path_str.empty()) {
++    ThrowLiteRtLmJniException(env, "modelPath is required.");
++    return nullptr;
++  }
++
++  return NewStringStandardUTF(
++      env, InspectLiteRtModelToJson(model_path_str).dump(2));
++}
++
++LITERTLM_JNIEXPORT jstring JNICALL
++Java_com_google_ai_edge_litertlm_unity_UnityLiteRtLmBridge_nativeRunParakeetAsrSmoke(
++    JNIEnv* env, jclass thiz, jstring model_path, jstring audio_path,
++    jstring tokenizer_json_path, jstring backend) {
++  const std::string model_path_str = JStringToStdString(env, model_path);
++  const std::string audio_path_str = JStringToStdString(env, audio_path);
++  const std::string tokenizer_json_path_str =
++      JStringToStdString(env, tokenizer_json_path);
++  const std::string backend_str = JStringToStdString(env, backend);
++  if (model_path_str.empty() || audio_path_str.empty() ||
++      tokenizer_json_path_str.empty() || backend_str.empty()) {
++    ThrowLiteRtLmJniException(
++        env, "modelPath, audioPath, tokenizerJsonPath and backend are required.");
++    return nullptr;
++  }
++
++  return NewStringStandardUTF(
++      env,
++      RunParakeetAsrSmokeToJson(model_path_str, audio_path_str,
++                                tokenizer_json_path_str, backend_str)
++          .dump(2));
++}
++
  LITERTLM_JNIEXPORT void JNICALL
  Java_com_google_ai_edge_litertlm_NativeLibraryLoader_nativeCheckLoaded(
      JNIEnv* env, jclass thiz) {}
-@@ -549,7 +978,10 @@ LITERTLM_JNIEXPORT jlong JNICALL JNI_METHOD(nativeCreateBenchmark)(
+@@ -549,7 +1747,10 @@ LITERTLM_JNIEXPORT jlong JNICALL JNI_METHOD(nativeCreateBenchmark)(
      return 0;
    }
-
+ 
 -  auto settings = EngineSettings::CreateDefault(*model_assets, *backend_enum);
 +  auto settings = EngineSettings::CreateDefault(
 +      *model_assets, *backend_enum,
@@ -656,14 +1457,14 @@ index c6db59f..7524bbe 100644
    if (!settings.ok()) {
      ThrowLiteRtLmJniException(env, "Failed to create engine settings: " +
                                         settings.status().ToString());
-@@ -577,6 +1009,9 @@ LITERTLM_JNIEXPORT jlong JNICALL JNI_METHOD(nativeCreateBenchmark)(
+@@ -577,6 +1778,9 @@ LITERTLM_JNIEXPORT jlong JNICALL JNI_METHOD(nativeCreateBenchmark)(
    auto& benchmark_params = settings->GetMutableBenchmarkParams();
    benchmark_params.set_num_prefill_tokens(prefill_tokens);
    benchmark_params.set_num_decode_tokens(decode_tokens);
 +  const int benchmark_min_tokens = prefill_tokens + decode_tokens;
 +  settings->GetMutableMainExecutorSettings().SetMaxNumTokens(
 +      benchmark_min_tokens > 1024 ? benchmark_min_tokens : 1024);
-
+ 
    auto engine = EngineFactory::CreateDefault(*settings);
    if (!engine.ok()) {
 diff --git a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm_loader.cc b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm_loader.cc
@@ -748,10 +1549,10 @@ index 0000000..672152d
 +}
 diff --git a/kotlin/java/com/google/ai/edge/litertlm/unity/UnityLiteRtLmBridge.java b/kotlin/java/com/google/ai/edge/litertlm/unity/UnityLiteRtLmBridge.java
 new file mode 100644
-index 0000000..b23de08
+index 0000000..c9b3b1b
 --- /dev/null
 +++ b/kotlin/java/com/google/ai/edge/litertlm/unity/UnityLiteRtLmBridge.java
-@@ -0,0 +1,122 @@
+@@ -0,0 +1,138 @@
 +package com.google.ai.edge.litertlm.unity;
 +
 +public final class UnityLiteRtLmBridge {
@@ -846,6 +1647,14 @@ index 0000000..b23de08
 +                enableSpeculativeDecoding);
 +    }
 +
++    public String inspectLiteRtModel(String modelPath) {
++        return nativeInspectLiteRtModel(modelPath);
++    }
++
++    public String runParakeetAsrSmoke(String modelPath, String audioPath, String tokenizerJsonPath, String backend) {
++        return nativeRunParakeetAsrSmoke(modelPath, audioPath, tokenizerJsonPath, backend);
++    }
++
 +    private static native long nativeCreateBridge(
 +            String modelPath,
 +            String backend,
@@ -873,7 +1682,183 @@ index 0000000..b23de08
 +            int prefillTokens,
 +            int decodeTokens,
 +            boolean enableSpeculativeDecoding);
++
++    private static native String nativeInspectLiteRtModel(String modelPath);
++
++    private static native String nativeRunParakeetAsrSmoke(
++            String modelPath,
++            String audioPath,
++            String tokenizerJsonPath,
++            String backend);
 +}
+diff --git a/runtime/components/BUILD b/runtime/components/BUILD
+index 9d4309b..bb4a180 100644
+--- a/runtime/components/BUILD
++++ b/runtime/components/BUILD
+@@ -486,7 +486,7 @@ cc_library(
+         "//conditions:default": [
+             "@litert//litert/cc:litert_buffer_ref",
+             "@litert//litert/cc:litert_macros",
+-            "@litert//litert/cc:litert_model",
++            "@litert//litert/cc:litert_api_with_dynamic_runtime",
+         ],
+     }),
+ )
+@@ -507,7 +507,7 @@ cc_library(
+             "@litert//litert/cc:litert_api_with_dynamic_runtime",
+         ],
+         "//conditions:default": [
+-            "@litert//litert/cc:litert_model",
++            "@litert//litert/cc:litert_api_with_dynamic_runtime",
+         ],
+     }),
+ )
+@@ -541,7 +541,7 @@ cc_library(
+         "//conditions:default": [
+             "@litert//litert/cc:litert_buffer_ref",
+             "@litert//litert/cc:litert_macros",
+-            "@litert//litert/cc:litert_model",
++            "@litert//litert/cc:litert_api_with_dynamic_runtime",
+         ],
+     }),
+ )
+@@ -608,7 +608,7 @@ cc_library(
+         "//conditions:default": [
+             "@litert//litert/cc:litert_compiled_model",
+             "@litert//litert/cc:litert_macros",
+-            "@litert//litert/cc:litert_model",
++            "@litert//litert/cc:litert_api_with_dynamic_runtime",
+             "@litert//litert/cc:litert_tensor_buffer",
+         ],
+     }),
+@@ -625,7 +625,7 @@ cc_test(
+         "@litert//litert/cc:litert_common",
+         "@litert//litert/cc:litert_compiled_model",
+         "@litert//litert/cc:litert_environment",
+-        "@litert//litert/cc:litert_model",
++        "@litert//litert/cc:litert_api_with_dynamic_runtime",
+         "@litert//litert/cc:litert_options",
+         "@litert//litert/cc:litert_tensor_buffer",
+         "@litert//litert/test:matchers",
+@@ -654,7 +654,7 @@ cc_library(
+         ],
+         "//conditions:default": [
+             "@litert//litert/cc:litert_compiled_model",
+-            "@litert//litert/cc:litert_model",
++            "@litert//litert/cc:litert_api_with_dynamic_runtime",
+             "@litert//litert/cc:litert_tensor_buffer",
+         ],
+     }),
+@@ -670,7 +670,7 @@ cc_library(
+         "@com_google_absl//absl/status",
+         "@com_google_absl//absl/status:statusor",
+         "@com_google_absl//absl/strings:string_view",
+-        "@litert//litert/cc:litert_model",
++        "@litert//litert/cc:litert_api_with_dynamic_runtime",
+         "//runtime/proto:llm_metadata_cc_proto",
+         "//runtime/util:scoped_file",
+     ],
+@@ -698,7 +698,7 @@ cc_test(
+         "@litert//litert/cc:litert_common",
+         "@litert//litert/cc:litert_compiled_model",
+         "@litert//litert/cc:litert_environment",
+-        "@litert//litert/cc:litert_model",
++        "@litert//litert/cc:litert_api_with_dynamic_runtime",
+         "@litert//litert/cc:litert_options",
+         "@litert//litert/cc:litert_tensor_buffer",
+         "@litert//litert/test:matchers",
+diff --git a/runtime/components/constrained_decoding/BUILD b/runtime/components/constrained_decoding/BUILD
+index 100c137..7b24ce8 100644
+--- a/runtime/components/constrained_decoding/BUILD
++++ b/runtime/components/constrained_decoding/BUILD
+@@ -97,7 +97,7 @@ cc_library(
+         "//conditions:default": [
+             "@litert//litert/cc:litert_layout",
+             "@litert//litert/cc:litert_macros",
+-            "@litert//litert/cc:litert_model",
++            "@litert//litert/cc:litert_api_with_dynamic_runtime",
+             "@litert//litert/cc:litert_tensor_buffer",
+         ],
+     }),
+diff --git a/runtime/components/embedding_lookup/BUILD b/runtime/components/embedding_lookup/BUILD
+index ba5f480..2aa1682 100644
+--- a/runtime/components/embedding_lookup/BUILD
++++ b/runtime/components/embedding_lookup/BUILD
+@@ -62,7 +62,7 @@ cc_library(
+             "@litert//litert/cc:litert_element_type",
+             "@litert//litert/cc:litert_environment",
+             "@litert//litert/cc:litert_macros",
+-            "@litert//litert/cc:litert_model",
++            "@litert//litert/cc:litert_api_with_dynamic_runtime",
+             "@litert//litert/cc:litert_options",
+             "@litert//litert/cc:litert_ranked_tensor_type",
+             "@litert//litert/cc:litert_tensor_buffer",
+@@ -129,7 +129,7 @@ cc_library(
+             "@litert//litert/cc:litert_environment",
+             "@litert//litert/cc:litert_layout",
+             "@litert//litert/cc:litert_macros",
+-            "@litert//litert/cc:litert_model",
++            "@litert//litert/cc:litert_api_with_dynamic_runtime",
+             "@litert//litert/cc:litert_options",
+             "@litert//litert/cc:litert_tensor_buffer",
+             "@litert//litert/cc/internal:litert_handle",
+@@ -166,7 +166,7 @@ cc_library(
+         ],
+         "//conditions:default": [
+             "@litert//litert/cc:litert_environment",
+-            "@litert//litert/cc:litert_model",
++            "@litert//litert/cc:litert_api_with_dynamic_runtime",
+             "@litert//litert/cc:litert_tensor_buffer",
+         ],
+     }),
+diff --git a/runtime/components/preprocessor/BUILD b/runtime/components/preprocessor/BUILD
+index 71c8971..bcf9d62 100644
+--- a/runtime/components/preprocessor/BUILD
++++ b/runtime/components/preprocessor/BUILD
+@@ -113,7 +113,7 @@ cc_test(
+         "@litert//litert/cc:litert_environment",
+         "@litert//litert/cc:litert_layout",
+         "@litert//litert/cc:litert_macros",
+-        "@litert//litert/cc:litert_model",
++        "@litert//litert/cc:litert_api_with_dynamic_runtime",
+         "@litert//litert/cc:litert_options",
+         "@litert//litert/cc:litert_tensor_buffer",
+         "//runtime/engine:io_types",
+@@ -311,7 +311,7 @@ cc_library(
+         "//conditions:default": [
+             "@litert//litert/cc:litert_layout",
+             "@litert//litert/cc:litert_macros",
+-            "@litert//litert/cc:litert_model",
++            "@litert//litert/cc:litert_api_with_dynamic_runtime",
+             "@litert//litert/cc:litert_ranked_tensor_type",
+             "@litert//litert/cc:litert_tensor_buffer",
+         ],
+diff --git a/runtime/core/BUILD b/runtime/core/BUILD
+index a06d0bc..1fe2373 100644
+--- a/runtime/core/BUILD
++++ b/runtime/core/BUILD
+@@ -252,7 +252,7 @@ cc_library(
+             "@litert//litert/cc:litert_api_with_dynamic_runtime",
+         ],
+         "//conditions:default": [
+-            "@litert//litert/cc:litert_model",
++            "@litert//litert/cc:litert_api_with_dynamic_runtime",
+             "@litert//litert/cc:litert_tensor_buffer",
+         ],
+     }),
+diff --git a/runtime/engine/BUILD b/runtime/engine/BUILD
+index 5f00f6a..cae8639 100644
+--- a/runtime/engine/BUILD
++++ b/runtime/engine/BUILD
+@@ -112,7 +112,7 @@ cc_test(
+         "@com_google_absl//absl/types:span",
+         "@litert//litert/cc:litert_environment",
+         "@litert//litert/cc:litert_layout",
+-        "@litert//litert/cc:litert_model",
++        "@litert//litert/cc:litert_api_with_dynamic_runtime",
+         "@litert//litert/cc:litert_tensor_buffer",
+         "@litert//litert/cc:litert_tensor_buffer_types",
+         "@litert//litert/test:matchers",
 diff --git a/runtime/engine/litert_lm_main.cc b/runtime/engine/litert_lm_main.cc
 index 573316e..c4574a9 100644
 --- a/runtime/engine/litert_lm_main.cc
@@ -904,16 +1889,16 @@ index 573316e..c4574a9 100644
 +          "Enable constrained decoding for tool/function call output.");
 +ABSL_FLAG(bool, output_message_json, false,
 +          "Print the full assistant message JSON instead of content text only.");
-
+ 
  namespace {
-
+ 
 @@ -65,10 +80,11 @@ using ::litert::lm::EngineSettings;
  using ::litert::lm::InputData;
  using ::litert::lm::Message;
  using ::litert::lm::ModelAssets;
 -using ::nlohmann::json;
 +using ::nlohmann::ordered_json;
-
+ 
 -absl::AnyInvocable<void(absl::StatusOr<Message>)> CreateMessageCallback() {
 -  return [](absl::StatusOr<Message> message) {
 +absl::AnyInvocable<void(absl::StatusOr<Message>)> CreateMessageCallback(
@@ -936,7 +1921,7 @@ index 573316e..c4574a9 100644
 @@ -84,6 +104,38 @@ absl::AnyInvocable<void(absl::StatusOr<Message>)> CreateMessageCallback() {
    };
  }
-
+ 
 +absl::StatusOr<std::string> ReadTextFile(absl::string_view file_path) {
 +  std::ifstream file{std::string(file_path)};
 +  if (!file.is_open()) {
@@ -975,7 +1960,7 @@ index 573316e..c4574a9 100644
 @@ -110,6 +162,21 @@ std::string GetInputPrompt() {
    return "What is the tallest building in the world?";
  }
-
+ 
 +absl::StatusOr<std::optional<ordered_json>> ParseOptionalJson(
 +    absl::string_view value, absl::string_view name) {
 +  if (value.empty()) {
@@ -1062,7 +2047,7 @@ index 573316e..c4574a9 100644
 +          .Build(*engine));
    ASSIGN_OR_RETURN(conversation,
                     Conversation::Create(*engine, conversation_config));
-
+ 
    // Prepare the message to send.
 -  json content_list = json::array();
 +  ordered_json content_list = ordered_json::array();
@@ -1078,14 +2063,177 @@ index 573316e..c4574a9 100644
 +      ordered_json::object({{"role", "user"}, {"content", content_list}}),
 +      CreateMessageCallback(absl::GetFlag(FLAGS_output_message_json))));
    RETURN_IF_ERROR(engine->WaitUntilDone(absl::Minutes(10)));
-
+ 
    // Print the benchmark info.
+diff --git a/runtime/executor/BUILD b/runtime/executor/BUILD
+index 5d7ed32..f6b088f 100644
+--- a/runtime/executor/BUILD
++++ b/runtime/executor/BUILD
+@@ -157,7 +157,7 @@ cc_library(
+             "@litert//litert/cc:litert_element_type",
+             "@litert//litert/cc:litert_expected",
+             "@litert//litert/cc:litert_macros",
+-            "@litert//litert/cc:litert_model",
++            "@litert//litert/cc:litert_api_with_dynamic_runtime",
+             "@litert//litert/cc:litert_tensor_buffer",
+             "@litert//litert/cc/options:litert_cpu_options",
+             "@litert//litert/cc/options:litert_gpu_options",
+@@ -226,7 +226,7 @@ cc_library(
+             "@litert//litert/cc:litert_element_type",
+             "@litert//litert/cc:litert_expected",
+             "@litert//litert/cc:litert_macros",
+-            "@litert//litert/cc:litert_model",
++            "@litert//litert/cc:litert_api_with_dynamic_runtime",
+             "@litert//litert/cc:litert_tensor_buffer",
+         ],
+     }),
+@@ -242,7 +242,7 @@ cc_test(
+         "@com_google_absl//absl/status",
+         "@com_google_absl//absl/strings:string_view",
+         "@com_google_absl//absl/types:span",
+-        "@litert//litert/cc:litert_model",
++        "@litert//litert/cc:litert_api_with_dynamic_runtime",
+         "@litert//litert/cc:litert_tensor_buffer",
+         "@litert//litert/test:matchers",
+         "//runtime/util:convert_tensor_buffer",
+@@ -306,7 +306,7 @@ cc_library(
+             "@litert//litert/cc:litert_expected",
+             "@litert//litert/cc:litert_layout",
+             "@litert//litert/cc:litert_macros",
+-            "@litert//litert/cc:litert_model",
++            "@litert//litert/cc:litert_api_with_dynamic_runtime",
+             "@litert//litert/cc:litert_options",
+             "@litert//litert/cc:litert_ranked_tensor_type",
+             "@litert//litert/cc:litert_tensor_buffer",
+@@ -363,7 +363,7 @@ cc_test(
+             "@litert//litert/cc:litert_environment",
+             "@litert//litert/cc:litert_layout",
+             "@litert//litert/cc:litert_macros",
+-            "@litert//litert/cc:litert_model",
++            "@litert//litert/cc:litert_api_with_dynamic_runtime",
+         ],
+     }),
+ )
+@@ -417,7 +417,7 @@ cc_library(
+         "//conditions:default": [
+             "@litert//litert/cc:litert_environment",
+             "@litert//litert/cc:litert_macros",
+-            "@litert//litert/cc:litert_model",
++            "@litert//litert/cc:litert_api_with_dynamic_runtime",
+             "@litert//litert/cc:litert_ranked_tensor_type",
+         ],
+     }),
+@@ -625,12 +625,12 @@ cc_library(
+             "@litert//litert/cc:litert_expected",
+             "@litert//litert/cc:litert_layout",
+             "@litert//litert/cc:litert_macros",
+-            "@litert//litert/cc:litert_model",
++            "@litert//litert/cc:litert_api_with_dynamic_runtime",
+             "@litert//litert/cc:litert_model_types",
+             "@litert//litert/cc:litert_options",
+             "@litert//litert/cc:litert_ranked_tensor_type",
+             "@litert//litert/cc:litert_tensor_buffer",
+-            "@litert//litert/cc/internal:litert_extended_model",
++            "@litert//litert/cc/dynamic_runtime:litert_extended_model",
+             "@litert//litert/cc/options:litert_google_tensor_options",
+             "@litert//litert/cc/options:litert_mediatek_options",
+             "@litert//litert/cc/options:litert_qualcomm_options",
+@@ -770,7 +770,7 @@ cc_test(
+         "@litert//litert/cc:litert_element_type",
+         "@litert//litert/cc:litert_environment",
+         "@litert//litert/cc:litert_layout",
+-        "@litert//litert/cc:litert_model",
++        "@litert//litert/cc:litert_api_with_dynamic_runtime",
+         "@litert//litert/cc:litert_ranked_tensor_type",
+         "@litert//litert/cc:litert_tensor_buffer",
+         "//runtime/components/constrained_decoding:constrained_decoder",
+@@ -842,7 +842,7 @@ cc_library(
+             "@litert//litert/cc:litert_environment",
+             "@litert//litert/cc:litert_layout",
+             "@litert//litert/cc:litert_macros",
+-            "@litert//litert/cc:litert_model",
++            "@litert//litert/cc:litert_api_with_dynamic_runtime",
+             "@litert//litert/cc:litert_options",
+             "@litert//litert/cc:litert_ranked_tensor_type",
+             "@litert//litert/cc:litert_tensor_buffer",
+@@ -946,7 +946,7 @@ cc_library(
+             "@litert//litert/cc:litert_environment",
+             "@litert//litert/cc:litert_layout",
+             "@litert//litert/cc:litert_macros",
+-            "@litert//litert/cc:litert_model",
++            "@litert//litert/cc:litert_api_with_dynamic_runtime",
+             "@litert//litert/cc:litert_options",
+             "@litert//litert/cc:litert_ranked_tensor_type",
+             "@litert//litert/cc:litert_tensor_buffer",
+@@ -973,7 +973,7 @@ cc_test(
+         "@litert//litert/cc:litert_element_type",
+         "@litert//litert/cc:litert_layout",
+         "@litert//litert/cc:litert_macros",
+-        "@litert//litert/cc:litert_model",
++        "@litert//litert/cc:litert_api_with_dynamic_runtime",
+         "@litert//litert/cc:litert_tensor_buffer",
+         "@litert//litert/cc:litert_tensor_buffer_types",
+         "@litert//litert/test:matchers",
+@@ -1007,7 +1007,7 @@ cc_library(
+         ],
+         "//conditions:default": [
+             "@litert//litert/cc:litert_macros",
+-            "@litert//litert/cc:litert_model",
++            "@litert//litert/cc:litert_api_with_dynamic_runtime",
+         ],
+     }),
+ )
+@@ -1030,7 +1030,7 @@ cc_library(
+         ],
+         "//conditions:default": [
+             "@litert//litert/cc:litert_macros",
+-            "@litert//litert/cc:litert_model",
++            "@litert//litert/cc:litert_api_with_dynamic_runtime",
+         ],
+     }),
+ )
+@@ -1054,7 +1054,7 @@ cc_library(
+             "@litert//litert/cc:litert_environment_options",
+             "@litert//litert/cc:litert_expected",
+             "@litert//litert/cc:litert_macros",
+-            "@litert//litert/cc:litert_model",
++            "@litert//litert/cc:litert_api_with_dynamic_runtime",
+             "@litert//litert/cc/options:litert_magic_number_options",
+         ],
+     }),
+@@ -1072,7 +1072,7 @@ cc_test(
+         "@com_google_absl//absl/status:statusor",
+         "@com_google_absl//absl/strings:string_view",
+         "@litert//litert/cc:litert_macros",
+-        "@litert//litert/cc:litert_model",
++        "@litert//litert/cc:litert_api_with_dynamic_runtime",
+         "//runtime/components:model_resources",
+         "//runtime/components:tokenizer",
+         "//runtime/util:litert_status_util",
+@@ -1113,7 +1113,7 @@ cc_library(
+             "@litert//litert/cc:litert_compiled_model",
+             "@litert//litert/cc:litert_environment",
+             "@litert//litert/cc:litert_macros",
+-            "@litert//litert/cc:litert_model",
++            "@litert//litert/cc:litert_api_with_dynamic_runtime",
+             "@litert//litert/cc:litert_options",
+             "@litert//litert/cc:litert_tensor_buffer",
+         ],
+@@ -1188,7 +1188,7 @@ cc_test(
+             "@litert//litert/cc:litert_environment",
+             "@litert//litert/cc:litert_layout",
+             "@litert//litert/cc:litert_macros",
+-            "@litert//litert/cc:litert_model",
++            "@litert//litert/cc:litert_api_with_dynamic_runtime",
+             "@litert//litert/cc:litert_ranked_tensor_type",
+             "@litert//litert/cc:litert_tensor_buffer",
+             "@litert//litert/cc:litert_tensor_buffer_types",
 diff --git a/runtime/executor/audio_executor_settings_test.cc b/runtime/executor/audio_executor_settings_test.cc
 index 481f81b..f18c998 100644
 --- a/runtime/executor/audio_executor_settings_test.cc
 +++ b/runtime/executor/audio_executor_settings_test.cc
 @@ -165,4 +165,3 @@ TEST(AudioExecutorSettingsTest, GetProgramCacheFile) {
-
+ 
  }  // namespace
  }  // namespace litert::lm
 -
@@ -1095,9 +2243,31 @@ index e9e347e..a856fb6 100644
 +++ b/runtime/executor/audio_litert_compiled_model_executor.cc
 @@ -961,4 +961,3 @@ absl::Status AudioLiteRtCompiledModelExecutor::RestoreContext(
  }
-
+ 
  }  // namespace litert::lm
 -
+diff --git a/runtime/executor/litert/BUILD b/runtime/executor/litert/BUILD
+index 2908b8b..db87233 100644
+--- a/runtime/executor/litert/BUILD
++++ b/runtime/executor/litert/BUILD
+@@ -50,7 +50,7 @@ cc_library(
+             "@litert//litert/cc:litert_environment",
+             "@litert//litert/cc:litert_layout",
+             "@litert//litert/cc:litert_macros",
+-            "@litert//litert/cc:litert_model",
++            "@litert//litert/cc:litert_api_with_dynamic_runtime",
+             "@litert//litert/cc:litert_options",
+             "@litert//litert/cc:litert_ranked_tensor_type",
+             "@litert//litert/cc:litert_tensor_buffer",
+@@ -73,7 +73,7 @@ cc_test(
+         "@litert//litert/cc:litert_common",
+         "@litert//litert/cc:litert_compiled_model",
+         "@litert//litert/cc:litert_environment",
+-        "@litert//litert/cc:litert_model",
++        "@litert//litert/cc:litert_api_with_dynamic_runtime",
+         "@litert//litert/cc:litert_options",
+         "@litert//litert/test:matchers",
+         "//runtime/components:model_resources",
 diff --git a/runtime/executor/llm_executor_settings.cc b/runtime/executor/llm_executor_settings.cc
 index a6736e5..b5e2e13 100644
 --- a/runtime/executor/llm_executor_settings.cc
@@ -1118,7 +2288,7 @@ index 8704efe..574a60f 100644
 @@ -227,6 +227,10 @@ struct AdvancedSettings {
    // performance at the risk of reducing quality.
    std::optional<bool> allow_src_quantized_fc_conv_ops;
-
+ 
 +  // If true, the GPU delegate may leave unsupported ops on CPU instead of
 +  // failing model compilation when the graph cannot be fully delegated.
 +  bool allow_partial_gpu_delegation = false;
@@ -1159,7 +2329,7 @@ index bc87e77..c62358d 100644
 -      gpu_compilation_options.SetHintFullyDelegatedToSingleDelegate(true);
 +      gpu_compilation_options.SetHintFullyDelegatedToSingleDelegate(
 +          !advanced_settings.allow_partial_gpu_delegation);
-
+ 
        gpu_compilation_options.SetMadviseOriginalSharedTensors(
            advanced_settings.gpu_madvise_original_shared_tensors);
 diff --git a/runtime/executor/vision_executor_settings_test.cc b/runtime/executor/vision_executor_settings_test.cc
@@ -1167,7 +2337,7 @@ index 6a168f9..e84b74b 100644
 --- a/runtime/executor/vision_executor_settings_test.cc
 +++ b/runtime/executor/vision_executor_settings_test.cc
 @@ -185,4 +185,3 @@ TEST(VisionExecutorSettingsTest, GetProgramCacheFile) {
-
+ 
  }  // namespace
  }  // namespace litert::lm
 -
@@ -1431,10 +2601,10 @@ index 0000000..9fc9d74
 +}
 diff --git a/tools/docker/build_unity_aar.sh b/tools/docker/build_unity_aar.sh
 new file mode 100644
-index 0000000..3ce02f8
+index 0000000..c8839f2
 --- /dev/null
 +++ b/tools/docker/build_unity_aar.sh
-@@ -0,0 +1,517 @@
+@@ -0,0 +1,535 @@
 +#!/usr/bin/env bash
 +set -euo pipefail
 +
@@ -1696,14 +2866,20 @@ index 0000000..3ce02f8
 +cd /litert_lm
 +
 +patch_litert_android_runtime_exports() {
-+  local output_base source_litert_repo patched_litert_repo litert_defs runtime_linux_lds
++  local output_base source_litert_repo patched_litert_repo litert_defs litert_cc_build litert_cc_internal_build runtime_linux_lds
 +
 +  patched_litert_repo="/litert_lm/temp/litert-unity-unversioned"
 +  litert_defs="$patched_litert_repo/litert/build_common/litert_build_defs.bzl"
++  litert_cc_build="$patched_litert_repo/litert/cc/BUILD"
++  litert_cc_internal_build="$patched_litert_repo/litert/cc/internal/BUILD"
 +  runtime_linux_lds="$patched_litert_repo/litert/build_common/export_litert_runtime_only_linux.lds"
-+  if [[ -f "$litert_defs" && -f "$runtime_linux_lds" ]] &&
++  if [[ -f "$litert_defs" && -f "$litert_cc_build" && -f "$litert_cc_internal_build" && -f "$runtime_linux_lds" ]] &&
 +      grep -q "LITERT_LM_UNITY_UNVERSIONED_DYNSYM_EXPORTS_DF1_GLOBAL" "$runtime_linux_lds" &&
-+      grep -q "LITERT_LM_UNITY_DF1_GLOBAL_RUNTIME" "$litert_defs"; then
++      grep -q "LITERT_LM_UNITY_DF1_GLOBAL_RUNTIME" "$litert_defs" &&
++      grep -q "LITERT_LM_UNITY_DYNAMIC_RUNTIME_MODEL_DEDUP" "$litert_cc_build" &&
++      grep -q "LITERT_LM_UNITY_DYNAMIC_RUNTIME_MODEL_DEDUP" "$litert_cc_internal_build" &&
++      ! grep -q '"@litert//litert/cc:litert_model",' "$litert_cc_build" &&
++      ! grep -q '"//litert/cc:litert_model",' "$litert_cc_internal_build"; then
 +    printf '%s\n' "$patched_litert_repo"
 +    return
 +  fi
@@ -1725,6 +2901,14 @@ index 0000000..3ce02f8
 +    echo "Could not find LiteRT Bazel build definitions: $litert_defs" >&2
 +    exit 1
 +  fi
++  if [[ ! -f "$litert_cc_build" ]]; then
++    echo "Could not find LiteRT C++ BUILD file: $litert_cc_build" >&2
++    exit 1
++  fi
++  if [[ ! -f "$litert_cc_internal_build" ]]; then
++    echo "Could not find LiteRT internal C++ BUILD file: $litert_cc_internal_build" >&2
++    exit 1
++  fi
 +  if [[ ! -f "$runtime_linux_lds" ]]; then
 +    echo "Could not find LiteRT runtime export script: $runtime_linux_lds" >&2
 +    exit 1
@@ -1734,6 +2918,10 @@ index 0000000..3ce02f8
 +    s#"//litert:android": _EXPORT_LRT_COMMON_LINKOPTS_LINUX \+ _LRT_ANDROID_PAGE_SIZE_LINKOPTS \+ \[_EXPORT_LRT_RUNTIME_ONLY_LINKOPT_LINUX\]#"//litert:android": _EXPORT_LRT_COMMON_LINKOPTS_LINUX + _LRT_ANDROID_PAGE_SIZE_LINKOPTS + [_EXPORT_LRT_RUNTIME_ONLY_LINKOPT_LINUX] + ["-Wl,-z,global"]#g;
 +  ' "$litert_defs"
 +  sed -i '/def export_lrt_runtime_only_linkopt()/a\    # LITERT_LM_UNITY_DF1_GLOBAL_RUNTIME: Android sampler dlopen resolves LiteRt symbols from the linker global group.' "$litert_defs"
++  sed -i '/"@litert\/\/litert\/cc:litert_model",/d' "$litert_cc_build"
++  sed -i '/"\/\/litert\/cc:litert_model",/d' "$litert_cc_internal_build"
++  sed -i '1i# LITERT_LM_UNITY_DYNAMIC_RUNTIME_MODEL_DEDUP: litert_api_with_dynamic_runtime already links dynamic_runtime:litert_model; do not link the non-dynamic model implementation into Unity JNI.' "$litert_cc_build"
++  sed -i '1i# LITERT_LM_UNITY_DYNAMIC_RUNTIME_MODEL_DEDUP: Unity uses dynamic_runtime LiteRT model implementation for JNI builds.' "$litert_cc_internal_build"
 +
 +  cat > "$runtime_linux_lds" <<'LDS'
 +/* LITERT_LM_UNITY_UNVERSIONED_DYNSYM_EXPORTS_DF1_GLOBAL

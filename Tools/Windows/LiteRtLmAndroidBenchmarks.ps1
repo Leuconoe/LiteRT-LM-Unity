@@ -76,6 +76,9 @@ $LiteRtLmAndroidBenchmarks = @(
 
     New-LiteRtLmAndroidBenchmark -Name "qwen2.5-0.5b-gpu" -DisplayName "Qwen2.5 0.5B Instruct" -Repo "litert-community/Qwen2.5-0.5B-Instruct" -Model "Qwen2.5-0.5B-Instruct-q8.litertlm" -Backend "GPU" -Apk "LiteRtLmAndroidSmokeTest-Qwen2.5-0.5B-Instruct-GPU.apk" -PreferredRank 2 -Notes "User-recommended fast alternative."
     New-LiteRtLmAndroidBenchmark -Name "qwen2.5-0.5b-cpu" -DisplayName "Qwen2.5 0.5B Instruct" -Repo "litert-community/Qwen2.5-0.5B-Instruct" -Model "Qwen2.5-0.5B-Instruct-q8.litertlm" -Backend "CPU" -Apk "LiteRtLmAndroidSmokeTest-Qwen2.5-0.5B-Instruct-CPU.apk" -PreferredRank 2 -Notes "User-recommended fast CPU alternative."
+
+    New-LiteRtLmAndroidBenchmark -Name "qwen2.5-0.5b-task-gpu" -DisplayName "Qwen2.5 0.5B Instruct Task" -Repo "litert-community/Qwen2.5-0.5B-Instruct" -Model "Qwen2.5-0.5B-Instruct_multi-prefill-seq_q8_ekv1280.task" -Backend "GPU" -Apk "LiteRtLmAndroidSmokeTest-Qwen2.5-0.5B-Instruct-task-GPU.apk" -Notes "Task bundle compatibility check."
+    New-LiteRtLmAndroidBenchmark -Name "qwen2.5-0.5b-task-cpu" -DisplayName "Qwen2.5 0.5B Instruct Task" -Repo "litert-community/Qwen2.5-0.5B-Instruct" -Model "Qwen2.5-0.5B-Instruct_multi-prefill-seq_q8_ekv1280.task" -Backend "CPU" -Apk "LiteRtLmAndroidSmokeTest-Qwen2.5-0.5B-Instruct-task-CPU.apk" -Notes "Task bundle compatibility check."
 )
 
 function Get-LiteRtLmAndroidBenchmark {
