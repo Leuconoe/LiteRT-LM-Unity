@@ -19,12 +19,12 @@ models.
 
 ### Required Assets
 
-| Model | Required files |
-| --- | --- |
-| Whisper Tiny CPU | `whisper_tiny_30s_i8.tflite`, `whisper-tiny/tokenizer.json` |
-| Whisper Tiny GPU split | `whisper_tiny_30s_f32.tflite`, `whisper_tiny_30s_encoder_f32.tflite`, `whisper-tiny/tokenizer.json` |
-| Whisper Base CPU | `whisper_base_30s_f32.tflite`, `whisper-base/tokenizer.json` |
-| Parakeet | `parakeet_tdt_0.6b_v3_5s_i8.tflite`, `parakeet-tdt-0.6b-v3/tokenizer.json` |
+| Model | Required files | Tokenizer source |
+| --- | --- | --- |
+| Whisper Tiny CPU | `whisper_tiny_30s_i8.tflite`, `whisper-tiny/tokenizer.json` | [openai/whisper-tiny](https://huggingface.co/openai/whisper-tiny) |
+| Whisper Tiny GPU split | `whisper_tiny_30s_f32.tflite`, `whisper_tiny_30s_encoder_f32.tflite`, `whisper-tiny/tokenizer.json` | [openai/whisper-tiny](https://huggingface.co/openai/whisper-tiny) |
+| Whisper Base CPU | `whisper_base_30s_f32.tflite`, `whisper-base/tokenizer.json` | [openai/whisper-base](https://huggingface.co/openai/whisper-base) |
+| Parakeet | `parakeet_tdt_0.6b_v3_5s_i8.tflite`, `parakeet-tdt-0.6b-v3/tokenizer.json` | [nvidia/parakeet-tdt-0.6b-v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) |
 
 The ASR tokenizer path must match the model family. Pass the tokenizer with
 `-TokenizerJsonPath` when building a smoke APK.

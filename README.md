@@ -23,13 +23,14 @@ Unity integration sample for LiteRT-LM on Windows Editor and Android.
 ASR models need a matching tokenizer directory under `Assets/StreamingAssets`.
 For example, Whisper Tiny uses `whisper-tiny/tokenizer.json`, Whisper Base uses
 `whisper-base/tokenizer.json`, and Parakeet uses
-`parakeet-tdt-0.6b-v3/tokenizer.json`.
+`parakeet-tdt-0.6b-v3/tokenizer.json`. Use the tokenizer source links below
+when restoring those tokenizer folders.
 
-| Rank | Model | Source | Note |
-| ---: | --- | --- | --- |
-| 1 | `whisper_tiny_30s_i8.tflite` | [litert-community/whisper-tiny](https://huggingface.co/litert-community/whisper-tiny) | Recommended Korean/English ASR model for Android CPU use. |
-| 2 | `parakeet_tdt_0.6b_v3_5s_i8.tflite` | [litert-community/parakeet-tdt-0.6b-v3](https://huggingface.co/litert-community/parakeet-tdt-0.6b-v3) | English-only ASR smoke model. |
-| 3 | `whisper_base_30s_f32.tflite` | [litert-community/whisper-base](https://huggingface.co/litert-community/whisper-base) | Quality comparison only; it is large and not the default recommendation. |
+| Rank | Model | Model source | Tokenizer source | Note |
+| ---: | --- | --- | --- | --- |
+| 1 | `whisper_tiny_30s_i8.tflite` | [litert-community/whisper-tiny](https://huggingface.co/litert-community/whisper-tiny) | [openai/whisper-tiny](https://huggingface.co/openai/whisper-tiny) | Recommended Korean/English ASR model for Android CPU use. |
+| 2 | `parakeet_tdt_0.6b_v3_5s_i8.tflite` | [litert-community/parakeet-tdt-0.6b-v3](https://huggingface.co/litert-community/parakeet-tdt-0.6b-v3) | [nvidia/parakeet-tdt-0.6b-v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) | English-only ASR smoke model. |
+| 3 | `whisper_base_30s_f32.tflite` | [litert-community/whisper-base](https://huggingface.co/litert-community/whisper-base) | [openai/whisper-base](https://huggingface.co/openai/whisper-base) | Quality comparison only; it is large and not the default recommendation. |
 
 ## Details
 
