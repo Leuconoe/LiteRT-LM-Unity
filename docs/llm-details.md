@@ -1,10 +1,10 @@
-# Android Physical Device Benchmark Final Report
+# LLM Details
 
-This is the consolidated physical-device benchmark report for the Unity
-LiteRT-LM Android builds. It combines all currently available device-run CSVs
-and selected summary logs under `Builds/Logs/AndroidDeviceRuns`.
+This document records LLM setup, benchmark results, and smoke-test notes for the
+Unity LiteRT-LM Android builds. It combines all currently available device-run
+CSVs and selected summary logs under `Builds/Logs/AndroidDeviceRuns`.
 
-## Scope
+## Setup
 
 - Report date: 2026-04-28
 - Unity project: `LiteRT-LM-Unity`
@@ -17,7 +17,9 @@ and selected summary logs under `Builds/Logs/AndroidDeviceRuns`.
 Device serials and local absolute paths are intentionally omitted. Use the
 relative run IDs and log paths in this report to trace the source artifacts.
 
-## Executive Summary
+## Benchmarks
+
+### Executive Summary
 
 The current best physical-device result is `gemma3-1b-it-int4` on the native
 OpenCL GPU path. It passed on two physical devices with clear OpenCL execution
@@ -30,7 +32,7 @@ models failed: the device WebGPU max storage buffer binding size was
 smaller Gemma/mobile-action models could start, but smoke output quality was
 poor for the generic smoke prompt.
 
-## Consolidated Result Table
+### Consolidated Result Table
 
 | Model | APK / model file | Backend | Best status | GPU path | Warmup / init | First chat | Second chat | Benchmark avg | Benchmark init | TTFT | Prefill | Decode | Function hit rate | Quality note |
 | --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
@@ -43,7 +45,7 @@ poor for the generic smoke prompt.
 | `Qwen2.5-1.5B-Instruct-q8` | `LiteRtLmAndroidSmokeTest-Qwen2.5-1.5B-Instruct.apk` | GPU | FAIL | WebGPU fallback | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | Not measured | Failed WebGPU binding `233373696` > limit `134217728`, then lowmemorykiller killed the app. |
 | `gemma-4-E2B-it` | `LiteRtLmAndroidSmokeTest-gemma-4-E2B-it.apk` | GPU | FAIL | WebGPU fallback | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | Windows FC: 20/20 | Failed engine creation on the older WebGPU fallback path. |
 
-## Representative Run Artifacts
+### Representative Run Artifacts
 
 | Model | Run ID | CSV | Summary log |
 | --- | --- | --- | --- |
@@ -57,7 +59,7 @@ poor for the generic smoke prompt.
 | `Qwen2.5-1.5B-Instruct-q8` GPU | `20260427-145901` | N/A, manual confirmation | `Builds/Logs/AndroidDeviceRuns/20260427-145901-qwen2.5-1.5b-gpu-manual.summary.txt` |
 | `gemma-4-E2B-it` | `20260427-144049` | `Builds/Logs/AndroidDeviceRuns/20260427-144049-results.csv` | `Builds/Logs/AndroidDeviceRuns/20260427-144049-gemma-4-E2B-it-gpu.summary.txt` |
 
-## GPU Evidence
+### GPU Evidence
 
 The final `gemma3-1b-it-int4` runs show native OpenCL execution:
 
@@ -81,9 +83,9 @@ Interpretation:
 - Token sampling still uses CPU fallback.
 - This is materially better than the older WebGPU-only fallback path.
 
-## Failure Details
+### Failure Details
 
-### WebGPU Storage Buffer Limits
+#### WebGPU Storage Buffer Limits
 
 The older GPU runs for Qwen2.5 failed because one WebGPU binding exceeded the
 device limit:
@@ -99,13 +101,13 @@ The Qwen2.5 1.5B run also triggered Android memory pressure:
 lowmemorykiller: Kill 'com.Leuconoe.LiteRTLMUnity' ... to free 386868kB rss
 ```
 
-### Gemma4 Android GPU
+#### Gemma4 Android GPU
 
 `gemma-4-E2B-it` failed during engine creation on the older WebGPU fallback
 path. It remains a strong Windows function-calling model, but Android GPU has
 not been verified for it in the current native OpenCL build path.
 
-## Function-Calling Accuracy
+### Function-Calling Accuracy
 
 The Android device smoke benchmark does not execute the 20-case function-calling
 accuracy suite, so Android `FunctionCallingHitRate` is not available in these
@@ -120,7 +122,7 @@ Available non-Android function-calling evidence:
 The Android function-calling hit rate still needs a dedicated on-device runner
 that uses the same 20 cases as `LiteRtLmFunctionCallingBenchmarkRunner`.
 
-## Recommendations
+### Recommendations
 
 1. Use `gemma3-1b-it-int4` as the current Android native GPU baseline.
 2. Keep `Qwen2.5-0.5B-Instruct-q8` as the fast CPU alternative when GPU is
@@ -132,6 +134,14 @@ that uses the same 20 cases as `LiteRtLmFunctionCallingBenchmarkRunner`.
    final Android recommendation for it.
 5. Add an Android function-calling benchmark runner to fill the missing
    `FunctionCallingHitRate` column for all candidate models.
+
+## Smoke Tests
+
+The Android LLM smoke flow initializes the selected model, runs two chat turns,
+and can run three standalone benchmark iterations. Use
+`Tools/Windows/LiteRtLmAndroidBenchmarks.ps1` to inspect available model
+definitions and `Tools/Windows/Run-LiteRtLmAndroidDeviceBenchmarks.ps1` to run
+selected device benchmarks.
 
 ## Notes
 

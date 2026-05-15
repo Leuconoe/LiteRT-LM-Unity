@@ -20,6 +20,11 @@ Unity integration sample for LiteRT-LM on Windows Editor and Android.
 
 ## Recommended ASR Models
 
+ASR models need a matching tokenizer directory under `Assets/StreamingAssets`.
+For example, Whisper Tiny uses `whisper-tiny/tokenizer.json`, Whisper Base uses
+`whisper-base/tokenizer.json`, and Parakeet uses
+`parakeet-tdt-0.6b-v3/tokenizer.json`.
+
 | Rank | Model | Source | Note |
 | ---: | --- | --- | --- |
 | 1 | `whisper_tiny_30s_i8.tflite` | [litert-community/whisper-tiny](https://huggingface.co/litert-community/whisper-tiny) | Recommended Korean/English ASR model for Android CPU use. |
@@ -28,6 +33,5 @@ Unity integration sample for LiteRT-LM on Windows Editor and Android.
 
 ## Details
 
-- ASR benchmarks: [`docs/android-asr-smoke-benchmarks.md`](docs/android-asr-smoke-benchmarks.md)
-- Android LLM benchmarks: [`docs/benchmarks/android-device-llm-benchmarks.md`](docs/benchmarks/android-device-llm-benchmarks.md)
-- AAR patch/build notes are in the ASR benchmark document.
+- LLM 세부 설명: [`docs/llm-details.md`](docs/llm-details.md)
+- ASR 세부 설명: [`docs/asr-details.md`](docs/asr-details.md)

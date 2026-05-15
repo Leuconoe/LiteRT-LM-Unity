@@ -2,10 +2,10 @@
 
 Detailed notes live here so the project README can stay short.
 
-## Benchmarks
+## Details
 
-- [Android ASR smoke benchmarks](android-asr-smoke-benchmarks.md)
-- [Android LLM device benchmarks](benchmarks/android-device-llm-benchmarks.md)
+- [LLM 세부 설명](llm-details.md)
+- [ASR 세부 설명](asr-details.md)
 
 ## Handoffs
 

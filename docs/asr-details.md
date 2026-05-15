@@ -1,9 +1,12 @@
-# Android ASR Smoke Benchmarks
+# ASR Details
 
-This document records Android ASR smoke tests for the Unity LiteRT-LM bridge.
-The README keeps only requirements and recommended models.
+This document records ASR setup, benchmark results, and smoke-test commands for
+the Unity LiteRT-LM bridge. The README keeps only requirements and recommended
+models.
 
-## Current Recommendation
+## Setup
+
+### Current Recommendation
 
 - Default ASR model: `whisper_tiny_30s_i8.tflite` on CPU.
 - GPU ASR status: `whisper_tiny_30s_f32.tflite` can use the split path
@@ -14,7 +17,33 @@ The README keeps only requirements and recommended models.
   correctly on CPU, but it is large and not a default recommendation.
 - Parakeet status: `parakeet_tdt_0.6b_v3_5s_i8.tflite` is English-only.
 
-## Device
+### Required Assets
+
+| Model | Required files |
+| --- | --- |
+| Whisper Tiny CPU | `whisper_tiny_30s_i8.tflite`, `whisper-tiny/tokenizer.json` |
+| Whisper Tiny GPU split | `whisper_tiny_30s_f32.tflite`, `whisper_tiny_30s_encoder_f32.tflite`, `whisper-tiny/tokenizer.json` |
+| Whisper Base CPU | `whisper_base_30s_f32.tflite`, `whisper-base/tokenizer.json` |
+| Parakeet | `parakeet_tdt_0.6b_v3_5s_i8.tflite`, `parakeet-tdt-0.6b-v3/tokenizer.json` |
+
+The ASR tokenizer path must match the model family. Pass the tokenizer with
+`-TokenizerJsonPath` when building a smoke APK.
+
+### Custom AAR
+
+The custom AAR is built from `External/LiteRT-LM` plus
+`Tools/UnityAar/litert-lm-unity-aar.patch`. Do not commit direct changes inside
+the submodule. Regenerate the AAR after patch changes, then replace:
+
+```powershell
+.\temp\Run-ReusableUnityAarBuild.ps1 -ForceSync
+Copy-Item -Force temp\docker-bazel-out\aar\litertlm-unity-bridge.aar `
+  Assets\Plugins\Android\litertlm-unity-bridge.aar
+```
+
+## Benchmarks
+
+### Device
 
 Public device details are limited to chipset and memory.
 
@@ -24,16 +53,7 @@ Public device details are limited to chipset and memory.
 | RAM | about 7.52 GiB |
 | Package | `com.Leuconoe.LiteRTLMUnity` |
 
-## Required Assets
-
-| Model | Required files |
-| --- | --- |
-| Whisper Tiny CPU | `whisper_tiny_30s_i8.tflite`, `whisper-tiny/tokenizer.json` |
-| Whisper Tiny GPU split | `whisper_tiny_30s_f32.tflite`, `whisper_tiny_30s_encoder_f32.tflite`, `whisper-tiny/tokenizer.json` |
-| Whisper Base CPU | `whisper_base_30s_f32.tflite`, `whisper-base/tokenizer.json` |
-| Parakeet | `parakeet_tdt_0.6b_v3_5s_i8.tflite`, `parakeet-tdt-0.6b-v3/tokenizer.json` |
-
-## Latest Smoke Results
+### Latest Results
 
 Korean test audio: `2025년 3월 5일 전술평가 결과 보고.mp3`.
 
@@ -54,7 +74,7 @@ Earlier English/Parakeet runs are still useful for regression checks:
 | Parakeet English | English only | `GPU_FP16` | 5.904 | 4.094 | N/A | 0.347 | 6.522 | Partial but recognizable: `Evaluation Res Report, March 5 2025` | `20260515-174137-asr-smoke.status.txt` |
 | Whisper Tiny English | `auto` | `GPU_ENCODER_CPU_DECODER` | 5.904 | 1.534 | 1.440 | 0.094 | 2.019 | Pass: `Tactical Evaluation results report March 5, 2025.` | `20260515-171922-asr-smoke.status.txt` |
 
-## Notes
+### Notes
 
 - The Whisper GPU path in the current AAR is split execution: encoder on GPU,
   decoder/full model on CPU.
@@ -64,7 +84,7 @@ Earlier English/Parakeet runs are still useful for regression checks:
   available Qualcomm targets are `SA8255`, `SA8295`, `SM8350`, `SM8450`,
   `SM8550`, `SM8650`, `SM8750`, and `SM8850`.
 
-## Smoke Test Commands
+## Smoke Tests
 
 Build and run Whisper Tiny i8 CPU:
 
@@ -79,7 +99,7 @@ Build and run Whisper Tiny i8 CPU:
   -OutputApk LiteRtLmAndroidAsrSmokeTest-whisper-tiny-ko-i8-CPU.apk
 
 .\Tools\Windows\Run-LiteRtLmAndroidAsrSmokeTest.ps1 `
-  -DeviceSerial 90e3c875 `
+  -DeviceSerial <device-serial> `
   -ApkPath Builds\Android\LiteRtLmAndroidAsrSmokeTest-whisper-tiny-ko-i8-CPU.apk `
   -TimeoutSeconds 600 `
   -ClearAppData
@@ -98,20 +118,8 @@ Build and run Whisper Tiny f32 GPU split:
   -OutputApk LiteRtLmAndroidAsrSmokeTest-whisper-tiny-ko-gpu-split.apk
 
 .\Tools\Windows\Run-LiteRtLmAndroidAsrSmokeTest.ps1 `
-  -DeviceSerial 90e3c875 `
+  -DeviceSerial <device-serial> `
   -ApkPath Builds\Android\LiteRtLmAndroidAsrSmokeTest-whisper-tiny-ko-gpu-split.apk `
   -TimeoutSeconds 600 `
   -ClearAppData
-```
-
-## Custom AAR
-
-The custom AAR is built from `External/LiteRT-LM` plus
-`Tools/UnityAar/litert-lm-unity-aar.patch`. Do not commit direct changes inside
-the submodule. Regenerate the AAR after patch changes, then replace:
-
-```powershell
-.\temp\Run-ReusableUnityAarBuild.ps1 -ForceSync
-Copy-Item -Force temp\docker-bazel-out\aar\litertlm-unity-bridge.aar `
-  Assets\Plugins\Android\litertlm-unity-bridge.aar
 ```
