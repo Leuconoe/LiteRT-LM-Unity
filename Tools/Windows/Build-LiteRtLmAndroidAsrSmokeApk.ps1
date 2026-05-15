@@ -1,7 +1,11 @@
 param(
     [string]$ModelFileName = "parakeet_tdt_0.6b_v3_5s_i8.tflite",
     [string]$AudioFileName = "Tactical Evaluation Results Report - March 5, 2025.mp3",
-    [ValidateSet("GPU_FP16", "GPU", "GPU_RELAXED", "GPU_NO_TEXTURE", "GPU_NO_CONVERT", "CPU")]
+    [string]$TokenizerJsonPath = "parakeet-tdt-0.6b-v3/tokenizer.json",
+    [ValidateSet("parakeet", "whisper")]
+    [string]$AsrMode = "parakeet",
+    [string]$AsrLanguage = "auto",
+    [ValidateSet("GPU_FP16", "GPU", "GPU_RELAXED", "GPU_NO_TEXTURE", "GPU_NO_CONVERT", "GPU_RELAXED_NO_CONVERT", "CPU")]
     [string]$Backend = "GPU_FP16",
     [string]$OutputApk = "LiteRtLmAndroidAsrSmokeTest-parakeet-tdt-0.6b-v3.apk",
     [string]$UnityPath = "",
@@ -64,14 +68,42 @@ function ConvertTo-ProcessArgument {
     return '"' + $Argument.Replace('"', '\"') + '"'
 }
 
+function Get-WhisperEncoderCompanionFileName {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FileName
+    )
+
+    if ($FileName.EndsWith("_f32.tflite", [StringComparison]::OrdinalIgnoreCase)) {
+        return $FileName.Substring(0, $FileName.Length - "_f32.tflite".Length) + "_encoder_f32.tflite"
+    }
+
+    if ($FileName.EndsWith(".tflite", [StringComparison]::OrdinalIgnoreCase)) {
+        return $FileName.Substring(0, $FileName.Length - ".tflite".Length) + "_encoder.tflite"
+    }
+
+    return ""
+}
+
 $modelSource = Join-Path $ProjectRoot "Assets\StreamingAssets\$ModelFileName"
 if (!(Test-Path $modelSource)) {
     throw "ASR model not found: $modelSource"
 }
 
+$encoderModelFileName = Get-WhisperEncoderCompanionFileName -FileName $ModelFileName
+$encoderModelSource = ""
+if (![string]::IsNullOrWhiteSpace($encoderModelFileName)) {
+    $encoderModelSource = Join-Path $ProjectRoot "Assets\StreamingAssets\$encoderModelFileName"
+}
+
 $audioSource = Join-Path $ProjectRoot "Assets\StreamingAssets\$AudioFileName"
 if (!(Test-Path $audioSource)) {
     throw "ASR test audio not found: $audioSource"
+}
+
+$tokenizerSource = Join-Path $ProjectRoot "Assets\StreamingAssets\$TokenizerJsonPath"
+if (!(Test-Path $tokenizerSource)) {
+    throw "ASR tokenizer not found: $tokenizerSource"
 }
 
 $TempRoot = [System.IO.Path]::GetFullPath($TempRoot)
@@ -124,9 +156,13 @@ try {
     $streamingAssetsCopy = Join-Path $buildProjectRoot "Assets\StreamingAssets"
     New-Item -ItemType Directory -Force -Path $streamingAssetsCopy | Out-Null
     Copy-Item -Force $modelSource (Join-Path $streamingAssetsCopy $ModelFileName)
+    if (![string]::IsNullOrWhiteSpace($encoderModelSource) -and (Test-Path $encoderModelSource)) {
+        Write-Host "[LiteRT-LM] Including Whisper encoder companion: $encoderModelFileName"
+        Copy-Item -Force $encoderModelSource (Join-Path $streamingAssetsCopy $encoderModelFileName)
+    }
     Copy-Item -Force $audioSource (Join-Path $streamingAssetsCopy $AudioFileName)
 
-    foreach ($source in @("$modelSource.meta", "$audioSource.meta")) {
+    foreach ($source in @("$modelSource.meta", "$encoderModelSource.meta", "$audioSource.meta")) {
         if (Test-Path $source) {
             Copy-Item -Force $source (Join-Path $streamingAssetsCopy (Split-Path -Leaf $source))
         }
@@ -139,7 +175,9 @@ try {
     $env:TMP = $workspaceTemp
 
     Write-Host "[LiteRT-LM] Building Android ASR smoke APK"
+    Write-Host "[LiteRT-LM] ASR mode: $AsrMode"
     Write-Host "[LiteRT-LM] ASR backend: $Backend"
+    Write-Host "[LiteRT-LM] ASR language: $AsrLanguage"
     Write-Host "[LiteRT-LM] Unity log: $unityLogPath"
     $unityArguments = @(
         "-batchmode",
@@ -156,6 +194,12 @@ try {
         $ModelFileName,
         "-litertlmAsrAudio",
         $AudioFileName,
+        "-litertlmAsrTokenizer",
+        $TokenizerJsonPath,
+        "-litertlmAsrMode",
+        $AsrMode,
+        "-litertlmAsrLanguage",
+        $AsrLanguage,
         "-litertlmBackend",
         $Backend,
         "-litertlmOutputApk",

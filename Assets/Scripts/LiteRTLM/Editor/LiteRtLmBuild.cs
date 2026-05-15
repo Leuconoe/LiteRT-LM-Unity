@@ -77,17 +77,30 @@ namespace LiteRTLM.Unity.Editor
 
         private readonly struct AndroidAsrSmokeBuildSettings
         {
-            public AndroidAsrSmokeBuildSettings(string modelFileName, string audioFileName, string backend, string outputFileName)
+            public AndroidAsrSmokeBuildSettings(
+                string modelFileName,
+                string audioFileName,
+                string tokenizerJsonPath,
+                string backend,
+                string asrMode,
+                string asrLanguage,
+                string outputFileName)
             {
                 ModelFileName = modelFileName;
                 AudioFileName = audioFileName;
+                TokenizerJsonPath = tokenizerJsonPath;
                 Backend = backend;
+                AsrMode = asrMode;
+                AsrLanguage = asrLanguage;
                 OutputFileName = outputFileName;
             }
 
             public string ModelFileName { get; }
             public string AudioFileName { get; }
+            public string TokenizerJsonPath { get; }
             public string Backend { get; }
+            public string AsrMode { get; }
+            public string AsrLanguage { get; }
             public string OutputFileName { get; }
         }
 
@@ -311,7 +324,10 @@ namespace LiteRTLM.Unity.Editor
             BuildAndroidAsrSmokeTestApk(new AndroidAsrSmokeBuildSettings(
                 AsrSmokeDefaultModelPath,
                 AsrSmokeDefaultAudioPath,
+                AsrSmokeTokenizerJsonPath,
                 "GPU_FP16",
+                "parakeet",
+                "auto",
                 "LiteRtLmAndroidAsrSmokeTest-parakeet-tdt-0.6b-v3.apk"));
         }
 
@@ -320,10 +336,13 @@ namespace LiteRTLM.Unity.Editor
             var args = Environment.GetCommandLineArgs();
             var modelFileName = GetCommandLineValue(args, "-litertlmAsrModel", AsrSmokeDefaultModelPath);
             var audioFileName = GetCommandLineValue(args, "-litertlmAsrAudio", AsrSmokeDefaultAudioPath);
+            var tokenizerJsonPath = GetCommandLineValue(args, "-litertlmAsrTokenizer", AsrSmokeTokenizerJsonPath);
             var backend = GetCommandLineValue(args, "-litertlmBackend", "GPU_FP16");
+            var asrMode = GetCommandLineValue(args, "-litertlmAsrMode", "parakeet");
+            var asrLanguage = GetCommandLineValue(args, "-litertlmAsrLanguage", "auto");
             var outputFileName = GetCommandLineValue(args, "-litertlmOutputApk", "LiteRtLmAndroidAsrSmokeTest-parakeet-tdt-0.6b-v3.apk");
 
-            BuildAndroidAsrSmokeTestApk(new AndroidAsrSmokeBuildSettings(modelFileName, audioFileName, backend, outputFileName));
+            BuildAndroidAsrSmokeTestApk(new AndroidAsrSmokeBuildSettings(modelFileName, audioFileName, tokenizerJsonPath, backend, asrMode, asrLanguage, outputFileName));
         }
 
         private static void BuildAndroidAvdSmokeTestApk(AndroidSmokeBuildSettings settings)
@@ -411,6 +430,14 @@ namespace LiteRTLM.Unity.Editor
             {
                 throw new ArgumentException("Android ASR smoke test backend is required.", nameof(settings));
             }
+            if (string.IsNullOrWhiteSpace(settings.TokenizerJsonPath))
+            {
+                throw new ArgumentException("Android ASR smoke test tokenizer path is required.", nameof(settings));
+            }
+            if (string.IsNullOrWhiteSpace(settings.AsrMode))
+            {
+                throw new ArgumentException("Android ASR smoke test mode is required.", nameof(settings));
+            }
 
             var projectRoot = GetProjectRoot();
             var modelAssetPath = Path.Combine(projectRoot, "Assets", "StreamingAssets", settings.ModelFileName);
@@ -425,7 +452,7 @@ namespace LiteRTLM.Unity.Editor
                 throw new FileNotFoundException($"Android ASR smoke test audio not found: {audioAssetPath}", audioAssetPath);
             }
 
-            var tokenizerAssetPath = Path.Combine(projectRoot, "Assets", "StreamingAssets", AsrSmokeTokenizerJsonPath);
+            var tokenizerAssetPath = Path.Combine(projectRoot, "Assets", "StreamingAssets", settings.TokenizerJsonPath);
             if (!File.Exists(tokenizerAssetPath))
             {
                 throw new FileNotFoundException($"Android ASR smoke test tokenizer not found: {tokenizerAssetPath}", tokenizerAssetPath);
@@ -459,9 +486,16 @@ namespace LiteRTLM.Unity.Editor
                     settings.ModelFileName + ".meta",
                     settings.AudioFileName,
                     settings.AudioFileName + ".meta",
-                    AsrSmokeTokenizerJsonPath,
-                    AsrSmokeTokenizerJsonPath + ".meta",
+                    settings.TokenizerJsonPath,
+                    settings.TokenizerJsonPath + ".meta",
                 };
+                var encoderCompanionModel = GetWhisperEncoderCompanionModelFileName(settings.ModelFileName);
+                if (!string.IsNullOrWhiteSpace(encoderCompanionModel) &&
+                    File.Exists(Path.Combine(projectRoot, "Assets", "StreamingAssets", encoderCompanionModel)))
+                {
+                    packagedFiles.Add(encoderCompanionModel);
+                    packagedFiles.Add(encoderCompanionModel + ".meta");
+                }
 
                 WithAndroidSelectedStreamingAssets(packagedFiles, () =>
                 {
@@ -480,7 +514,7 @@ namespace LiteRTLM.Unity.Editor
                     }
                 });
 
-                Debug.Log($"LiteRT-LM Android ASR smoke APK built successfully: {outputPath}, model={settings.ModelFileName}, audio={settings.AudioFileName}, backend={settings.Backend}");
+                Debug.Log($"LiteRT-LM Android ASR smoke APK built successfully: {outputPath}, mode={settings.AsrMode}, model={settings.ModelFileName}, audio={settings.AudioFileName}, tokenizer={settings.TokenizerJsonPath}, backend={settings.Backend}");
             }
             finally
             {
@@ -707,6 +741,28 @@ namespace LiteRTLM.Unity.Editor
                 Debug.LogException(ex);
                 EditorApplication.Exit(1);
             }
+        }
+
+        private static string GetWhisperEncoderCompanionModelFileName(string modelFileName)
+        {
+            if (string.IsNullOrWhiteSpace(modelFileName))
+            {
+                return string.Empty;
+            }
+
+            const string f32Suffix = "_f32.tflite";
+            if (modelFileName.EndsWith(f32Suffix, StringComparison.OrdinalIgnoreCase))
+            {
+                return modelFileName.Substring(0, modelFileName.Length - f32Suffix.Length) + "_encoder_f32.tflite";
+            }
+
+            const string tfliteSuffix = ".tflite";
+            if (modelFileName.EndsWith(tfliteSuffix, StringComparison.OrdinalIgnoreCase))
+            {
+                return modelFileName.Substring(0, modelFileName.Length - tfliteSuffix.Length) + "_encoder.tflite";
+            }
+
+            return string.Empty;
         }
 
         private static string ExecuteWindowsEditorSelfTest()
@@ -1073,7 +1129,10 @@ namespace LiteRTLM.Unity.Editor
             var serializedRunner = new SerializedObject(runner);
             FindRequiredProperty(serializedRunner, "modelPath").stringValue = settings.ModelFileName;
             FindRequiredProperty(serializedRunner, "audioPath").stringValue = settings.AudioFileName;
+            FindRequiredProperty(serializedRunner, "tokenizerJsonPath").stringValue = settings.TokenizerJsonPath;
             FindRequiredProperty(serializedRunner, "backend").stringValue = settings.Backend;
+            FindRequiredProperty(serializedRunner, "asrMode").stringValue = settings.AsrMode;
+            FindRequiredProperty(serializedRunner, "asrLanguage").stringValue = settings.AsrLanguage;
             serializedRunner.ApplyModifiedPropertiesWithoutUndo();
         }
 

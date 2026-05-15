@@ -15,6 +15,8 @@ namespace LiteRTLM.Unity
         [SerializeField] private string audioPath = "Tactical Evaluation Results Report - March 5, 2025.mp3";
         [SerializeField] private string tokenizerJsonPath = "parakeet-tdt-0.6b-v3/tokenizer.json";
         [SerializeField] private string backend = "GPU_FP16";
+        [SerializeField] private string asrMode = "parakeet";
+        [SerializeField] private string asrLanguage = "auto";
 
         private LiteRtLmUnityClient client;
 
@@ -33,7 +35,7 @@ namespace LiteRTLM.Unity
 
         private IEnumerator RunSmokeTest()
         {
-            WriteStatus("START", $"backend={backend}, model={modelPath}, audio={audioPath}, platform={Application.platform}");
+            WriteStatus("START", $"mode={asrMode}, backend={backend}, language={asrLanguage}, model={modelPath}, audio={audioPath}, platform={Application.platform}");
 
 #if UNITY_ANDROID && !UNITY_EDITOR
             string resolvedModelPath = null;
@@ -48,6 +50,32 @@ namespace LiteRTLM.Unity
             {
                 WriteFailure(resolveModelError);
                 yield break;
+            }
+
+            if (IsWhisperGpuRequested())
+            {
+                var encoderCompanionPath = GetWhisperEncoderCompanionPath(modelPath);
+                if (string.IsNullOrWhiteSpace(encoderCompanionPath))
+                {
+                    WriteFailure(new InvalidOperationException($"Whisper GPU backend requires an encoder companion model next to {modelPath}."));
+                    yield break;
+                }
+
+                string resolvedEncoderCompanionPath = null;
+                Exception resolveEncoderCompanionError = null;
+                yield return ResolveStreamingAssetPath(
+                    encoderCompanionPath,
+                    "encoder_model",
+                    path => resolvedEncoderCompanionPath = path,
+                    ex => resolveEncoderCompanionError = ex);
+
+                if (resolveEncoderCompanionError != null)
+                {
+                    WriteFailure(resolveEncoderCompanionError);
+                    yield break;
+                }
+
+                WriteStatus("ENCODER_MODEL_READY", DescribeFile(resolvedEncoderCompanionPath));
             }
 
             string resolvedAudioPath = null;
@@ -97,17 +125,25 @@ namespace LiteRTLM.Unity
                 var inspectionJson = client.InspectLiteRtModel(resolvedModelPath);
                 WriteStatus("INSPECT_RESULT", OneLine(Truncate(inspectionJson, 3000)));
 
-                WriteStatus("ASR_INVOKE", $"Invoking Parakeet LiteRT encode/decode smoke path with backend={backend}.");
-                var asrJson = client.RunParakeetAsrSmoke(resolvedModelPath, resolvedAudioPath, resolvedTokenizerPath, backend);
+                var normalizedMode = string.IsNullOrWhiteSpace(asrMode)
+                    ? "parakeet"
+                    : asrMode.Trim().ToLowerInvariant();
+                var normalizedLanguage = string.IsNullOrWhiteSpace(asrLanguage)
+                    ? "auto"
+                    : asrLanguage.Trim().ToLowerInvariant();
+                WriteStatus("ASR_INVOKE", $"Invoking {normalizedMode} LiteRT ASR smoke path with backend={backend}, language={normalizedLanguage}.");
+                var asrJson = normalizedMode == "whisper"
+                    ? client.RunWhisperAsrSmoke(resolvedModelPath, resolvedAudioPath, resolvedTokenizerPath, backend, normalizedLanguage)
+                    : client.RunParakeetAsrSmoke(resolvedModelPath, resolvedAudioPath, resolvedTokenizerPath, backend);
                 var elapsedSeconds = Time.realtimeSinceStartup - startedAt;
 
                 if (string.IsNullOrWhiteSpace(asrJson))
                 {
-                    throw new InvalidOperationException("Parakeet ASR smoke test returned an empty result.");
+                    throw new InvalidOperationException($"{normalizedMode} ASR smoke test returned an empty result.");
                 }
                 if (asrJson.Contains("\"success\": false", StringComparison.OrdinalIgnoreCase))
                 {
-                    throw new InvalidOperationException($"Parakeet ASR smoke test reported failure: {OneLine(Truncate(asrJson, 1000))}");
+                    throw new InvalidOperationException($"{normalizedMode} ASR smoke test reported failure: {OneLine(Truncate(asrJson, 1000))}");
                 }
 
                 WriteStatus("ASR_RESULT", OneLine(Truncate(asrJson, 3000)));
@@ -235,6 +271,46 @@ namespace LiteRTLM.Unity
             return string.IsNullOrEmpty(value)
                 ? string.Empty
                 : value.Replace("\r", " ").Replace("\n", " ").Trim();
+        }
+
+        private bool IsWhisperGpuRequested()
+        {
+            return string.Equals(asrMode, "whisper", StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrWhiteSpace(backend)
+                && backend.Trim().StartsWith("GPU", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string GetWhisperEncoderCompanionPath(string configuredModelPath)
+        {
+            if (string.IsNullOrWhiteSpace(configuredModelPath))
+            {
+                return null;
+            }
+
+            var directory = Path.GetDirectoryName(configuredModelPath);
+            var fileName = Path.GetFileName(configuredModelPath);
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                return null;
+            }
+
+            string companionFileName;
+            if (fileName.EndsWith("_f32.tflite", StringComparison.OrdinalIgnoreCase))
+            {
+                companionFileName = fileName.Substring(0, fileName.Length - "_f32.tflite".Length) + "_encoder_f32.tflite";
+            }
+            else if (fileName.EndsWith(".tflite", StringComparison.OrdinalIgnoreCase))
+            {
+                companionFileName = fileName.Substring(0, fileName.Length - ".tflite".Length) + "_encoder.tflite";
+            }
+            else
+            {
+                return null;
+            }
+
+            return string.IsNullOrWhiteSpace(directory)
+                ? companionFileName
+                : Path.Combine(directory, companionFileName).Replace("\\", "/");
         }
     }
 }

@@ -153,6 +153,42 @@ namespace LiteRTLM.Unity
 #endif
         }
 
+        public string RunWhisperAsrSmoke(
+            string modelPath,
+            string audioPath,
+            string tokenizerJsonPath,
+            string backend = "CPU",
+            string language = "auto")
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            if (string.IsNullOrWhiteSpace(modelPath))
+            {
+                throw new ArgumentException("modelPath is required.", nameof(modelPath));
+            }
+            if (string.IsNullOrWhiteSpace(audioPath))
+            {
+                throw new ArgumentException("audioPath is required.", nameof(audioPath));
+            }
+            if (string.IsNullOrWhiteSpace(tokenizerJsonPath))
+            {
+                throw new ArgumentException("tokenizerJsonPath is required.", nameof(tokenizerJsonPath));
+            }
+            if (string.IsNullOrWhiteSpace(backend))
+            {
+                throw new ArgumentException("backend is required.", nameof(backend));
+            }
+            if (string.IsNullOrWhiteSpace(language))
+            {
+                throw new ArgumentException("language is required.", nameof(language));
+            }
+
+            EnsureBridge();
+            return _bridge.Call<string>("runWhisperAsrSmoke", modelPath, audioPath, tokenizerJsonPath, backend, language);
+#else
+            throw new PlatformNotSupportedException("Whisper ASR smoke test currently supports Android device builds only.");
+#endif
+        }
+
         public void ResetConversation(string systemInstruction = "")
         {
 #if UNITY_ANDROID && !UNITY_EDITOR

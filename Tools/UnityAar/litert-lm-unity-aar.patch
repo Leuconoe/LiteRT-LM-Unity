@@ -89,65 +89,33 @@ index 46eba4a..c5162a5 100644
 +)
 diff --git a/kotlin/java/com/google/ai/edge/litertlm/BenchmarkInfo.java b/kotlin/java/com/google/ai/edge/litertlm/BenchmarkInfo.java
 new file mode 100644
-index 0000000..026c096
+index 0000000..6b8fc7e
 --- /dev/null
 +++ b/kotlin/java/com/google/ai/edge/litertlm/BenchmarkInfo.java
-@@ -0,0 +1,37 @@
+@@ -0,0 +1,5 @@
 +package com.google.ai.edge.litertlm;
 +
 +public final class BenchmarkInfo {
-+    public final double initTimeInSecond;
-+    public final double timeToFirstTokenInSecond;
-+    public final int lastPrefillTokenCount;
-+    public final int lastDecodeTokenCount;
-+    public final double lastPrefillTokensPerSecond;
-+    public final double lastDecodeTokensPerSecond;
-+
-+    public BenchmarkInfo(
-+            double initTimeInSecond,
-+            double timeToFirstTokenInSecond,
-+            int lastPrefillTokenCount,
-+            int lastDecodeTokenCount,
-+            double lastPrefillTokensPerSecond,
-+            double lastDecodeTokensPerSecond) {
-+        this.initTimeInSecond = initTimeInSecond;
-+        this.timeToFirstTokenInSecond = timeToFirstTokenInSecond;
-+        this.lastPrefillTokenCount = lastPrefillTokenCount;
-+        this.lastDecodeTokenCount = lastDecodeTokenCount;
-+        this.lastPrefillTokensPerSecond = lastPrefillTokensPerSecond;
-+        this.lastDecodeTokensPerSecond = lastDecodeTokensPerSecond;
-+    }
-+
-+    @Override
-+    public String toString() {
-+        return "BenchmarkInfo{"
-+                + "initTimeInSecond=" + initTimeInSecond
-+                + ", timeToFirstTokenInSecond=" + timeToFirstTokenInSecond
-+                + ", lastPrefillTokenCount=" + lastPrefillTokenCount
-+                + ", lastDecodeTokenCount=" + lastDecodeTokenCount
-+                + ", lastPrefillTokensPerSecond=" + lastPrefillTokensPerSecond
-+                + ", lastDecodeTokensPerSecond=" + lastDecodeTokensPerSecond
-+                + '}';
-+    }
++  private BenchmarkInfo() {}
 +}
 diff --git a/kotlin/java/com/google/ai/edge/litertlm/LiteRtLmJniException.java b/kotlin/java/com/google/ai/edge/litertlm/LiteRtLmJniException.java
 new file mode 100644
-index 0000000..26534a0
+index 0000000..9af2cb4
 --- /dev/null
 +++ b/kotlin/java/com/google/ai/edge/litertlm/LiteRtLmJniException.java
 @@ -0,0 +1,7 @@
 +package com.google.ai.edge.litertlm;
 +
 +public final class LiteRtLmJniException extends RuntimeException {
-+    public LiteRtLmJniException(String message) {
-+        super(message);
-+    }
++  public LiteRtLmJniException(String message) {
++    super(message);
++  }
 +}
 diff --git a/kotlin/java/com/google/ai/edge/litertlm/jni/BUILD b/kotlin/java/com/google/ai/edge/litertlm/jni/BUILD
-index 03c4367..58cf20f 100644
+index 03c4367..af1cc2e 100644
 --- a/kotlin/java/com/google/ai/edge/litertlm/jni/BUILD
 +++ b/kotlin/java/com/google/ai/edge/litertlm/jni/BUILD
-@@ -19,10 +19,34 @@ package(
+@@ -19,10 +19,35 @@ package(
      default_visibility = ["//kotlin:__subpackages__"],
  )
  
@@ -176,13 +144,14 @@ index 03c4367..58cf20f 100644
 +        "@platforms//os:android": [
 +            "-lEGL",
 +            "-lGLESv3",
++            "-Wl,--unresolved-symbols=ignore-all",
 +        ],
 +        "//conditions:default": [],
 +    }),
      deps = [
          "@com_google_absl//absl/base:log_severity",
          "@com_google_absl//absl/container:flat_hash_map",
-@@ -34,7 +58,11 @@ cc_binary(
+@@ -34,7 +59,11 @@ cc_binary(
          "@com_google_absl//absl/time",
          "@nlohmann_json//:json",
          "@litert//litert/c/internal:litert_logging",
@@ -195,14 +164,15 @@ index 03c4367..58cf20f 100644
          "//runtime/conversation",
          "//runtime/conversation:io_types",
 diff --git a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
-index c6db59f..b39ebce 100644
+index c6db59f..83aa8a5 100644
 --- a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
 +++ b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
-@@ -13,10 +13,20 @@
+@@ -13,11 +13,24 @@
  // limitations under the License.
  
  #include <jni.h>
 +#if defined(__ANDROID__)
++#include <android/log.h>
 +#include <dlfcn.h>
 +#endif
  #include <sys/stat.h>
@@ -213,13 +183,16 @@ index c6db59f..b39ebce 100644
 +#include <cstdint>
 +#include <cstring>
 +#include <fstream>
++#include <limits>
  #include <memory>
  #include <optional>
 +#include <sstream>
  #include <string>
++#include <unordered_map>
  #include <utility>
  #include <variant>
-@@ -28,9 +38,20 @@
+ #include <vector>
+@@ -28,9 +41,20 @@
  #include "absl/log/globals.h"  // from @com_google_absl
  #include "absl/status/status.h"  // from @com_google_absl
  #include "absl/status/statusor.h"  // from @com_google_absl
@@ -240,15 +213,28 @@ index c6db59f..b39ebce 100644
  #include "runtime/components/prompt_template.h"
  #include "runtime/conversation/conversation.h"
  #include "runtime/conversation/io_types.h"
-@@ -46,6 +67,7 @@
+@@ -46,6 +70,20 @@
  #include "schema/capabilities/capabilities_c.h"
  #include "tflite/logger.h"  // from @litert
  #include "tflite/minimal_logging.h"  // from @litert
 +#include "kiss_fftr.h"  // from @kissfft
++
++#if defined(__ANDROID__)
++void UnityAsrLog(const char* message) {
++  __android_log_print(ANDROID_LOG_INFO, "LiteRT-LM ASRSmoke", "%s", message);
++}
++
++void UnityAsrLog(const std::string& message) {
++  UnityAsrLog(message.c_str());
++}
++#else
++void UnityAsrLog(const char*) {}
++void UnityAsrLog(const std::string&) {}
++#endif
  
  // For Windows, __declspec( dllexport ) is required to export function in .dll.
  // https://learn.microsoft.com/en-us/cpp/cpp/using-dllimport-and-dllexport-in-cpp-classes?view=msvc-170
-@@ -84,6 +106,890 @@ using litert::lm::Responses;
+@@ -84,6 +122,1503 @@ using litert::lm::Responses;
  using litert::lm::SessionConfig;
  using litert::lm::proto::SamplerParameters;
  
@@ -660,6 +646,78 @@ index c6db59f..b39ebce 100644
 +  return model_input;
 +}
 +
++absl::StatusOr<std::vector<float>> CreateWhisperInputFeatures(
++    const std::string& audio_path, int* pcm_sample_count, int* valid_frames) {
++  ASSIGN_OR_RETURN(const std::string audio_bytes, ReadBinaryFile(audio_path));
++  std::vector<float> pcm;
++  RETURN_IF_ERROR(litert::lm::AudioPreprocessorMiniAudio::DecodeAudio(
++      audio_bytes, /*num_channels=*/1, /*sample_rate_hz=*/16000, pcm));
++  *pcm_sample_count = static_cast<int>(pcm.size());
++
++  constexpr int kSampleRate = 16000;
++  constexpr int kNumMels = 80;
++  constexpr int kMaxSamples = 16000 * 30;
++  constexpr int kMaxFrames = 3000;
++  constexpr int kNfft = 400;
++  constexpr int kHopLength = 160;
++  constexpr float kLogZeroGuard = 1.0e-10f;
++  const int fft_bins = kNfft / 2 + 1;
++
++  if (pcm.empty()) {
++    return absl::InvalidArgumentError("Decoded audio is empty.");
++  }
++
++  if (static_cast<int>(pcm.size()) > kMaxSamples) {
++    pcm.resize(kMaxSamples);
++  }
++  *valid_frames =
++      std::min(kMaxFrames, 1 + static_cast<int>(pcm.size()) / kHopLength);
++
++  std::vector<float> padded(kMaxSamples + kNfft, 0.0f);
++  std::copy(pcm.begin(), pcm.end(), padded.begin() + kNfft / 2);
++  const std::vector<float> window = HannWindow(kNfft);
++  const std::vector<float> mel_filters =
++      CreateSlaneyMelFilterbank(kSampleRate, kNfft, kNumMels);
++
++  kiss_fftr_cfg fft =
++      kiss_fftr_alloc(kNfft, /*inverse_fft=*/0, /*mem=*/nullptr,
++                      /*lenmem=*/nullptr);
++  std::vector<float> frame(kNfft, 0.0f);
++  std::vector<float> power(fft_bins, 0.0f);
++  std::vector<kiss_fft_cpx> fft_out(fft_bins);
++  std::vector<float> log_mels(kNumMels * kMaxFrames, 0.0f);
++  float max_log_mel = -std::numeric_limits<float>::infinity();
++
++  for (int t = 0; t < kMaxFrames; ++t) {
++    const int source_start = t * kHopLength;
++    for (int i = 0; i < kNfft; ++i) {
++      frame[i] = padded[source_start + i] * window[i];
++    }
++    kiss_fftr(fft, frame.data(), fft_out.data());
++    for (int bin = 0; bin < fft_bins; ++bin) {
++      power[bin] =
++          fft_out[bin].r * fft_out[bin].r + fft_out[bin].i * fft_out[bin].i;
++    }
++    for (int mel = 0; mel < kNumMels; ++mel) {
++      double value = 0.0;
++      for (int bin = 0; bin < fft_bins; ++bin) {
++        value += mel_filters[mel * fft_bins + bin] * power[bin];
++      }
++      const float log_value =
++          std::log10(std::max(static_cast<float>(value), kLogZeroGuard));
++      log_mels[mel * kMaxFrames + t] = log_value;
++      max_log_mel = std::max(max_log_mel, log_value);
++    }
++  }
++  kiss_fftr_free(fft);
++
++  const float log_floor = max_log_mel - 8.0f;
++  for (float& value : log_mels) {
++    value = (std::max(value, log_floor) + 4.0f) / 4.0f;
++  }
++  return log_mels;
++}
++
 +template <typename T>
 +absl::StatusOr<std::vector<T>> ReadTensorBufferVector(
 +    ::litert::TensorBuffer& buffer) {
@@ -714,6 +772,155 @@ index c6db59f..b39ebce 100644
 +    text.erase(text.begin());
 +  }
 +  return text;
++}
++
++std::vector<int> Gpt2ByteValues() {
++  std::vector<int> values;
++  for (int i = static_cast<int>('!'); i <= static_cast<int>('~'); ++i) {
++    values.push_back(i);
++  }
++  for (int i = 0xA1; i <= 0xAC; ++i) {
++    values.push_back(i);
++  }
++  for (int i = 0xAE; i <= 0xFF; ++i) {
++    values.push_back(i);
++  }
++  for (int i = 0; i < 256; ++i) {
++    if (std::find(values.begin(), values.end(), i) == values.end()) {
++      values.push_back(i);
++    }
++  }
++  return values;
++}
++
++std::unordered_map<uint32_t, uint8_t> CreateGpt2ByteDecoder() {
++  std::unordered_map<uint32_t, uint8_t> decoder;
++  const std::vector<int> bytes = Gpt2ByteValues();
++  int extra = 0;
++  for (int byte_value : bytes) {
++    uint32_t codepoint = 0;
++    if ((byte_value >= static_cast<int>('!') &&
++         byte_value <= static_cast<int>('~')) ||
++        (byte_value >= 0xA1 && byte_value <= 0xAC) ||
++        (byte_value >= 0xAE && byte_value <= 0xFF)) {
++      codepoint = static_cast<uint32_t>(byte_value);
++    } else {
++      codepoint = static_cast<uint32_t>(256 + extra);
++      ++extra;
++    }
++    decoder[codepoint] = static_cast<uint8_t>(byte_value);
++  }
++  return decoder;
++}
++
++bool ReadUtf8Codepoint(const std::string& text, size_t* index,
++                       uint32_t* codepoint, std::string* original_bytes) {
++  if (*index >= text.size()) {
++    return false;
++  }
++  const unsigned char first = static_cast<unsigned char>(text[*index]);
++  size_t length = 1;
++  uint32_t value = first;
++  if ((first & 0x80) == 0) {
++    length = 1;
++    value = first;
++  } else if ((first & 0xE0) == 0xC0) {
++    length = 2;
++    value = first & 0x1F;
++  } else if ((first & 0xF0) == 0xE0) {
++    length = 3;
++    value = first & 0x0F;
++  } else if ((first & 0xF8) == 0xF0) {
++    length = 4;
++    value = first & 0x07;
++  } else {
++    return false;
++  }
++  if (*index + length > text.size()) {
++    return false;
++  }
++  for (size_t i = 1; i < length; ++i) {
++    const unsigned char current =
++        static_cast<unsigned char>(text[*index + i]);
++    if ((current & 0xC0) != 0x80) {
++      return false;
++    }
++    value = (value << 6) | (current & 0x3F);
++  }
++  *codepoint = value;
++  *original_bytes = text.substr(*index, length);
++  *index += length;
++  return true;
++}
++
++std::string DecodeWhisperTokens(const std::string& tokenizer_json_path,
++                                const std::vector<int>& token_ids) {
++  auto tokenizer_data = ReadBinaryFile(tokenizer_json_path);
++  if (!tokenizer_data.ok()) {
++    return "";
++  }
++  auto tokenizer_json = nlohmann::json::parse(*tokenizer_data, nullptr, false);
++  if (tokenizer_json.is_discarded() || !tokenizer_json.contains("model") ||
++      !tokenizer_json["model"].contains("vocab")) {
++    return "";
++  }
++
++  std::vector<std::string> vocab(51865);
++  for (const auto& item : tokenizer_json["model"]["vocab"].items()) {
++    if (item.value().is_number_integer()) {
++      const int id = item.value().get<int>();
++      if (id >= 0 && id < static_cast<int>(vocab.size())) {
++        vocab[id] = item.key();
++      }
++    }
++  }
++
++  if (tokenizer_json.contains("added_tokens") &&
++      tokenizer_json["added_tokens"].is_array()) {
++    for (const auto& item : tokenizer_json["added_tokens"]) {
++      if (item.contains("id") && item["id"].is_number_integer() &&
++          item.contains("content") && item["content"].is_string()) {
++        const int id = item["id"].get<int>();
++        if (id >= 0 && id < static_cast<int>(vocab.size())) {
++          vocab[id] = item["content"].get<std::string>();
++        }
++      }
++    }
++  }
++
++  const auto byte_decoder = CreateGpt2ByteDecoder();
++  std::string decoded_bytes;
++  for (int token_id : token_ids) {
++    if (token_id < 0 || token_id >= static_cast<int>(vocab.size())) {
++      continue;
++    }
++    const std::string& token = vocab[token_id];
++    if (token.empty() || token[0] == '<') {
++      continue;
++    }
++    size_t index = 0;
++    while (index < token.size()) {
++      uint32_t codepoint = 0;
++      std::string original;
++      if (!ReadUtf8Codepoint(token, &index, &codepoint, &original)) {
++        break;
++      }
++      const auto byte = byte_decoder.find(codepoint);
++      if (byte != byte_decoder.end()) {
++        decoded_bytes.push_back(static_cast<char>(byte->second));
++      } else {
++        decoded_bytes += original;
++      }
++    }
++  }
++  return decoded_bytes;
++}
++
++bool IsSuppressedWhisperToken(int token_id) {
++  if (token_id == 50257) {
++    return false;
++  }
++  return token_id >= 50258;
 +}
 +
 +nlohmann::ordered_json RunParakeetAsrSmokeToJson(
@@ -806,12 +1013,15 @@ index c6db59f..b39ebce 100644
 +  auto compiled_model = std::move(compiled_model_or.Value());
 +  result["compileSeconds"] = absl::ToDoubleSeconds(absl::Now() - started);
 +
-+  auto encode_index_or = compiled_model.GetSignatureIndex("encode");
++  auto& encode_model = compiled_model;
++  auto& decode_model = compiled_model;
++
++  auto encode_index_or = encode_model.GetSignatureIndex("encode");
 +  if (!encode_index_or.HasValue()) {
 +    result["error"] = encode_index_or.Error().Message();
 +    return result;
 +  }
-+  auto decode_index_or = compiled_model.GetSignatureIndex("decode");
++  auto decode_index_or = decode_model.GetSignatureIndex("decode");
 +  if (!decode_index_or.HasValue()) {
 +    result["error"] = decode_index_or.Error().Message();
 +    return result;
@@ -985,6 +1195,395 @@ index c6db59f..b39ebce 100644
 +  return result;
 +}
 +
++nlohmann::ordered_json RunWhisperAsrSmokeToJson(
++    const std::string& model_path, const std::string& audio_path,
++    const std::string& tokenizer_json_path, const std::string& backend,
++    const std::string& language) {
++  UnityAsrLog("Whisper ASR native start: backend=" + backend +
++              ", language=" + language);
++  nlohmann::ordered_json result;
++  result["modelPath"] = model_path;
++  result["audioPath"] = audio_path;
++  result["tokenizerJsonPath"] = tokenizer_json_path;
++  result["backendRequested"] = backend;
++  std::string normalized_language = language;
++  std::transform(normalized_language.begin(), normalized_language.end(),
++                 normalized_language.begin(),
++                 [](unsigned char c) { return std::tolower(c); });
++  if (normalized_language.empty()) {
++    normalized_language = "auto";
++  }
++  if (normalized_language != "auto" && normalized_language != "ko" &&
++      normalized_language != "en") {
++    result["error"] =
++        "Unsupported Whisper ASR language: " + normalized_language +
++        ". Supported values are auto, ko and en.";
++    return result;
++  }
++  result["language"] = normalized_language;
++  result["success"] = false;
++
++  int pcm_sample_count = 0;
++  int valid_feature_frames = 0;
++  UnityAsrLog("Whisper ASR creating log-mel input features.");
++  auto feature_result = CreateWhisperInputFeatures(
++      audio_path, &pcm_sample_count, &valid_feature_frames);
++  if (!feature_result.ok()) {
++    result["error"] = std::string(feature_result.status().message());
++    return result;
++  }
++  result["pcmSamples"] = pcm_sample_count;
++  result["audioSeconds"] = pcm_sample_count / 16000.0;
++  result["validFeatureFrames"] = valid_feature_frames;
++  UnityAsrLog("Whisper ASR features ready: pcmSamples=" +
++              std::to_string(pcm_sample_count) +
++              ", validFeatureFrames=" + std::to_string(valid_feature_frames));
++
++  auto started = absl::Now();
++  UnityAsrLog("Whisper ASR creating LiteRT environment/options.");
++  auto env_or = ::litert::Environment::Create({});
++  if (!env_or.HasValue()) {
++    result["error"] = env_or.Error().Message();
++    return result;
++  }
++  auto env = std::move(env_or.Value());
++  std::string normalized_backend = backend;
++  std::transform(normalized_backend.begin(), normalized_backend.end(),
++                 normalized_backend.begin(),
++                 [](unsigned char c) { return std::toupper(c); });
++  const bool use_gpu_requested = normalized_backend.rfind("GPU", 0) == 0;
++
++  auto make_cpu_options = [&result]() -> std::optional<::litert::Options> {
++    auto options_or = ::litert::Options::Create();
++    if (!options_or.HasValue()) {
++      result["error"] = options_or.Error().Message();
++      return std::nullopt;
++    }
++    auto options = std::move(options_or.Value());
++    auto cpu_options = options.GetCpuOptions();
++    if (cpu_options.HasValue()) {
++      cpu_options->SetNumThreads(4);
++    }
++    options.SetHardwareAccelerators(::litert::HwAccelerators::kCpu);
++    return options;
++  };
++
++  auto make_gpu_options = [&result, &normalized_backend]()
++      -> std::optional<::litert::Options> {
++    auto options_or = ::litert::Options::Create();
++    if (!options_or.HasValue()) {
++      result["error"] = options_or.Error().Message();
++      return std::nullopt;
++    }
++    auto options = std::move(options_or.Value());
++    auto cpu_options = options.GetCpuOptions();
++    if (cpu_options.HasValue()) {
++      cpu_options->SetNumThreads(4);
++    }
++    auto gpu_options = options.GetGpuOptions();
++    if (!gpu_options.HasValue()) {
++      result["error"] = gpu_options.Error().Message();
++      return std::nullopt;
++    }
++    const bool use_fp16 = normalized_backend.find("FP16") != std::string::npos;
++    const bool use_texture_weights =
++        normalized_backend.find("NO_TEXTURE") == std::string::npos;
++    const bool convert_weights_on_gpu =
++        normalized_backend.find("NO_CONVERT") == std::string::npos;
++    const bool relaxed_delegation =
++        normalized_backend.find("RELAXED") != std::string::npos;
++
++    gpu_options->SetPrecision(use_fp16 ? ::litert::GpuOptions::Precision::kFp16
++                                       : ::litert::GpuOptions::Precision::kFp32);
++    gpu_options->EnableConstantTensorSharing(true);
++#if !defined(__APPLE__)
++    gpu_options->SetPreferTextureWeights(use_texture_weights);
++#endif
++    gpu_options->SetMadviseOriginalSharedTensors(true);
++    gpu_options->SetConvertWeightsOnGpu(convert_weights_on_gpu);
++    if (!relaxed_delegation) {
++      gpu_options->SetHintFullyDelegatedToSingleDelegate(true);
++    }
++    gpu_options->EnableInfiniteFloatCapping(true);
++    options.SetHardwareAccelerators(::litert::HwAccelerators::kGpu);
++    result["gpuPrecision"] = use_fp16 ? "fp16" : "fp32";
++    result["gpuPreferTextureWeights"] = use_texture_weights;
++    result["gpuConvertWeightsOnGpu"] = convert_weights_on_gpu;
++    result["gpuRelaxedDelegation"] = relaxed_delegation;
++    return options;
++  };
++
++  std::string encoder_model_path;
++  const std::string f32_suffix = "_f32.tflite";
++  if (model_path.size() >= f32_suffix.size() &&
++      model_path.compare(model_path.size() - f32_suffix.size(),
++                         f32_suffix.size(), f32_suffix) == 0) {
++    encoder_model_path =
++        model_path.substr(0, model_path.size() - f32_suffix.size()) +
++        "_encoder_f32.tflite";
++  } else {
++    const std::string tflite_suffix = ".tflite";
++    if (model_path.size() >= tflite_suffix.size() &&
++        model_path.compare(model_path.size() - tflite_suffix.size(),
++                           tflite_suffix.size(), tflite_suffix) == 0) {
++      encoder_model_path =
++          model_path.substr(0, model_path.size() - tflite_suffix.size()) +
++          "_encoder.tflite";
++    }
++  }
++
++  const bool split_encoder_available =
++      !encoder_model_path.empty() && std::ifstream(encoder_model_path).good();
++  const bool use_split_encoder_gpu = use_gpu_requested && split_encoder_available;
++
++  std::unique_ptr<::litert::CompiledModel> split_encoder_model;
++  if (use_gpu_requested && !split_encoder_available) {
++    result["gpuFallbackReason"] =
++        "Whisper GPU was requested, but an encoder-only companion model was "
++        "not found next to the full ASR model.";
++    UnityAsrLog("Whisper ASR GPU requested, but encoder companion model was "
++                "not found. Falling back to CPU.");
++  }
++
++  if (use_split_encoder_gpu) {
++    result["encoderModelPath"] = encoder_model_path;
++    result["backendUsed"] = "GPU_ENCODER_CPU_DECODER";
++    UnityAsrLog("Whisper ASR configuring split backend: GPU encoder, CPU decoder.");
++    auto encoder_options = make_gpu_options();
++    if (!encoder_options.has_value()) {
++      return result;
++    }
++    auto encoder_compile_started = absl::Now();
++    UnityAsrLog("Whisper ASR compiling encoder model: " + encoder_model_path);
++    auto encoder_model_or =
++        ::litert::CompiledModel::Create(env, encoder_model_path, *encoder_options);
++    if (!encoder_model_or.HasValue()) {
++      result["error"] = encoder_model_or.Error().Message();
++      return result;
++    }
++    split_encoder_model = std::make_unique<::litert::CompiledModel>(
++        std::move(encoder_model_or.Value()));
++    result["encoderCompileSeconds"] =
++        absl::ToDoubleSeconds(absl::Now() - encoder_compile_started);
++  } else {
++    UnityAsrLog("Whisper ASR configuring CPU backend.");
++    result["backendUsed"] = "CPU";
++  }
++
++  auto decoder_options = make_cpu_options();
++  if (!decoder_options.has_value()) {
++    return result;
++  }
++  UnityAsrLog("Whisper ASR compiling decoder/full model.");
++  auto compiled_model_or =
++      ::litert::CompiledModel::Create(env, model_path, *decoder_options);
++  if (!compiled_model_or.HasValue()) {
++    result["error"] = compiled_model_or.Error().Message();
++    return result;
++  }
++  auto compiled_model = std::move(compiled_model_or.Value());
++  result["compileSeconds"] = absl::ToDoubleSeconds(absl::Now() - started);
++  UnityAsrLog("Whisper ASR compile done: seconds=" +
++              std::to_string(result["compileSeconds"].get<double>()));
++
++  auto& encode_model =
++      split_encoder_model ? *split_encoder_model : compiled_model;
++  auto& decode_model = compiled_model;
++
++  auto encode_index_or = encode_model.GetSignatureIndex("encode");
++  if (!encode_index_or.HasValue()) {
++    result["error"] = encode_index_or.Error().Message();
++    return result;
++  }
++  auto decode_index_or = decode_model.GetSignatureIndex("decode");
++  if (!decode_index_or.HasValue()) {
++    result["error"] = decode_index_or.Error().Message();
++    return result;
++  }
++  const int encode_index = encode_index_or.Value();
++  const int decode_index = decode_index_or.Value();
++
++  auto encode_started = absl::Now();
++  UnityAsrLog("Whisper ASR creating encode buffers.");
++  auto encode_inputs_or = encode_model.CreateInputBuffers(encode_index);
++  if (!encode_inputs_or.HasValue()) {
++    result["error"] = encode_inputs_or.Error().Message();
++    return result;
++  }
++  auto encode_inputs = std::move(encode_inputs_or.Value());
++  auto encode_outputs_or = encode_model.CreateOutputBuffers(encode_index);
++  if (!encode_outputs_or.HasValue()) {
++    result["error"] = encode_outputs_or.Error().Message();
++    return result;
++  }
++  auto encode_outputs = std::move(encode_outputs_or.Value());
++  auto encode_write_status =
++      encode_inputs[0].Write<float>(absl::MakeSpan(*feature_result));
++  if (!encode_write_status.HasValue()) {
++    result["error"] = encode_write_status.Error().Message();
++    return result;
++  }
++  UnityAsrLog("Whisper ASR running encode signature.");
++  auto encode_status =
++      encode_model.Run(encode_index, encode_inputs, encode_outputs);
++  if (!encode_status.HasValue()) {
++    result["error"] = encode_status.Error().Message();
++    return result;
++  }
++  auto encoder_output_or = ReadTensorBufferVector<float>(encode_outputs[0]);
++  if (!encoder_output_or.ok()) {
++    result["error"] = std::string(encoder_output_or.status().message());
++    return result;
++  }
++  auto encoder_output = std::move(*encoder_output_or);
++  result["encodeSeconds"] = absl::ToDoubleSeconds(absl::Now() - encode_started);
++  result["encoderOutputValues"] = encoder_output.size();
++  UnityAsrLog("Whisper ASR encode done: seconds=" +
++              std::to_string(result["encodeSeconds"].get<double>()) +
++              ", values=" + std::to_string(encoder_output.size()));
++
++  constexpr int kTargetLength = 128;
++  constexpr int kVocabSize = 51865;
++  constexpr int kEosToken = 50257;
++  constexpr int kStartOfTranscriptToken = 50258;
++  constexpr int kEnglishToken = 50259;
++  constexpr int kKoreanToken = 50264;
++  constexpr int kFirstLanguageToken = 50259;
++  constexpr int kLastLanguageToken = 50358;
++  constexpr int kTranscribeToken = 50359;
++  constexpr int kNoTimestampsToken = 50363;
++  std::vector<int32_t> decoder_tokens(kTargetLength, kEosToken);
++  std::vector<float> causal_mask(kTargetLength * kTargetLength, 0.0f);
++  for (int row = 0; row < kTargetLength; ++row) {
++    for (int col = row + 1; col < kTargetLength; ++col) {
++      causal_mask[row * kTargetLength + col] = -1.0e9f;
++    }
++  }
++
++  std::vector<int> token_ids = {kStartOfTranscriptToken};
++  const bool detect_language = normalized_language == "auto";
++  if (normalized_language == "ko") {
++    token_ids.push_back(kKoreanToken);
++    token_ids.push_back(kTranscribeToken);
++    token_ids.push_back(kNoTimestampsToken);
++  } else if (normalized_language == "en") {
++    token_ids.push_back(kEnglishToken);
++    token_ids.push_back(kTranscribeToken);
++    token_ids.push_back(kNoTimestampsToken);
++  }
++  int decode_steps = 0;
++  auto decode_started = absl::Now();
++  UnityAsrLog("Whisper ASR starting autoregressive decode.");
++  while (token_ids.size() < static_cast<size_t>(kTargetLength)) {
++    UnityAsrLog("Whisper ASR decode step " + std::to_string(decode_steps + 1) +
++                ", prefixTokens=" + std::to_string(token_ids.size()));
++    std::fill(decoder_tokens.begin(), decoder_tokens.end(), kEosToken);
++    for (size_t i = 0; i < token_ids.size(); ++i) {
++      decoder_tokens[i] = token_ids[i];
++    }
++
++    auto decode_inputs_or = decode_model.CreateInputBuffers(decode_index);
++    if (!decode_inputs_or.HasValue()) {
++      result["error"] = decode_inputs_or.Error().Message();
++      return result;
++    }
++    auto decode_inputs = std::move(decode_inputs_or.Value());
++    auto decode_outputs_or = decode_model.CreateOutputBuffers(decode_index);
++    if (!decode_outputs_or.HasValue()) {
++      result["error"] = decode_outputs_or.Error().Message();
++      return result;
++    }
++    auto decode_outputs = std::move(decode_outputs_or.Value());
++
++    auto write_status =
++        decode_inputs[0].Write<float>(absl::MakeSpan(encoder_output));
++    if (!write_status.HasValue()) {
++      result["error"] = write_status.Error().Message();
++      return result;
++    }
++    write_status = decode_inputs[1].Write<int32_t>(absl::MakeSpan(decoder_tokens));
++    if (!write_status.HasValue()) {
++      result["error"] = write_status.Error().Message();
++      return result;
++    }
++    write_status = decode_inputs[2].Write<float>(absl::MakeSpan(causal_mask));
++    if (!write_status.HasValue()) {
++      result["error"] = write_status.Error().Message();
++      return result;
++    }
++    auto decode_status =
++        decode_model.Run(decode_index, decode_inputs, decode_outputs);
++    if (!decode_status.HasValue()) {
++      result["error"] = decode_status.Error().Message();
++      return result;
++    }
++    auto logits_or = ReadTensorBufferVector<float>(decode_outputs[0]);
++    if (!logits_or.ok()) {
++      result["error"] = std::string(logits_or.status().message());
++      return result;
++    }
++    auto logits = std::move(*logits_or);
++    const int logits_position = static_cast<int>(token_ids.size()) - 1;
++    const size_t offset =
++        static_cast<size_t>(logits_position) * kVocabSize;
++    int best_token = kEosToken;
++    float best_score = -std::numeric_limits<float>::infinity();
++    if (detect_language && token_ids.size() == 1) {
++      for (int i = kFirstLanguageToken; i <= kLastLanguageToken; ++i) {
++        const float score = logits[offset + i];
++        if (score > best_score) {
++          best_score = score;
++          best_token = i;
++        }
++      }
++    } else {
++      for (int i = 0; i < kVocabSize; ++i) {
++        if (IsSuppressedWhisperToken(i)) {
++          continue;
++        }
++        const float score = logits[offset + i];
++        if (score > best_score) {
++          best_score = score;
++          best_token = i;
++        }
++      }
++    }
++
++    ++decode_steps;
++    if (detect_language && token_ids.size() == 1) {
++      result["detectedLanguageToken"] = best_token;
++      token_ids.push_back(best_token);
++      token_ids.push_back(kTranscribeToken);
++      token_ids.push_back(kNoTimestampsToken);
++      UnityAsrLog("Whisper ASR auto language token=" +
++                  std::to_string(best_token));
++      continue;
++    }
++    if (best_token == kEosToken) {
++      UnityAsrLog("Whisper ASR decode reached EOS at step " +
++                  std::to_string(decode_steps));
++      break;
++    }
++    token_ids.push_back(best_token);
++  }
++
++  result["decodeSeconds"] = absl::ToDoubleSeconds(absl::Now() - decode_started);
++  result["decodeSteps"] = decode_steps;
++  result["tokenCount"] = token_ids.size();
++  result["tokenIds"] = token_ids;
++  result["transcriptCandidate"] =
++      DecodeWhisperTokens(tokenizer_json_path, token_ids);
++  UnityAsrLog("Whisper ASR decode done: seconds=" +
++              std::to_string(result["decodeSeconds"].get<double>()) +
++              ", steps=" + std::to_string(decode_steps));
++  if (token_ids.size() <= 4 || result["transcriptCandidate"].get<std::string>().empty()) {
++    result["error"] = "No Whisper ASR text was decoded.";
++    return result;
++  }
++  result["success"] = true;
++  return result;
++}
++
 +nlohmann::ordered_json MakeTextMessageJson(const std::string& role,
 +                                          const std::string& text) {
 +  return nlohmann::ordered_json{
@@ -1139,7 +1738,7 @@ index c6db59f..b39ebce 100644
  void ThrowLiteRtLmJniException(JNIEnv* env, const std::string& message) {
    jclass exClass =
        env->FindClass("com/google/ai/edge/litertlm/LiteRtLmJniException");
-@@ -193,6 +1099,51 @@ jobject CreateBenchmarkInfoJni(
+@@ -193,6 +1728,51 @@ jobject CreateBenchmarkInfoJni(
        last_decode_tokens_per_second);
  }
  
@@ -1191,7 +1790,7 @@ index c6db59f..b39ebce 100644
  // Converts a Java InputData array to a C++ vector of InputData.
  std::vector<InputData> GetNativeInputData(JNIEnv* env,
                                            jobjectArray input_data) {
-@@ -333,6 +1284,253 @@ nlohmann::ordered_json GetExtraContextJson(JNIEnv* env,
+@@ -333,6 +1913,279 @@ nlohmann::ordered_json GetExtraContextJson(JNIEnv* env,
  
  extern "C" {
  
@@ -1442,10 +2041,36 @@ index c6db59f..b39ebce 100644
 +          .dump(2));
 +}
 +
++LITERTLM_JNIEXPORT jstring JNICALL
++Java_com_google_ai_edge_litertlm_unity_UnityLiteRtLmBridge_nativeRunWhisperAsrSmoke(
++    JNIEnv* env, jclass thiz, jstring model_path, jstring audio_path,
++    jstring tokenizer_json_path, jstring backend, jstring language) {
++  const std::string model_path_str = JStringToStdString(env, model_path);
++  const std::string audio_path_str = JStringToStdString(env, audio_path);
++  const std::string tokenizer_json_path_str =
++      JStringToStdString(env, tokenizer_json_path);
++  const std::string backend_str = JStringToStdString(env, backend);
++  const std::string language_str = JStringToStdString(env, language);
++  if (model_path_str.empty() || audio_path_str.empty() ||
++      tokenizer_json_path_str.empty() || backend_str.empty() ||
++      language_str.empty()) {
++    ThrowLiteRtLmJniException(
++        env, "modelPath, audioPath, tokenizerJsonPath, backend and language are required.");
++    return nullptr;
++  }
++
++  return NewStringStandardUTF(
++      env,
++      RunWhisperAsrSmokeToJson(model_path_str, audio_path_str,
++                               tokenizer_json_path_str, backend_str,
++                               language_str)
++          .dump(2));
++}
++
  LITERTLM_JNIEXPORT void JNICALL
  Java_com_google_ai_edge_litertlm_NativeLibraryLoader_nativeCheckLoaded(
      JNIEnv* env, jclass thiz) {}
-@@ -549,7 +1747,10 @@ LITERTLM_JNIEXPORT jlong JNICALL JNI_METHOD(nativeCreateBenchmark)(
+@@ -549,7 +2402,10 @@ LITERTLM_JNIEXPORT jlong JNICALL JNI_METHOD(nativeCreateBenchmark)(
      return 0;
    }
  
@@ -1457,7 +2082,7 @@ index c6db59f..b39ebce 100644
    if (!settings.ok()) {
      ThrowLiteRtLmJniException(env, "Failed to create engine settings: " +
                                         settings.status().ToString());
-@@ -577,6 +1778,9 @@ LITERTLM_JNIEXPORT jlong JNICALL JNI_METHOD(nativeCreateBenchmark)(
+@@ -577,6 +2433,9 @@ LITERTLM_JNIEXPORT jlong JNICALL JNI_METHOD(nativeCreateBenchmark)(
    auto& benchmark_params = settings->GetMutableBenchmarkParams();
    benchmark_params.set_num_prefill_tokens(prefill_tokens);
    benchmark_params.set_num_decode_tokens(decode_tokens);
@@ -1469,227 +2094,172 @@ index c6db59f..b39ebce 100644
    if (!engine.ok()) {
 diff --git a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm_loader.cc b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm_loader.cc
 new file mode 100644
-index 0000000..672152d
+index 0000000..3a10407
 --- /dev/null
 +++ b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm_loader.cc
-@@ -0,0 +1,74 @@
-+// Copyright 2025 Google LLC.
-+//
-+// Licensed under the Apache License, Version 2.0 (the "License");
-+// you may not use this file except in compliance with the License.
-+// You may obtain a copy of the License at
-+//
-+//      http://www.apache.org/licenses/LICENSE-2.0
-+//
-+// Unless required by applicable law or agreed to in writing, software
-+// distributed under the License is distributed on an "AS IS" BASIS,
-+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-+// See the License for the specific language governing permissions and
-+// limitations under the License.
-+
-+#include <android/log.h>
-+#include <dlfcn.h>
-+#include <jni.h>
-+
-+#include <string>
-+
-+namespace {
-+
-+constexpr char kLogTag[] = "LiteRT-LM-Loader";
-+
-+std::string GetCurrentLibraryDirectory() {
-+  Dl_info info;
-+  if (dladdr(reinterpret_cast<void*>(&GetCurrentLibraryDirectory), &info) == 0 ||
-+      info.dli_fname == nullptr) {
-+    return "";
-+  }
-+
-+  std::string path(info.dli_fname);
-+  const std::size_t slash = path.find_last_of('/');
-+  if (slash == std::string::npos) {
-+    return "";
-+  }
-+
-+  return path.substr(0, slash);
-+}
-+
-+bool LoadLibraryGlobally(const std::string& library_dir,
-+                         const char* library_name, bool required = true) {
-+  const std::string library_path = library_dir.empty()
-+                                       ? library_name
-+                                       : library_dir + "/" + library_name;
-+  void* handle = dlopen(library_path.c_str(), RTLD_NOW | RTLD_GLOBAL);
-+  if (handle == nullptr) {
-+    __android_log_print(required ? ANDROID_LOG_WARN : ANDROID_LOG_INFO, kLogTag,
-+                        "Failed to preload %s globally: %s", library_name,
-+                        dlerror());
-+    return false;
-+  }
-+
-+  __android_log_print(ANDROID_LOG_INFO, kLogTag, "Loaded %s globally: %s",
-+                      library_name, library_path.c_str());
-+  return true;
-+}
-+
-+void LoadLiteRtLmLibrariesGlobally() {
-+  const std::string library_dir = GetCurrentLibraryDirectory();
-+  LoadLibraryGlobally(library_dir, "libLiteRt.so");
-+  LoadLibraryGlobally(library_dir, "libLiteRtTopKOpenClSampler.so",
-+                      /*required=*/false);
-+  LoadLibraryGlobally(library_dir, "libLiteRtTopKWebGpuSampler.so",
-+                      /*required=*/false);
-+  LoadLibraryGlobally(library_dir, "liblitertlm_jni.so");
-+}
-+
-+}  // namespace
-+
-+extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
-+  LoadLiteRtLmLibrariesGlobally();
-+  return JNI_VERSION_1_6;
-+}
+@@ -0,0 +1,3 @@
++// Minimal shared object used by the Unity AAR package to keep the native
++// library layout stable across builds.
++extern "C" void LiteRtLmUnityLoaderAnchor() {}
 diff --git a/kotlin/java/com/google/ai/edge/litertlm/unity/UnityLiteRtLmBridge.java b/kotlin/java/com/google/ai/edge/litertlm/unity/UnityLiteRtLmBridge.java
 new file mode 100644
-index 0000000..c9b3b1b
+index 0000000..439f147
 --- /dev/null
 +++ b/kotlin/java/com/google/ai/edge/litertlm/unity/UnityLiteRtLmBridge.java
-@@ -0,0 +1,138 @@
+@@ -0,0 +1,154 @@
 +package com.google.ai.edge.litertlm.unity;
 +
-+public final class UnityLiteRtLmBridge {
-+    static {
-+        System.loadLibrary("litertlm_loader");
-+        System.loadLibrary("litertlm_jni");
++public final class UnityLiteRtLmBridge implements AutoCloseable {
++  private long handle;
++
++  static {
++    System.loadLibrary("LiteRt");
++    System.loadLibrary("litertlm_jni");
++  }
++
++  public boolean isInitialized() {
++    return handle != 0;
++  }
++
++  public void initialize(
++      String modelPath,
++      String backend,
++      String cacheDir,
++      String nativeLibraryDir,
++      int maxNumTokens,
++      int maxNumImages,
++      int cpuThreads,
++      boolean enableSpeculativeDecoding,
++      String systemInstruction) {
++    close();
++    handle =
++        nativeCreateBridge(
++            modelPath,
++            backend,
++            cacheDir,
++            nativeLibraryDir,
++            maxNumTokens,
++            maxNumImages,
++            cpuThreads,
++            enableSpeculativeDecoding,
++            systemInstruction);
++  }
++
++  public String sendMessage(String text, String extraContextJson) {
++    return nativeSendMessage(handle, text);
++  }
++
++  public void resetConversation(String systemInstruction) {
++    nativeResetConversation(handle, systemInstruction);
++  }
++
++  public void setNativeMinLogSeverity(String severity) {
++    nativeSetMinLogSeverity(parseSeverity(severity));
++  }
++
++  public String runBenchmark(
++      String modelPath,
++      String backend,
++      String cacheDir,
++      String nativeLibraryDir,
++      int prefillTokens,
++      int decodeTokens,
++      boolean enableSpeculativeDecoding) {
++    return nativeRunBenchmark(
++        modelPath,
++        backend,
++        cacheDir,
++        nativeLibraryDir,
++        prefillTokens,
++        decodeTokens,
++        enableSpeculativeDecoding);
++  }
++
++  public String inspectLiteRtModel(String modelPath) {
++    return nativeInspectLiteRtModel(modelPath);
++  }
++
++  public String runParakeetAsrSmoke(
++      String modelPath, String audioPath, String tokenizerJsonPath, String backend) {
++    return nativeRunParakeetAsrSmoke(modelPath, audioPath, tokenizerJsonPath, backend);
++  }
++
++  public String runWhisperAsrSmoke(
++      String modelPath,
++      String audioPath,
++      String tokenizerJsonPath,
++      String backend,
++      String language) {
++    return nativeRunWhisperAsrSmoke(modelPath, audioPath, tokenizerJsonPath, backend, language);
++  }
++
++  @Override
++  public void close() {
++    if (handle != 0) {
++      nativeClose(handle);
++      handle = 0;
 +    }
++  }
 +
-+    private long handle;
-+
-+    public synchronized boolean isInitialized() {
-+        return handle != 0L;
++  private static int parseSeverity(String severity) {
++    if (severity == null) {
++      return 0;
 +    }
-+
-+    public synchronized void initialize(
-+            String modelPath,
-+            String backend,
-+            String cacheDir,
-+            String nativeLibraryDir,
-+            int maxNumTokens,
-+            int maxNumImages,
-+            int cpuThreads,
-+            boolean enableSpeculativeDecoding,
-+            String systemInstruction) {
-+        if (handle != 0L) {
-+            throw new IllegalStateException("UnityLiteRtLmBridge is already initialized.");
-+        }
-+
-+        handle = nativeCreateBridge(
-+                modelPath,
-+                backend,
-+                cacheDir,
-+                nativeLibraryDir,
-+                maxNumTokens,
-+                maxNumImages,
-+                cpuThreads,
-+                enableSpeculativeDecoding,
-+                systemInstruction);
++    String normalized = severity.trim().toUpperCase();
++    if (normalized.equals("INFO")) {
++      return 0;
 +    }
-+
-+    public synchronized String sendMessage(String text, String extraContextJson) {
-+        if (handle == 0L) {
-+            throw new IllegalStateException("UnityLiteRtLmBridge is not initialized.");
-+        }
-+        return nativeSendMessage(handle, text == null ? "" : text);
++    if (normalized.equals("WARNING") || normalized.equals("WARN")) {
++      return 1;
 +    }
-+
-+    public synchronized void resetConversation(String systemInstruction) {
-+        if (handle == 0L) {
-+            throw new IllegalStateException("UnityLiteRtLmBridge is not initialized.");
-+        }
-+        nativeResetConversation(handle, systemInstruction == null ? "" : systemInstruction);
++    if (normalized.equals("ERROR")) {
++      return 2;
 +    }
-+
-+    public synchronized void close() {
-+        if (handle != 0L) {
-+            nativeClose(handle);
-+            handle = 0L;
-+        }
++    if (normalized.equals("FATAL")) {
++      return 3;
 +    }
++    return 0;
++  }
 +
-+    public void setNativeMinLogSeverity(String level) {
-+        int severity;
-+        switch (level == null ? "ERROR" : level.toUpperCase()) {
-+            case "VERBOSE": severity = 0; break;
-+            case "DEBUG": severity = 1; break;
-+            case "INFO": severity = 2; break;
-+            case "WARNING": severity = 3; break;
-+            case "ERROR": severity = 4; break;
-+            case "FATAL": severity = 5; break;
-+            case "INFINITY": severity = 1000; break;
-+            default: throw new IllegalArgumentException("Unsupported log severity: " + level);
-+        }
-+        nativeSetMinLogSeverity(severity);
-+    }
++  private static native long nativeCreateBridge(
++      String modelPath,
++      String backend,
++      String cacheDir,
++      String nativeLibraryDir,
++      int maxNumTokens,
++      int maxNumImages,
++      int cpuThreads,
++      boolean enableSpeculativeDecoding,
++      String systemInstruction);
 +
-+    public String runBenchmark(
-+            String modelPath,
-+            String backend,
-+            String cacheDir,
-+            String nativeLibraryDir,
-+            int prefillTokens,
-+            int decodeTokens,
-+            boolean enableSpeculativeDecoding) {
-+        return nativeRunBenchmark(
-+                modelPath,
-+                backend,
-+                cacheDir,
-+                nativeLibraryDir,
-+                prefillTokens,
-+                decodeTokens,
-+                enableSpeculativeDecoding);
-+    }
++  private static native String nativeSendMessage(long handle, String text);
 +
-+    public String inspectLiteRtModel(String modelPath) {
-+        return nativeInspectLiteRtModel(modelPath);
-+    }
++  private static native void nativeResetConversation(long handle, String systemInstruction);
 +
-+    public String runParakeetAsrSmoke(String modelPath, String audioPath, String tokenizerJsonPath, String backend) {
-+        return nativeRunParakeetAsrSmoke(modelPath, audioPath, tokenizerJsonPath, backend);
-+    }
++  private static native void nativeClose(long handle);
 +
-+    private static native long nativeCreateBridge(
-+            String modelPath,
-+            String backend,
-+            String cacheDir,
-+            String nativeLibraryDir,
-+            int maxNumTokens,
-+            int maxNumImages,
-+            int cpuThreads,
-+            boolean enableSpeculativeDecoding,
-+            String systemInstruction);
++  private static native void nativeSetMinLogSeverity(int severity);
 +
-+    private static native String nativeSendMessage(long handle, String text);
++  private static native String nativeRunBenchmark(
++      String modelPath,
++      String backend,
++      String cacheDir,
++      String nativeLibraryDir,
++      int prefillTokens,
++      int decodeTokens,
++      boolean enableSpeculativeDecoding);
 +
-+    private static native void nativeResetConversation(long handle, String systemInstruction);
++  private static native String nativeInspectLiteRtModel(String modelPath);
 +
-+    private static native void nativeClose(long handle);
++  private static native String nativeRunParakeetAsrSmoke(
++      String modelPath, String audioPath, String tokenizerJsonPath, String backend);
 +
-+    private static native void nativeSetMinLogSeverity(int logSeverity);
-+
-+    private static native String nativeRunBenchmark(
-+            String modelPath,
-+            String backend,
-+            String cacheDir,
-+            String nativeLibraryDir,
-+            int prefillTokens,
-+            int decodeTokens,
-+            boolean enableSpeculativeDecoding);
-+
-+    private static native String nativeInspectLiteRtModel(String modelPath);
-+
-+    private static native String nativeRunParakeetAsrSmoke(
-+            String modelPath,
-+            String audioPath,
-+            String tokenizerJsonPath,
-+            String backend);
++  private static native String nativeRunWhisperAsrSmoke(
++      String modelPath,
++      String audioPath,
++      String tokenizerJsonPath,
++      String backend,
++      String language);
 +}
 diff --git a/runtime/components/BUILD b/runtime/components/BUILD
 index 9d4309b..bb4a180 100644
@@ -2341,909 +2911,3 @@ index 6a168f9..e84b74b 100644
  }  // namespace
  }  // namespace litert::lm
 -
-diff --git a/tools/docker/build_android.ps1 b/tools/docker/build_android.ps1
-new file mode 100644
-index 0000000..4f10bd1
---- /dev/null
-+++ b/tools/docker/build_android.ps1
-@@ -0,0 +1,40 @@
-+param(
-+    [string]$ImageName = "litert-lm-android-builder",
-+    [string]$ArtifactDir = ""
-+)
-+
-+$ErrorActionPreference = "Stop"
-+
-+$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\.." )).Path
-+if ([string]::IsNullOrWhiteSpace($ArtifactDir)) {
-+    $ArtifactDir = Join-Path $RepoRoot "artifacts\android"
-+}
-+
-+$ContainerName = "litert-lm-android-build-" + [guid]::NewGuid().ToString("N")
-+$BuildCommand = @(
-+    "set -euo pipefail",
-+    "bazel build --disk_cache=/root/.cache/bazel-android --config=android_arm64 //runtime/engine:litert_lm_main",
-+    "cp bazel-bin/runtime/engine/litert_lm_main /tmp/litert_lm_main.android_arm64"
-+) -join " && "
-+
-+Write-Host "[LiteRT-LM] Building Docker image '$ImageName'..."
-+docker build -f "$RepoRoot/cmake/Containerfile" -t $ImageName "$RepoRoot"
-+
-+try {
-+    Write-Host "[LiteRT-LM] Creating temporary build container '$ContainerName'..."
-+    docker create --name $ContainerName $ImageName bash -lc $BuildCommand | Out-Null
-+
-+    Write-Host "[LiteRT-LM] Running Android Bazel build inside Docker..."
-+    docker start -a $ContainerName
-+
-+    New-Item -ItemType Directory -Force -Path $ArtifactDir | Out-Null
-+    $OutputPath = Join-Path $ArtifactDir "litert_lm_main.android_arm64"
-+
-+    Write-Host "[LiteRT-LM] Copying build artifact to '$OutputPath'..."
-+    docker cp "${ContainerName}:/tmp/litert_lm_main.android_arm64" $OutputPath
-+
-+    Write-Host "[LiteRT-LM] Done. Android binary exported to '$OutputPath'."
-+}
-+finally {
-+    docker rm -f $ContainerName | Out-Null 2>$null
-+}
-diff --git a/tools/docker/build_litertlm.ps1 b/tools/docker/build_litertlm.ps1
-new file mode 100644
-index 0000000..12f153b
---- /dev/null
-+++ b/tools/docker/build_litertlm.ps1
-@@ -0,0 +1,127 @@
-+param(
-+    [string]$ImageName = "litert-lm-android-builder",
-+    [string]$OutputPath = "",
-+    [string]$TokenizerFile = "schema/testdata/gemma3_tokenizer.spiece",
-+    [string]$HfTokenizerJsonFile = "",
-+    [string]$TfliteFile = "schema/testdata/attention.tflite",
-+    [string]$LlmMetadata = "schema/testdata/llm_metadata.pb",
-+    [string]$LlmMetadataText = "",
-+    [string]$BinaryData = "",
-+    [string]$SectionMetadata = "tokenizer:vocab_size=10000,algorithm=bpe;tflite:quantized=true,model_size=1234567;llm_metadata:model=gemma3",
-+    [string]$CacheVolume = "litert-lm-bazel-cache",
-+    [switch]$SkipImageBuild,
-+    [switch]$PrintCommandOnly
-+)
-+
-+$ErrorActionPreference = "Stop"
-+
-+$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\.." )).Path
-+if ([string]::IsNullOrWhiteSpace($OutputPath)) {
-+    $OutputPath = Join-Path $RepoRoot "artifacts\litertlm\generated-test_tok_tfl_llm.litertlm"
-+}
-+
-+function Convert-ToContainerPath {
-+    param([string]$Path)
-+
-+    if ([string]::IsNullOrWhiteSpace($Path)) {
-+        return ""
-+    }
-+
-+    $resolvedPath = (Resolve-Path (Join-Path $RepoRoot $Path)).Path
-+    $rootWithSeparator = $RepoRoot
-+    if (!$rootWithSeparator.EndsWith([System.IO.Path]::DirectorySeparatorChar)) {
-+        $rootWithSeparator += [System.IO.Path]::DirectorySeparatorChar
-+    }
-+
-+    $rootUri = [System.Uri]::new($rootWithSeparator)
-+    $fileUri = [System.Uri]::new($resolvedPath)
-+    $relativePath = [System.Uri]::UnescapeDataString($rootUri.MakeRelativeUri($fileUri).ToString())
-+    return "/host/" + ($relativePath -replace "\\", "/")
-+}
-+
-+function Add-Flag {
-+    param(
-+        [System.Collections.Generic.List[string]]$TargetArgs,
-+        [string]$Name,
-+        [string]$Value
-+    )
-+
-+    if (![string]::IsNullOrWhiteSpace($Value)) {
-+        $TargetArgs.Add("--$Name='$Value'") | Out-Null
-+    }
-+}
-+
-+function Invoke-Native {
-+    param(
-+        [string]$Program,
-+        [string[]]$Arguments
-+    )
-+
-+    & $Program @Arguments
-+    if ($LASTEXITCODE -ne 0) {
-+        throw "Command failed with exit code $LASTEXITCODE`: $Program $($Arguments -join ' ')"
-+    }
-+}
-+
-+$outputDirectory = Split-Path -Parent $OutputPath
-+if (![string]::IsNullOrWhiteSpace($outputDirectory)) {
-+    New-Item -ItemType Directory -Force -Path $outputDirectory | Out-Null
-+}
-+
-+$containerOutputPath = "/tmp/output.litertlm"
-+$argsList = [System.Collections.Generic.List[string]]::new()
-+Add-Flag $argsList "tokenizer_file" (Convert-ToContainerPath $TokenizerFile)
-+Add-Flag $argsList "hf_tokenizer_json_file" (Convert-ToContainerPath $HfTokenizerJsonFile)
-+Add-Flag $argsList "tflite_file" (Convert-ToContainerPath $TfliteFile)
-+Add-Flag $argsList "llm_metadata" (Convert-ToContainerPath $LlmMetadata)
-+Add-Flag $argsList "llm_metadata_text" (Convert-ToContainerPath $LlmMetadataText)
-+Add-Flag $argsList "binary_data" (Convert-ToContainerPath $BinaryData)
-+Add-Flag $argsList "section_metadata" $SectionMetadata
-+$argsList.Add("--output_path='$containerOutputPath'") | Out-Null
-+
-+$containerName = "litert-lm-export-" + [guid]::NewGuid().ToString("N")
-+$exporterArgs = [string]::Join(" ", $argsList.ToArray())
-+$containerCommand = @(
-+    "set -euo pipefail",
-+    "cd /litert_lm",
-+    "bazel run --disk_cache=/root/.cache/bazel-linux --config=linux_x86_64 //schema/cc:litertlm_export_main -- $exporterArgs",
-+    "ls -lh '$containerOutputPath'"
-+) -join " && "
-+
-+if ($PrintCommandOnly) {
-+    Write-Host $containerCommand
-+    return
-+}
-+
-+if (!$SkipImageBuild) {
-+    Write-Host "[LiteRT-LM] Building Docker image '$ImageName'..."
-+    Invoke-Native "docker" @("build", "-f", "$RepoRoot/cmake/Containerfile", "-t", $ImageName, "$RepoRoot")
-+}
-+
-+try {
-+    Write-Host "[LiteRT-LM] Creating temporary exporter container '$ContainerName'..."
-+    Invoke-Native "docker" @(
-+        "create",
-+        "--name",
-+        $containerName,
-+        "-v",
-+        "${CacheVolume}:/root/.cache",
-+        "-v",
-+        "${RepoRoot}:/host",
-+        $ImageName,
-+        "bash",
-+        "-lc",
-+        $containerCommand) | Out-Null
-+
-+    Write-Host "[LiteRT-LM] Building .litertlm inside Docker..."
-+    Invoke-Native "docker" @("start", "-a", $containerName)
-+
-+    Write-Host "[LiteRT-LM] Copying .litertlm to '$OutputPath'..."
-+    Invoke-Native "docker" @("cp", "${containerName}:${containerOutputPath}", $OutputPath)
-+
-+    $outputItem = Get-Item $OutputPath
-+    Write-Host "[LiteRT-LM] Done. Output: '$($outputItem.FullName)' ($($outputItem.Length) bytes)."
-+}
-+finally {
-+    docker rm -f $containerName | Out-Null 2>$null
-+}
-diff --git a/tools/docker/build_unity_aar.ps1 b/tools/docker/build_unity_aar.ps1
-new file mode 100644
-index 0000000..9fc9d74
---- /dev/null
-+++ b/tools/docker/build_unity_aar.ps1
-@@ -0,0 +1,73 @@
-+param(
-+    [string]$ImageName = "litert-lm-android-builder",
-+    [string]$ArtifactDir = "",
-+    [string]$UnityPluginsDir = "",
-+    [switch]$SkipImageBuild,
-+    [string]$ReuseContainer = "",
-+    [switch]$SyncWorktree,
-+    [switch]$SyncOnly,
-+    [switch]$PackageOnly,
-+    [string]$ReuseAar = "",
-+    [string]$BazelJobs = "",
-+    [Parameter(ValueFromRemainingArguments = $true)]
-+    [string[]]$ExtraArgs
-+)
-+
-+$ErrorActionPreference = "Stop"
-+
-+$BashScript = Join-Path $PSScriptRoot "build_unity_aar.sh"
-+if (!(Test-Path $BashScript)) {
-+    throw "Missing bash build script: $BashScript"
-+}
-+
-+$BashCandidates = @(
-+    "C:\Program Files\Git\bin\bash.exe",
-+    "C:\Program Files\Git\usr\bin\bash.exe"
-+)
-+$BashPath = $BashCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-+if ([string]::IsNullOrWhiteSpace($BashPath)) {
-+    $Command = Get-Command bash -ErrorAction SilentlyContinue
-+    if ($Command) {
-+        $BashPath = $Command.Source
-+    }
-+}
-+if ([string]::IsNullOrWhiteSpace($BashPath)) {
-+    throw "bash was not found. Install Git for Windows or run tools/docker/build_unity_aar.sh from an existing bash shell."
-+}
-+
-+$Arguments = @($BashScript, "--image-name", $ImageName)
-+if (![string]::IsNullOrWhiteSpace($ArtifactDir)) {
-+    $Arguments += @("--artifact-dir", $ArtifactDir)
-+}
-+if (![string]::IsNullOrWhiteSpace($UnityPluginsDir)) {
-+    $Arguments += @("--unity-plugins-dir", $UnityPluginsDir)
-+}
-+if ($SkipImageBuild) {
-+    $Arguments += "--skip-image-build"
-+}
-+if (![string]::IsNullOrWhiteSpace($ReuseContainer)) {
-+    $Arguments += @("--reuse-container", $ReuseContainer)
-+}
-+if ($SyncWorktree) {
-+    $Arguments += "--sync-worktree"
-+}
-+if ($SyncOnly) {
-+    $Arguments += "--sync-only"
-+}
-+if ($PackageOnly) {
-+    $Arguments += "--package-only"
-+}
-+if (![string]::IsNullOrWhiteSpace($ReuseAar)) {
-+    $Arguments += @("--reuse-aar", $ReuseAar)
-+}
-+if (![string]::IsNullOrWhiteSpace($BazelJobs)) {
-+    $Arguments += @("--bazel-jobs", $BazelJobs)
-+}
-+if ($ExtraArgs -and $ExtraArgs.Count -gt 0) {
-+    $Arguments += $ExtraArgs
-+}
-+
-+& $BashPath @Arguments
-+if ($LASTEXITCODE -ne 0) {
-+    throw "Bash Unity AAR build failed with exit code $LASTEXITCODE."
-+}
-diff --git a/tools/docker/build_unity_aar.sh b/tools/docker/build_unity_aar.sh
-new file mode 100644
-index 0000000..c8839f2
---- /dev/null
-+++ b/tools/docker/build_unity_aar.sh
-@@ -0,0 +1,535 @@
-+#!/usr/bin/env bash
-+set -euo pipefail
-+
-+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd -P)"
-+
-+IMAGE_NAME="litert-lm-android-builder"
-+ARTIFACT_DIR="$REPO_ROOT/artifacts/unity-android"
-+UNITY_PLUGINS_DIR="$REPO_ROOT/LiteRT-LM-Unity/Assets/Plugins/Android"
-+REUSE_CONTAINER_NAME=""
-+REUSE_AAR_PATH=""
-+SKIP_IMAGE_BUILD=0
-+SYNC_WORKTREE=0
-+SYNC_ONLY=0
-+PACKAGE_ONLY=0
-+BAZEL_JOBS=""
-+
-+usage() {
-+  cat <<'EOF'
-+Usage: build_unity_aar.sh [options]
-+
-+Options:
-+  --image-name NAME        Docker image name to build/use.
-+  --artifact-dir DIR       Directory where litertlm-unity-bridge.aar is written.
-+  --unity-plugins-dir DIR  Unity Android plugin directory to update.
-+  --skip-image-build       Reuse an existing Docker image instead of rebuilding it.
-+  --reuse-container NAME   Run the build in an existing warm container.
-+  --sync-worktree          Sync AAR source inputs into --reuse-container first.
-+  --sync-only              Only sync files, then exit. Requires --reuse-container.
-+  --package-only           Skip Bazel build and repackage existing warm outputs.
-+  --reuse-aar PATH         Fallback AAR to reuse classes/JNI from in --package-only mode.
-+  --bazel-jobs N           Limit Bazel jobs for full builds.
-+  -h, --help               Show this help.
-+EOF
-+}
-+
-+normalize_path() {
-+  local path="$1"
-+  if command -v cygpath >/dev/null 2>&1; then
-+    case "$path" in
-+      [A-Za-z]:/*|[A-Za-z]:\\*)
-+        cygpath -u "$path"
-+        return
-+        ;;
-+    esac
-+  fi
-+
-+  case "$path" in
-+    /*) printf '%s\n' "$path" ;;
-+    *) printf '%s\n' "$PWD/$path" ;;
-+  esac
-+}
-+
-+absolute_dir() {
-+  local path
-+  path="$(normalize_path "$1")"
-+  mkdir -p "$path"
-+  (cd "$path" && pwd -P)
-+}
-+
-+absolute_file() {
-+  local path dir base
-+  path="$(normalize_path "$1")"
-+  dir="$(dirname "$path")"
-+  base="$(basename "$path")"
-+  (cd "$dir" && printf '%s/%s\n' "$(pwd -P)" "$base")
-+}
-+
-+to_windows_path() {
-+  local path="$1"
-+  if command -v cygpath >/dev/null 2>&1; then
-+    cygpath -w "$path"
-+  else
-+    printf '%s\n' "$path"
-+  fi
-+}
-+
-+while [[ $# -gt 0 ]]; do
-+  case "$1" in
-+    --image-name)
-+      IMAGE_NAME="${2:?Missing value for --image-name}"
-+      shift 2
-+      ;;
-+    --artifact-dir)
-+      ARTIFACT_DIR="${2:?Missing value for --artifact-dir}"
-+      shift 2
-+      ;;
-+    --unity-plugins-dir)
-+      UNITY_PLUGINS_DIR="${2:?Missing value for --unity-plugins-dir}"
-+      shift 2
-+      ;;
-+    --skip-image-build)
-+      SKIP_IMAGE_BUILD=1
-+      shift
-+      ;;
-+    --reuse-container)
-+      REUSE_CONTAINER_NAME="${2:?Missing value for --reuse-container}"
-+      SKIP_IMAGE_BUILD=1
-+      shift 2
-+      ;;
-+    --sync-worktree)
-+      SYNC_WORKTREE=1
-+      shift
-+      ;;
-+    --sync-only)
-+      SYNC_ONLY=1
-+      SYNC_WORKTREE=1
-+      shift
-+      ;;
-+    --package-only)
-+      PACKAGE_ONLY=1
-+      shift
-+      ;;
-+    --reuse-aar)
-+      REUSE_AAR_PATH="${2:?Missing value for --reuse-aar}"
-+      shift 2
-+      ;;
-+    --bazel-jobs)
-+      BAZEL_JOBS="${2:?Missing value for --bazel-jobs}"
-+      shift 2
-+      ;;
-+    -h|--help)
-+      usage
-+      exit 0
-+      ;;
-+    *)
-+      echo "Unknown option: $1" >&2
-+      usage >&2
-+      exit 2
-+      ;;
-+  esac
-+done
-+
-+if [[ "$PACKAGE_ONLY" -eq 1 && -z "$REUSE_CONTAINER_NAME" ]]; then
-+  echo "--package-only requires --reuse-container so warm Bazel outputs can be reused." >&2
-+  exit 2
-+fi
-+
-+ARTIFACT_DIR="$(absolute_dir "$ARTIFACT_DIR")"
-+UNITY_PLUGINS_DIR="$(absolute_dir "$UNITY_PLUGINS_DIR")"
-+WORKSPACE_TEMP_ROOT="$(absolute_dir "$REPO_ROOT/temp/unity-android")"
-+BAZEL_DISK_CACHE_DIR="$WORKSPACE_TEMP_ROOT/bazel-disk-cache"
-+mkdir -p "$BAZEL_DISK_CACHE_DIR"
-+
-+AAR_PATH="$ARTIFACT_DIR/litertlm-unity-bridge.aar"
-+CONTAINER_NAME="litert-lm-unity-aar-$(date +%Y%m%d%H%M%S)-$$"
-+CONTAINER_STAGE_ROOT="/litert_lm/temp/unity-aar-stage"
-+CONTAINER_AAR_PATH="/litert_lm/temp/litertlm-unity-bridge.aar"
-+CONTAINER_REUSE_AAR_PATH="/litert_lm/temp/reuse-litertlm-unity-bridge.aar"
-+CONTAINER_REUSE_AAR_ENV=""
-+
-+if [[ -n "$REUSE_AAR_PATH" ]]; then
-+  REUSE_AAR_PATH="$(absolute_file "$REUSE_AAR_PATH")"
-+  if [[ ! -s "$REUSE_AAR_PATH" ]]; then
-+    echo "Fallback AAR does not exist or is empty: $REUSE_AAR_PATH" >&2
-+    exit 2
-+  fi
-+fi
-+
-+cleanup() {
-+  if [[ -z "$REUSE_CONTAINER_NAME" ]]; then
-+    docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
-+  fi
-+}
-+trap cleanup EXIT
-+
-+select_reuse_aar_path() {
-+  local candidate
-+
-+  if [[ -n "$REUSE_AAR_PATH" ]]; then
-+    printf '%s\n' "$REUSE_AAR_PATH"
-+    return 0
-+  fi
-+
-+  for candidate in "$AAR_PATH" "$UNITY_PLUGINS_DIR/litertlm-unity-bridge.aar"; do
-+    if [[ -s "$candidate" ]]; then
-+      printf '%s\n' "$candidate"
-+      return 0
-+    fi
-+  done
-+
-+  return 1
-+}
-+
-+prepare_reuse_aar_in_container() {
-+  local container_name="$1"
-+  local fallback_aar fallback_aar_win
-+
-+  CONTAINER_REUSE_AAR_ENV=""
-+  if [[ "$PACKAGE_ONLY" -ne 1 ]]; then
-+    return
-+  fi
-+
-+  if ! fallback_aar="$(select_reuse_aar_path)"; then
-+    echo "[LiteRT-LM] No previous AAR found for package-only fallback."
-+    return
-+  fi
-+
-+  echo "[LiteRT-LM] Copying package-only fallback AAR into warm container: $fallback_aar"
-+  fallback_aar_win="$(to_windows_path "$fallback_aar")"
-+  MSYS_NO_PATHCONV=1 docker exec "$container_name" bash -lc "mkdir -p '$(dirname "$CONTAINER_REUSE_AAR_PATH")'"
-+  MSYS_NO_PATHCONV=1 docker cp "$fallback_aar_win" "$container_name:$CONTAINER_REUSE_AAR_PATH"
-+  CONTAINER_REUSE_AAR_ENV="$CONTAINER_REUSE_AAR_PATH"
-+}
-+
-+sync_worktree_to_container() {
-+  local container_name="$1"
-+  local paths=(
-+    ".bazelrc"
-+    ".bazelversion"
-+    "WORKSPACE"
-+    "BUILD"
-+    "BUILD.antlr4"
-+    "BUILD.directx_shader_compiler"
-+    "BUILD.llguidance"
-+    "BUILD.miniaudio"
-+    "BUILD.minizip"
-+    "BUILD.minja"
-+    "BUILD.nanobind_json"
-+    "BUILD.sentencepiece"
-+    "BUILD.stb"
-+    "BUILD.tokenizers_cpp"
-+    "Cargo.lock"
-+    "Cargo.toml"
-+    "cargo-bazel-lock.json"
-+    "android_ndk_env.bzl"
-+    "rust_cxx_bridge.bzl"
-+    "version.bzl"
-+    "build_config"
-+    "c"
-+    "cxxbridge_cmd"
-+    "kotlin"
-+    "prebuilt"
-+    "runtime"
-+    "rust"
-+    "schema"
-+    "src"
-+    "unity"
-+  )
-+  local rel_path host_path host_path_win target_dir
-+
-+  echo "[LiteRT-LM] Syncing AAR source inputs into warm container '$container_name'..."
-+  for rel_path in "${paths[@]}"; do
-+    host_path="$REPO_ROOT/$rel_path"
-+    if [[ ! -e "$host_path" ]]; then
-+      continue
-+    fi
-+
-+    target_dir="/litert_lm/$(dirname "$rel_path")"
-+    host_path_win="$(to_windows_path "$host_path")"
-+    MSYS_NO_PATHCONV=1 docker exec "$container_name" bash -lc \
-+      "rm -rf '/litert_lm/$rel_path' && mkdir -p '$target_dir'"
-+    MSYS_NO_PATHCONV=1 docker cp "$host_path_win" "$container_name:/litert_lm/$rel_path"
-+  done
-+}
-+
-+read -r -d '' CONTAINER_COMMAND <<'EOF' || true
-+set -euo pipefail
-+cd /litert_lm
-+
-+patch_litert_android_runtime_exports() {
-+  local output_base source_litert_repo patched_litert_repo litert_defs litert_cc_build litert_cc_internal_build runtime_linux_lds
-+
-+  patched_litert_repo="/litert_lm/temp/litert-unity-unversioned"
-+  litert_defs="$patched_litert_repo/litert/build_common/litert_build_defs.bzl"
-+  litert_cc_build="$patched_litert_repo/litert/cc/BUILD"
-+  litert_cc_internal_build="$patched_litert_repo/litert/cc/internal/BUILD"
-+  runtime_linux_lds="$patched_litert_repo/litert/build_common/export_litert_runtime_only_linux.lds"
-+  if [[ -f "$litert_defs" && -f "$litert_cc_build" && -f "$litert_cc_internal_build" && -f "$runtime_linux_lds" ]] &&
-+      grep -q "LITERT_LM_UNITY_UNVERSIONED_DYNSYM_EXPORTS_DF1_GLOBAL" "$runtime_linux_lds" &&
-+      grep -q "LITERT_LM_UNITY_DF1_GLOBAL_RUNTIME" "$litert_defs" &&
-+      grep -q "LITERT_LM_UNITY_DYNAMIC_RUNTIME_MODEL_DEDUP" "$litert_cc_build" &&
-+      grep -q "LITERT_LM_UNITY_DYNAMIC_RUNTIME_MODEL_DEDUP" "$litert_cc_internal_build" &&
-+      ! grep -q '"@litert//litert/cc:litert_model",' "$litert_cc_build" &&
-+      ! grep -q '"//litert/cc:litert_model",' "$litert_cc_internal_build"; then
-+    printf '%s\n' "$patched_litert_repo"
-+    return
-+  fi
-+
-+  bazel query @litert//litert/c:litert_runtime_c_api_so >/dev/null
-+  output_base="$(bazel info output_base)"
-+  source_litert_repo="$output_base/external/litert"
-+
-+  if [[ ! -d "$source_litert_repo" ]]; then
-+    echo "Could not find fetched LiteRT Bazel repository: $source_litert_repo" >&2
-+    exit 1
-+  fi
-+
-+  rm -rf "$patched_litert_repo"
-+  mkdir -p "$(dirname "$patched_litert_repo")"
-+  cp -a "$source_litert_repo" "$patched_litert_repo"
-+
-+  if [[ ! -f "$litert_defs" ]]; then
-+    echo "Could not find LiteRT Bazel build definitions: $litert_defs" >&2
-+    exit 1
-+  fi
-+  if [[ ! -f "$litert_cc_build" ]]; then
-+    echo "Could not find LiteRT C++ BUILD file: $litert_cc_build" >&2
-+    exit 1
-+  fi
-+  if [[ ! -f "$litert_cc_internal_build" ]]; then
-+    echo "Could not find LiteRT internal C++ BUILD file: $litert_cc_internal_build" >&2
-+    exit 1
-+  fi
-+  if [[ ! -f "$runtime_linux_lds" ]]; then
-+    echo "Could not find LiteRT runtime export script: $runtime_linux_lds" >&2
-+    exit 1
-+  fi
-+
-+  perl -0pi -e '
-+    s#"//litert:android": _EXPORT_LRT_COMMON_LINKOPTS_LINUX \+ _LRT_ANDROID_PAGE_SIZE_LINKOPTS \+ \[_EXPORT_LRT_RUNTIME_ONLY_LINKOPT_LINUX\]#"//litert:android": _EXPORT_LRT_COMMON_LINKOPTS_LINUX + _LRT_ANDROID_PAGE_SIZE_LINKOPTS + [_EXPORT_LRT_RUNTIME_ONLY_LINKOPT_LINUX] + ["-Wl,-z,global"]#g;
-+  ' "$litert_defs"
-+  sed -i '/def export_lrt_runtime_only_linkopt()/a\    # LITERT_LM_UNITY_DF1_GLOBAL_RUNTIME: Android sampler dlopen resolves LiteRt symbols from the linker global group.' "$litert_defs"
-+  sed -i '/"@litert\/\/litert\/cc:litert_model",/d' "$litert_cc_build"
-+  sed -i '/"\/\/litert\/cc:litert_model",/d' "$litert_cc_internal_build"
-+  sed -i '1i# LITERT_LM_UNITY_DYNAMIC_RUNTIME_MODEL_DEDUP: litert_api_with_dynamic_runtime already links dynamic_runtime:litert_model; do not link the non-dynamic model implementation into Unity JNI.' "$litert_cc_build"
-+  sed -i '1i# LITERT_LM_UNITY_DYNAMIC_RUNTIME_MODEL_DEDUP: Unity uses dynamic_runtime LiteRT model implementation for JNI builds.' "$litert_cc_internal_build"
-+
-+  cat > "$runtime_linux_lds" <<'LDS'
-+/* LITERT_LM_UNITY_UNVERSIONED_DYNSYM_EXPORTS_DF1_GLOBAL
-+ * Unity Android sampler plugins dlopen LiteRT sampler .so files after startup.
-+ * They require LiteRt C API symbols to be present in libLiteRt.so's dynamic
-+ * symbol table, but Android rejects the upstream VERS_1.0-versioned exports
-+ * for those undefined sampler references. Keep the export script for dynsym
-+ * visibility, use an anonymous version script so symbols stay unversioned,
-+ * and pair this with -z global in litert_build_defs.bzl so Android places
-+ * libLiteRt.so in the linker global group.
-+ */
-+{
-+  global:
-+    LiteRt*;
-+  local:
-+    *;
-+};
-+LDS
-+
-+  bazel shutdown >/dev/null 2>&1 || true
-+  printf '%s\n' "$patched_litert_repo"
-+}
-+
-+if [[ "${LITERTLM_PACKAGE_ONLY:-0}" != "1" ]]; then
-+  PATCHED_LITERT_REPO="$(patch_litert_android_runtime_exports)"
-+  BAZEL_LITERT_OVERRIDE=(--override_repository=litert="$PATCHED_LITERT_REPO")
-+  BAZEL_JOB_ARGS=()
-+  if [[ -n "${LITERTLM_BAZEL_JOBS:-}" ]]; then
-+    BAZEL_JOB_ARGS=(--jobs="${LITERTLM_BAZEL_JOBS}")
-+  fi
-+
-+  bazel build \
-+    "${BAZEL_LITERT_OVERRIDE[@]}" \
-+    "${BAZEL_JOB_ARGS[@]}" \
-+    --disk_cache=/root/.cache/bazel-android \
-+    --config=android_arm64 \
-+    --define=litert_link_capi_so=true \
-+    --define=resolve_symbols_in_exec=false \
-+    //kotlin/java/com/google/ai/edge/litertlm:litertlm-unity-bridge-jar \
-+    //kotlin/java/com/google/ai/edge/litertlm/jni:litertlm_loader \
-+    //kotlin/java/com/google/ai/edge/litertlm/jni:litertlm_jni
-+else
-+  echo "[LiteRT-LM] Package-only mode: skipping Bazel build and Bazel query."
-+fi
-+
-+STAGE_ROOT="/litert_lm/temp/unity-aar-stage"
-+rm -rf "$STAGE_ROOT"
-+mkdir -p "$STAGE_ROOT/jni/arm64-v8a"
-+
-+REUSE_AAR_EXTRACT_DIR=""
-+if [[ -n "${LITERTLM_REUSE_AAR_PATH:-}" && -s "${LITERTLM_REUSE_AAR_PATH:-}" ]]; then
-+  REUSE_AAR_EXTRACT_DIR="$STAGE_ROOT/reuse-aar"
-+  mkdir -p "$REUSE_AAR_EXTRACT_DIR"
-+  (cd "$REUSE_AAR_EXTRACT_DIR" && jar xf "$LITERTLM_REUSE_AAR_PATH")
-+fi
-+
-+copy_stage_file() {
-+  local source_path="$1"
-+  local fallback_rel_path="$2"
-+  local dest_path="$3"
-+  local label="$4"
-+
-+  if [[ -s "$source_path" ]]; then
-+    cp -L "$source_path" "$dest_path"
-+    return
-+  fi
-+
-+  if [[ -n "$REUSE_AAR_EXTRACT_DIR" && -s "$REUSE_AAR_EXTRACT_DIR/$fallback_rel_path" ]]; then
-+    echo "[LiteRT-LM] Reusing $label from fallback AAR."
-+    cp -L "$REUSE_AAR_EXTRACT_DIR/$fallback_rel_path" "$dest_path"
-+    return
-+  fi
-+
-+  echo "Required AAR input is missing: $label" >&2
-+  echo "  Bazel output: $source_path" >&2
-+  if [[ -n "$REUSE_AAR_EXTRACT_DIR" ]]; then
-+    echo "  Fallback AAR path: $fallback_rel_path" >&2
-+  fi
-+  echo "Run one full warm build first, then retry --package-only." >&2
-+  exit 1
-+}
-+
-+copy_stage_file \
-+  /litert_lm/bazel-bin/kotlin/java/com/google/ai/edge/litertlm/liblitertlm-unity-bridge-jar.jar \
-+  classes.jar \
-+  "$STAGE_ROOT/classes.jar" \
-+  classes.jar
-+copy_stage_file \
-+  /litert_lm/bazel-out/arm64-v8a-opt/bin/external/litert/litert/c/libLiteRt.so \
-+  jni/arm64-v8a/libLiteRt.so \
-+  "$STAGE_ROOT/jni/arm64-v8a/libLiteRt.so" \
-+  libLiteRt.so
-+copy_stage_file \
-+  /litert_lm/bazel-out/arm64-v8a-opt/bin/kotlin/java/com/google/ai/edge/litertlm/jni/liblitertlm_loader.so \
-+  jni/arm64-v8a/liblitertlm_loader.so \
-+  "$STAGE_ROOT/jni/arm64-v8a/liblitertlm_loader.so" \
-+  liblitertlm_loader.so
-+copy_stage_file \
-+  /litert_lm/bazel-out/arm64-v8a-opt/bin/kotlin/java/com/google/ai/edge/litertlm/jni/liblitertlm_jni.so \
-+  jni/arm64-v8a/liblitertlm_jni.so \
-+  "$STAGE_ROOT/jni/arm64-v8a/liblitertlm_jni.so" \
-+  liblitertlm_jni.so
-+
-+shopt -s nullglob
-+PREBUILT_LIBS=(/litert_lm/prebuilt/android_arm64/*.so)
-+if [[ "${#PREBUILT_LIBS[@]}" -gt 0 ]]; then
-+  cp -L "${PREBUILT_LIBS[@]}" "$STAGE_ROOT/jni/arm64-v8a/"
-+elif [[ -n "$REUSE_AAR_EXTRACT_DIR" ]]; then
-+  cp -L "$REUSE_AAR_EXTRACT_DIR"/jni/arm64-v8a/libLiteRt* "$STAGE_ROOT/jni/arm64-v8a/" 2>/dev/null || true
-+fi
-+
-+LITERT_CREATE_ENVIRONMENT_SYMBOLS="$(
-+  readelf --wide --dyn-syms "$STAGE_ROOT/jni/arm64-v8a/libLiteRt.so" | grep 'LiteRtCreateEnvironment' || true
-+)"
-+if ! grep -Eq '[[:space:]]LiteRtCreateEnvironment([[:space:]]|$)' <<<"$LITERT_CREATE_ENVIRONMENT_SYMBOLS"; then
-+  echo "libLiteRt.so does not export unversioned LiteRtCreateEnvironment in .dynsym." >&2
-+  printf '%s\n' "$LITERT_CREATE_ENVIRONMENT_SYMBOLS" >&2
-+  exit 1
-+fi
-+if grep -q 'LiteRtCreateEnvironment@@' <<<"$LITERT_CREATE_ENVIRONMENT_SYMBOLS"; then
-+  echo "libLiteRt.so still exports versioned LiteRtCreateEnvironment in .dynsym." >&2
-+  printf '%s\n' "$LITERT_CREATE_ENVIRONMENT_SYMBOLS" >&2
-+  exit 1
-+fi
-+if ! readelf -d "$STAGE_ROOT/jni/arm64-v8a/libLiteRt.so" | grep -Eq 'FLAGS_1.*GLOBAL|Flags:.*GLOBAL'; then
-+  echo "libLiteRt.so is missing DF_1_GLOBAL. Android sampler dlopen needs libLiteRt in the linker global group." >&2
-+  readelf -d "$STAGE_ROOT/jni/arm64-v8a/libLiteRt.so" | grep -E 'FLAGS|GLOBAL' >&2 || true
-+  exit 1
-+fi
-+
-+cat > "$STAGE_ROOT/AndroidManifest.xml" <<'MANIFEST'
-+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-+    package="com.google.ai.edge.litertlm.unitybridge">
-+    <uses-sdk android:minSdkVersion="22" />
-+    <application>
-+        <uses-native-library android:name="libvndksupport.so" android:required="false" />
-+        <uses-native-library android:name="libOpenCL.so" android:required="false" />
-+        <uses-native-library android:name="libcdsprpc.so" android:required="false" />
-+    </application>
-+</manifest>
-+MANIFEST
-+
-+(cd "$STAGE_ROOT" && jar cf "/litert_lm/temp/litertlm-unity-bridge.aar" classes.jar AndroidManifest.xml jni)
-+test -s "/litert_lm/temp/litertlm-unity-bridge.aar"
-+EOF
-+
-+REPO_ROOT_WIN="$(to_windows_path "$REPO_ROOT")"
-+AAR_PATH_WIN="$(to_windows_path "$AAR_PATH")"
-+BAZEL_DISK_CACHE_DIR_WIN="$(to_windows_path "$BAZEL_DISK_CACHE_DIR")"
-+
-+echo "[LiteRT-LM] Workspace temp: $WORKSPACE_TEMP_ROOT"
-+MSYS_NO_PATHCONV=1 docker info >/dev/null
-+
-+if [[ "$SKIP_IMAGE_BUILD" -eq 0 ]]; then
-+  echo "[LiteRT-LM] Building Docker image '$IMAGE_NAME'..."
-+  MSYS_NO_PATHCONV=1 docker build -f "$REPO_ROOT_WIN/cmake/Containerfile" -t "$IMAGE_NAME" "$REPO_ROOT_WIN"
-+else
-+  echo "[LiteRT-LM] Skipping Docker image rebuild."
-+fi
-+
-+if [[ -n "$REUSE_CONTAINER_NAME" ]]; then
-+  CONTAINER_NAME="$REUSE_CONTAINER_NAME"
-+  if ! MSYS_NO_PATHCONV=1 docker inspect "$CONTAINER_NAME" >/dev/null 2>&1; then
-+    echo "Warm container does not exist: $CONTAINER_NAME" >&2
-+    exit 1
-+  fi
-+  if [[ "$(MSYS_NO_PATHCONV=1 docker inspect -f '{{.State.Running}}' "$CONTAINER_NAME")" != "true" ]]; then
-+    echo "[LiteRT-LM] Starting warm container '$CONTAINER_NAME'..."
-+    MSYS_NO_PATHCONV=1 docker start "$CONTAINER_NAME" >/dev/null
-+  fi
-+  if [[ "$SYNC_WORKTREE" -eq 1 ]]; then
-+    sync_worktree_to_container "$CONTAINER_NAME"
-+  fi
-+  if [[ "$SYNC_ONLY" -eq 1 ]]; then
-+    echo "[LiteRT-LM] Sync-only mode complete."
-+    exit 0
-+  fi
-+  prepare_reuse_aar_in_container "$CONTAINER_NAME"
-+  echo "[LiteRT-LM] Building Unity AAR inputs in warm container '$CONTAINER_NAME'..."
-+  MSYS_NO_PATHCONV=1 docker exec \
-+    -e LITERTLM_PACKAGE_ONLY="$PACKAGE_ONLY" \
-+    -e LITERTLM_REUSE_AAR_PATH="$CONTAINER_REUSE_AAR_ENV" \
-+    -e LITERTLM_BAZEL_JOBS="$BAZEL_JOBS" \
-+    "$CONTAINER_NAME" bash -lc "$CONTAINER_COMMAND"
-+else
-+  echo "[LiteRT-LM] Creating temporary AAR build container '$CONTAINER_NAME'..."
-+  MSYS_NO_PATHCONV=1 docker create \
-+    --name "$CONTAINER_NAME" \
-+    --mount "type=bind,source=$BAZEL_DISK_CACHE_DIR_WIN,target=/root/.cache/bazel-android" \
-+    -e LITERTLM_PACKAGE_ONLY="$PACKAGE_ONLY" \
-+    -e LITERTLM_REUSE_AAR_PATH="" \
-+    -e LITERTLM_BAZEL_JOBS="$BAZEL_JOBS" \
-+    "$IMAGE_NAME" bash -lc "$CONTAINER_COMMAND" >/dev/null
-+
-+  echo "[LiteRT-LM] Building Unity AAR inputs inside Docker..."
-+  MSYS_NO_PATHCONV=1 docker start -a "$CONTAINER_NAME"
-+fi
-+
-+rm -f "$AAR_PATH"
-+MSYS_NO_PATHCONV=1 docker cp "${CONTAINER_NAME}:${CONTAINER_AAR_PATH}" "$AAR_PATH_WIN"
-+
-+AAR_SIZE="$(wc -c < "$AAR_PATH" | tr -d '[:space:]')"
-+if [[ -z "$AAR_SIZE" || "$AAR_SIZE" -lt 1000000 ]]; then
-+  echo "Generated AAR is unexpectedly small: $AAR_PATH" >&2
-+  exit 1
-+fi
-+
-+LEGACY_ANDROIDLIB_PATH="$UNITY_PLUGINS_DIR/litertlm-unity-bridge.androidlib"
-+if [[ -e "$LEGACY_ANDROIDLIB_PATH" ]]; then
-+  echo "[LiteRT-LM] Removing stale Unity androidlib plugin '$LEGACY_ANDROIDLIB_PATH' to avoid duplicate Android namespaces."
-+  rm -rf "$LEGACY_ANDROIDLIB_PATH"
-+fi
-+rm -f "$LEGACY_ANDROIDLIB_PATH.meta"
-+
-+cp -f "$AAR_PATH" "$UNITY_PLUGINS_DIR/litertlm-unity-bridge.aar"
-+
-+echo "[LiteRT-LM] Done. AAR exported to '$AAR_PATH'."
-+echo "[LiteRT-LM] Copied into LiteRT-LM-Unity: '$UNITY_PLUGINS_DIR/litertlm-unity-bridge.aar'."
-diff --git a/tools/docker/export_qwen25_gpu_candidate.ps1 b/tools/docker/export_qwen25_gpu_candidate.ps1
-new file mode 100644
-index 0000000..f549397
---- /dev/null
-+++ b/tools/docker/export_qwen25_gpu_candidate.ps1
-@@ -0,0 +1,101 @@
-+param(
-+    [string]$ImageName = "litert-lm-torch-nightly",
-+    [string]$BaseImageName = "litert-lm-android-builder",
-+    [string]$ModelId = "Qwen/Qwen2.5-0.5B-Instruct",
-+    [string]$OutputDir = "artifacts/models/qwen2p5-0p5b-split-cache-q8",
-+    [string]$PrefillLengths = "8,64,128",
-+    [int]$CacheLength = 1280,
-+    [string]$QuantizationRecipe = "dynamic_wi8_afp32",
-+    [string]$HfCacheVolume = "litert-hf-cache",
-+    [string]$PipCacheVolume = "litert-torch-pip-cache",
-+    [switch]$SkipImageBuild
-+)
-+
-+$ErrorActionPreference = "Stop"
-+
-+$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\.." )).Path
-+$ResolvedOutputDir = Join-Path $RepoRoot $OutputDir
-+New-Item -ItemType Directory -Force -Path $ResolvedOutputDir | Out-Null
-+
-+function Invoke-Native {
-+    param(
-+        [string]$Program,
-+        [string[]]$Arguments
-+    )
-+
-+    & $Program @Arguments
-+    if ($LASTEXITCODE -ne 0) {
-+        throw "Command failed with exit code $LASTEXITCODE`: $Program $($Arguments -join ' ')"
-+    }
-+}
-+
-+function Test-DockerImage {
-+    param([string]$Name)
-+
-+    docker image inspect $Name *> $null
-+    return $LASTEXITCODE -eq 0
-+}
-+
-+if (!$SkipImageBuild -and !(Test-DockerImage $ImageName)) {
-+    Write-Host "[LiteRT-LM] Creating '$ImageName' with litert-torch-nightly..."
-+    $containerName = "litert-torch-nightly-tool-" + [guid]::NewGuid().ToString("N")
-+    try {
-+        Invoke-Native "docker" @(
-+            "run",
-+            "--name", $containerName,
-+            "-v", "${PipCacheVolume}:/root/.cache/pip",
-+            $BaseImageName,
-+            "bash",
-+            "-lc",
-+            "set -euo pipefail; python3 -m pip install --break-system-packages --ignore-installed --pre litert-torch-nightly huggingface_hub >/tmp/litert-torch-install.log 2>&1; litert-torch export_hf --help >/tmp/export_hf_help.txt 2>&1 || true"
-+        )
-+        Invoke-Native "docker" @("commit", $containerName, $ImageName)
-+    }
-+    finally {
-+        docker rm -f $containerName *> $null
-+    }
-+}
-+
-+if (!(Test-DockerImage $ImageName)) {
-+    throw "Docker image '$ImageName' was not found. Run without -SkipImageBuild or build it first."
-+}
-+
-+$exportCommand = @(
-+    "set -euo pipefail",
-+    "mkdir -p '/host/$OutputDir'",
-+    "cd /host",
-+    "litert-torch export_hf '$ModelId' '/host/$OutputDir' --prefill_lengths=$PrefillLengths --cache_length=$CacheLength --quantization_recipe=$QuantizationRecipe --split_cache=True --bundle_litert_lm=False --keep_temporary_files=True 2>&1 | tee '/host/$OutputDir/export.log'"
-+) -join "; "
-+
-+Write-Host "[LiteRT-LM] Exporting GPU candidate graph..."
-+Invoke-Native "docker" @(
-+    "run",
-+    "--rm",
-+    "-v", "${RepoRoot}:/host",
-+    "-v", "${HfCacheVolume}:/root/.cache/huggingface",
-+    $ImageName,
-+    "bash",
-+    "-lc",
-+    $exportCommand
-+)
-+
-+$tfliteFiles = @(
-+    "model_quantized.tflite",
-+    "embedder_quantized.tflite",
-+    "auxiliary.tflite"
-+)
-+
-+foreach ($file in $tfliteFiles) {
-+    $path = Join-Path $ResolvedOutputDir $file
-+    if (!(Test-Path $path)) {
-+        throw "Expected export output was not found: $path"
-+    }
-+
-+    $reportPath = Join-Path $ResolvedOutputDir ($file -replace "\.tflite$", ".gpu_preflight.json")
-+    Write-Host "[LiteRT-LM] GPU preflight: $file"
-+    python (Join-Path $RepoRoot "tools\inspect_tflite_graph.py") $path --blocker-limit 20 --json |
-+        Set-Content -Encoding UTF8 $reportPath
-+    python (Join-Path $RepoRoot "tools\inspect_tflite_graph.py") $path --blocker-limit 12
-+}
-+
-+Write-Host "[LiteRT-LM] Done. Output: $ResolvedOutputDir"
