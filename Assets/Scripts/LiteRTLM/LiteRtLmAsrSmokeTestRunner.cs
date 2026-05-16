@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.IO;
+using System.Text.RegularExpressions;
 using UnityEngine;
 using UnityEngine.Networking;
 
@@ -10,6 +11,7 @@ namespace LiteRTLM.Unity
     {
         private const string LogPrefix = "[LiteRT-LM ASRSmoke]";
         private const string StatusFileName = "LiteRtLmAsrSmokeTest.status.txt";
+        private const string ConfigFileName = "LiteRtLmAsrSmokeTest.config.json";
 
         [SerializeField] private string modelPath = "parakeet_tdt_0.6b_v3_5s_i8.tflite";
         [SerializeField] private string audioPath = "Tactical Evaluation Results Report - March 5, 2025.mp3";
@@ -35,6 +37,7 @@ namespace LiteRTLM.Unity
 
         private IEnumerator RunSmokeTest()
         {
+            ApplyRuntimeConfigOverrides();
             WriteStatus("START", $"mode={asrMode}, backend={backend}, language={asrLanguage}, model={modelPath}, audio={audioPath}, platform={Application.platform}");
 
 #if UNITY_ANDROID && !UNITY_EDITOR
@@ -234,6 +237,50 @@ namespace LiteRTLM.Unity
             Debug.LogException(ex);
         }
 
+        private void ApplyRuntimeConfigOverrides()
+        {
+            var configPath = Path.Combine(Application.persistentDataPath, ConfigFileName);
+            if (!File.Exists(configPath))
+            {
+                return;
+            }
+
+            try
+            {
+                var json = File.ReadAllText(configPath);
+                if (TryGetJsonString(json, "modelPath", out var configuredModelPath))
+                {
+                    modelPath = configuredModelPath;
+                }
+                if (TryGetJsonString(json, "audioPath", out var configuredAudioPath))
+                {
+                    audioPath = configuredAudioPath;
+                }
+                if (TryGetJsonString(json, "tokenizerJsonPath", out var configuredTokenizerPath))
+                {
+                    tokenizerJsonPath = configuredTokenizerPath;
+                }
+                if (TryGetJsonString(json, "backend", out var configuredBackend))
+                {
+                    backend = configuredBackend;
+                }
+                if (TryGetJsonString(json, "asrMode", out var configuredAsrMode))
+                {
+                    asrMode = configuredAsrMode;
+                }
+                if (TryGetJsonString(json, "asrLanguage", out var configuredAsrLanguage))
+                {
+                    asrLanguage = configuredAsrLanguage;
+                }
+
+                WriteStatus("CONFIG", $"loaded={configPath}, mode={asrMode}, model={modelPath}, backend={backend}, language={asrLanguage}");
+            }
+            catch (Exception ex)
+            {
+                WriteFailure(new InvalidOperationException($"Failed to load ASR smoke runtime config: {configPath}", ex));
+            }
+        }
+
         private static void WriteStatus(string phase, string message)
         {
             var line = $"{LogPrefix} {phase}: {message}";
@@ -271,6 +318,19 @@ namespace LiteRTLM.Unity
             return string.IsNullOrEmpty(value)
                 ? string.Empty
                 : value.Replace("\r", " ").Replace("\n", " ").Trim();
+        }
+
+        private static bool TryGetJsonString(string json, string propertyName, out string value)
+        {
+            var match = Regex.Match(json, $"\"{Regex.Escape(propertyName)}\"\\s*:\\s*\"((?:\\\\.|[^\"\\\\])*)\"");
+            if (match.Success)
+            {
+                value = Regex.Unescape(match.Groups[1].Value);
+                return true;
+            }
+
+            value = string.Empty;
+            return false;
         }
 
         private bool IsWhisperGpuRequested()

@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.IO;
+using System.Text.RegularExpressions;
 using UnityEngine;
 using UnityEngine.Networking;
 
@@ -10,6 +11,7 @@ namespace LiteRTLM.Unity
     {
         private const string LogPrefix = "[LiteRT-LM AndroidSmoke]";
         private const string StatusFileName = "LiteRtLmAndroidSmokeTest.status.txt";
+        private const string ConfigFileName = "LiteRtLmAndroidSmokeTest.config.json";
 
         [SerializeField] private string modelPath = "model.litertlm";
         [SerializeField] private string backend = "GPU";
@@ -46,7 +48,8 @@ namespace LiteRTLM.Unity
 
         private IEnumerator RunSmokeTest()
         {
-            WriteStatus("START", $"backend={backend}, model={modelPath}, platform={Application.platform}, speculativeDecoding={enableSpeculativeDecoding}, resetConversationBeforeEachPrompt={resetConversationBeforeEachPrompt}");
+            ApplyRuntimeConfigOverrides();
+            WriteStatus("START", $"backend={backend}, model={modelPath}, platform={Application.platform}, speculativeDecoding={enableSpeculativeDecoding}, maxNumTokens={maxNumTokens}, maxNumImages={maxNumImages}, benchmarkPrefillTokens={benchmarkPrefillTokens}, benchmarkDecodeTokens={benchmarkDecodeTokens}, benchmarkRuns={benchmarkRuns}, resetConversationBeforeEachPrompt={resetConversationBeforeEachPrompt}");
 
 #if UNITY_ANDROID && !UNITY_EDITOR
             var resolvedModelPath = string.Empty;
@@ -238,6 +241,70 @@ namespace LiteRTLM.Unity
             Debug.LogException(ex);
         }
 
+        private void ApplyRuntimeConfigOverrides()
+        {
+            var configPath = Path.Combine(Application.persistentDataPath, ConfigFileName);
+            if (!File.Exists(configPath))
+            {
+                return;
+            }
+
+            try
+            {
+                var json = File.ReadAllText(configPath);
+                if (TryGetJsonString(json, "modelPath", out var configuredModelPath))
+                {
+                    modelPath = configuredModelPath;
+                }
+                if (TryGetJsonString(json, "backend", out var configuredBackend))
+                {
+                    backend = configuredBackend;
+                }
+                if (TryGetJsonInt(json, "maxNumTokens", out var configuredMaxNumTokens) && configuredMaxNumTokens > 0)
+                {
+                    maxNumTokens = configuredMaxNumTokens;
+                }
+                if (TryGetJsonInt(json, "maxNumImages", out var configuredMaxNumImages) && configuredMaxNumImages >= 0)
+                {
+                    maxNumImages = configuredMaxNumImages;
+                }
+                if (TryGetJsonBool(json, "enableSpeculativeDecoding", out var configuredSpeculativeDecoding))
+                {
+                    enableSpeculativeDecoding = configuredSpeculativeDecoding;
+                }
+                if (TryGetJsonBool(json, "runStandaloneBenchmark", out var configuredRunStandaloneBenchmark))
+                {
+                    runStandaloneBenchmark = configuredRunStandaloneBenchmark;
+                }
+                if (TryGetJsonInt(json, "benchmarkPrefillTokens", out var configuredPrefillTokens) && configuredPrefillTokens > 0)
+                {
+                    benchmarkPrefillTokens = configuredPrefillTokens;
+                }
+                if (TryGetJsonInt(json, "benchmarkDecodeTokens", out var configuredDecodeTokens) && configuredDecodeTokens > 0)
+                {
+                    benchmarkDecodeTokens = configuredDecodeTokens;
+                }
+                if (TryGetJsonInt(json, "benchmarkRuns", out var configuredBenchmarkRuns) && configuredBenchmarkRuns > 0)
+                {
+                    benchmarkRuns = configuredBenchmarkRuns;
+                }
+                if (TryGetJsonString(json, "systemInstruction", out var configuredSystemInstruction))
+                {
+                    systemInstruction = configuredSystemInstruction;
+                }
+                if (TryGetJsonBool(json, "resetConversationBeforeEachPrompt", out var configuredResetConversation))
+                {
+                    resetConversationBeforeEachPrompt = configuredResetConversation;
+                }
+
+                WriteStatus("CONFIG", $"loaded={configPath}, model={modelPath}, backend={backend}");
+            }
+            catch (Exception ex)
+            {
+                WriteFailure(new InvalidOperationException($"Failed to load Android smoke runtime config: {configPath}", ex));
+            }
+        }
+
         private static void WriteStatus(string phase, string message)
         {
             var line = $"{LogPrefix} {phase}: {message}";
@@ -269,6 +336,43 @@ namespace LiteRTLM.Unity
             return string.IsNullOrEmpty(value)
                 ? string.Empty
                 : value.Replace("\r", " ").Replace("\n", " ").Trim();
+        }
+
+        private static bool TryGetJsonString(string json, string propertyName, out string value)
+        {
+            var match = Regex.Match(json, $"\"{Regex.Escape(propertyName)}\"\\s*:\\s*\"((?:\\\\.|[^\"\\\\])*)\"");
+            if (match.Success)
+            {
+                value = Regex.Unescape(match.Groups[1].Value);
+                return true;
+            }
+
+            value = string.Empty;
+            return false;
+        }
+
+        private static bool TryGetJsonInt(string json, string propertyName, out int value)
+        {
+            var match = Regex.Match(json, $"\"{Regex.Escape(propertyName)}\"\\s*:\\s*(-?[0-9]+)");
+            if (match.Success && int.TryParse(match.Groups[1].Value, out value))
+            {
+                return true;
+            }
+
+            value = 0;
+            return false;
+        }
+
+        private static bool TryGetJsonBool(string json, string propertyName, out bool value)
+        {
+            var match = Regex.Match(json, $"\"{Regex.Escape(propertyName)}\"\\s*:\\s*(true|false)", RegexOptions.IgnoreCase);
+            if (match.Success && bool.TryParse(match.Groups[1].Value, out value))
+            {
+                return true;
+            }
+
+            value = false;
+            return false;
         }
     }
 }

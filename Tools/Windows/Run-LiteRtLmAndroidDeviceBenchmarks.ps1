@@ -3,6 +3,7 @@ param(
     [string]$DeviceSerial = "",
     [string]$PackageName = "com.Leuconoe.LiteRTLMUnity",
     [string[]]$BenchmarkName = @(),
+    [string]$SingleApkPath = "",
     [int]$TimeoutSeconds = 600,
     [double]$ThermalMaxCelsius = 45.0,
     [int]$ThermalPollSeconds = 15,
@@ -186,12 +187,58 @@ function Push-BenchmarkModel {
 
     $deviceDirectory = "/sdcard/Android/data/$PackageName/files/LiteRTLM"
     $devicePath = "$deviceDirectory/$ModelFileName"
+    $localSize = (Get-Item $modelPath).Length
+    $deviceSize = ((& adb -s $Serial shell stat -c%s $devicePath 2>$null) | Select-Object -First 1)
+    if ($LASTEXITCODE -eq 0 -and ![string]::IsNullOrWhiteSpace($deviceSize)) {
+        $deviceSize = ([string]$deviceSize).Trim()
+        if ($deviceSize -eq [string]$localSize) {
+            Write-Host "Model already present on device with matching size: $ModelFileName ($deviceSize bytes)"
+            return $false
+        }
+    }
+
     Write-Host "Pushing model to device: $ModelFileName -> $devicePath"
     $mkdirOutput = @(Invoke-Adb $Serial @("shell", "mkdir", "-p", $deviceDirectory))
     $mkdirOutput | ForEach-Object { Write-Host $_ }
     $pushOutput = @(Invoke-Adb $Serial @("push", $modelPath, $devicePath))
     $pushOutput | ForEach-Object { Write-Host $_ }
     return $true
+}
+
+function Push-BenchmarkConfig {
+    param(
+        [string]$Serial,
+        [string]$PackageName,
+        [object]$Benchmark
+    )
+
+    $deviceDirectory = "/sdcard/Android/data/$PackageName/files"
+    $deviceConfigPath = "$deviceDirectory/LiteRtLmAndroidSmokeTest.config.json"
+    $configDirectory = Join-Path $ProjectRoot "temp\android-device-configs"
+    New-Item -ItemType Directory -Force -Path $configDirectory | Out-Null
+
+    $configPath = Join-Path $configDirectory "$($Benchmark.Name).json"
+    $config = [ordered]@{
+        modelPath = $Benchmark.Model
+        backend = $Benchmark.Backend
+        maxNumTokens = [int]$Benchmark.MaxNumTokens
+        maxNumImages = [int]$Benchmark.MaxNumImages
+        enableSpeculativeDecoding = [bool]$Benchmark.Speculative
+        runStandaloneBenchmark = $true
+        benchmarkPrefillTokens = [int]$Benchmark.BenchmarkPrefillTokens
+        benchmarkDecodeTokens = 32
+        benchmarkRuns = 3
+        systemInstruction = "You are a concise Unity Android smoke test assistant."
+        resetConversationBeforeEachPrompt = $true
+    }
+
+    ($config | ConvertTo-Json -Depth 4) | Set-Content -Path $configPath -Encoding utf8
+    Write-Host "Pushing benchmark config: $($Benchmark.Name) -> $deviceConfigPath"
+    $mkdirOutput = @(Invoke-Adb $Serial @("shell", "mkdir", "-p", $deviceDirectory))
+    $mkdirOutput | ForEach-Object { Write-Host $_ }
+    $pushOutput = @(Invoke-Adb $Serial @("push", $configPath, $deviceConfigPath))
+    $pushOutput | ForEach-Object { Write-Host $_ }
+    return $deviceConfigPath
 }
 
 function Get-DeviceStatusPath {
@@ -361,11 +408,16 @@ function Save-BenchmarkResults {
 
 foreach ($benchmark in $Benchmarks) {
     $name = $benchmark.Name
-    $apkPath = Join-Path $ApkDirectory $benchmark.Apk
+    $apkPath = if ([string]::IsNullOrWhiteSpace($SingleApkPath)) {
+        Join-Path $ApkDirectory $benchmark.Apk
+    } else {
+        (Resolve-Path $SingleApkPath).Path
+    }
     $modelSizeBytes = Get-ModelSizeBytes $benchmark.Model
     if (-not (Test-Path $apkPath)) {
         throw "APK not found for benchmark '$name': $apkPath"
     }
+    $apkName = Split-Path -Leaf $apkPath
 
     $rawLog = Join-Path $LogDirectory "$RunId-$name.logcat.txt"
     $summaryLog = Join-Path $LogDirectory "$RunId-$name.summary.txt"
@@ -401,7 +453,7 @@ foreach ($benchmark in $Benchmarks) {
             Repo = $benchmark.Repo
             Model = $benchmark.Model
             ModelSizeMB = ConvertTo-Megabytes $modelSizeBytes
-            Apk = $benchmark.Apk
+            Apk = $apkName
             Status = "INSTALL_FAIL"
             Matched = $false
             ModelPushed = $modelPushed
@@ -443,6 +495,7 @@ foreach ($benchmark in $Benchmarks) {
         }
 
         $modelPushed = Push-BenchmarkModel -Serial $Serial -PackageName $PackageName -ModelFileName $benchmark.Model
+        $deviceConfigPath = Push-BenchmarkConfig -Serial $Serial -PackageName $PackageName -Benchmark $benchmark
         Invoke-AdbBestEffort $Serial @("shell", "am", "force-stop", $PackageName) "Pre-run force-stop failed"
         Invoke-AdbBestEffort $Serial @("shell", "rm", "-f", $deviceStatusPath) "Pre-run status cleanup failed"
         Invoke-Adb $Serial @("logcat", "-c")
@@ -508,7 +561,7 @@ foreach ($benchmark in $Benchmarks) {
             Repo = $benchmark.Repo
             Model = $benchmark.Model
             ModelSizeMB = ConvertTo-Megabytes $modelSizeBytes
-            Apk = $benchmark.Apk
+            Apk = $apkName
             Status = $status
             Matched = $matched
             ModelPushed = $modelPushed
@@ -549,7 +602,7 @@ foreach ($benchmark in $Benchmarks) {
             Repo = $benchmark.Repo
             Model = $benchmark.Model
             ModelSizeMB = ConvertTo-Megabytes $modelSizeBytes
-            Apk = $benchmark.Apk
+            Apk = $apkName
             Status = "RUN_ERROR"
             Matched = $false
             ModelPushed = $modelPushed

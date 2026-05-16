@@ -62,6 +62,9 @@ $LiteRtLmAndroidBenchmarks = @(
     New-LiteRtLmAndroidBenchmark -Name "qwen2.5-1.5b-gpu" -DisplayName "Qwen2.5 1.5B Instruct" -Repo "litert-community/Qwen2.5-1.5B-Instruct" -Model "Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv4096.litertlm" -Backend "GPU" -Apk "LiteRtLmAndroidSmokeTest-Qwen2.5-1.5B-Instruct-GPU.apk"
     New-LiteRtLmAndroidBenchmark -Name "qwen2.5-1.5b-cpu" -DisplayName "Qwen2.5 1.5B Instruct" -Repo "litert-community/Qwen2.5-1.5B-Instruct" -Model "Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv4096.litertlm" -Backend "CPU" -Apk "LiteRtLmAndroidSmokeTest-Qwen2.5-1.5B-Instruct-CPU.apk"
 
+    New-LiteRtLmAndroidBenchmark -Name "qwen3-0.6b-gpu" -DisplayName "Qwen3 0.6B" -Repo "litert-community/Qwen3-0.6B" -Model "Qwen3-0.6B.litertlm" -Backend "GPU" -Apk "LiteRtLmAndroidSmokeTest-Qwen3-0.6B-GPU.apk"
+    New-LiteRtLmAndroidBenchmark -Name "qwen3-0.6b-cpu" -DisplayName "Qwen3 0.6B" -Repo "litert-community/Qwen3-0.6B" -Model "Qwen3-0.6B.litertlm" -Backend "CPU" -Apk "LiteRtLmAndroidSmokeTest-Qwen3-0.6B-CPU.apk"
+
     New-LiteRtLmAndroidBenchmark -Name "deepseek-r1-distill-qwen-1.5b-gpu" -DisplayName "DeepSeek R1 Distill Qwen 1.5B" -Repo "litert-community/DeepSeek-R1-Distill-Qwen-1.5B" -Model "DeepSeek-R1-Distill-Qwen-1.5B_multi-prefill-seq_q8_ekv4096.litertlm" -Backend "GPU" -Apk "LiteRtLmAndroidSmokeTest-deepseek-r1-distill-qwen-1.5b-GPU.apk"
     New-LiteRtLmAndroidBenchmark -Name "deepseek-r1-distill-qwen-1.5b-cpu" -DisplayName "DeepSeek R1 Distill Qwen 1.5B" -Repo "litert-community/DeepSeek-R1-Distill-Qwen-1.5B" -Model "DeepSeek-R1-Distill-Qwen-1.5B_multi-prefill-seq_q8_ekv4096.litertlm" -Backend "CPU" -Apk "LiteRtLmAndroidSmokeTest-deepseek-r1-distill-qwen-1.5b-CPU.apk"
 
