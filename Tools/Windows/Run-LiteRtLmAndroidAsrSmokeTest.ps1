@@ -11,6 +11,7 @@ param(
     [string]$AsrLanguage = "ko",
     [ValidateSet("GPU_FP16", "GPU", "GPU_RELAXED", "GPU_NO_TEXTURE", "GPU_NO_CONVERT", "GPU_RELAXED_NO_CONVERT", "CPU")]
     [string]$Backend = "CPU",
+    [int]$BenchmarkRuns = 1,
     [int]$TimeoutSeconds = 300,
     [switch]$ClearAppData
 )
@@ -70,7 +71,15 @@ function Get-WhisperEncoderCompanionFileName {
     param([string]$FileName)
 
     if ($FileName.EndsWith("_f32.tflite", [StringComparison]::OrdinalIgnoreCase)) {
-        return $FileName.Substring(0, $FileName.Length - "_f32.tflite".Length) + "_encoder_f32.tflite"
+        $preferred = $FileName.Substring(0, $FileName.Length - ".tflite".Length) + "_encoder.tflite"
+        $legacy = $FileName.Substring(0, $FileName.Length - "_f32.tflite".Length) + "_encoder_f32.tflite"
+        if (Test-Path (Join-Path $ProjectRoot "Assets\StreamingAssets\$preferred")) {
+            return $preferred
+        }
+        if (Test-Path (Join-Path $ProjectRoot "Assets\StreamingAssets\$legacy")) {
+            return $legacy
+        }
+        return $preferred
     }
 
     if ($FileName.EndsWith(".tflite", [StringComparison]::OrdinalIgnoreCase)) {
@@ -92,6 +101,7 @@ function Push-AsrRuntimeConfig {
         backend = $Backend
         asrMode = $AsrMode
         asrLanguage = $AsrLanguage
+        benchmarkRuns = [Math]::Max(1, $BenchmarkRuns)
     }
 
     ($config | ConvertTo-Json -Depth 4) | Set-Content -Path $configPath -Encoding utf8

@@ -750,13 +750,24 @@ namespace LiteRTLM.Unity.Editor
                 return string.Empty;
             }
 
+            const string tfliteSuffix = ".tflite";
             const string f32Suffix = "_f32.tflite";
             if (modelFileName.EndsWith(f32Suffix, StringComparison.OrdinalIgnoreCase))
             {
-                return modelFileName.Substring(0, modelFileName.Length - f32Suffix.Length) + "_encoder_f32.tflite";
+                var preferred = modelFileName.Substring(0, modelFileName.Length - tfliteSuffix.Length) + "_encoder.tflite";
+                var legacy = modelFileName.Substring(0, modelFileName.Length - f32Suffix.Length) + "_encoder_f32.tflite";
+                var streamingAssetsRoot = Path.Combine(GetProjectRoot(), "Assets", "StreamingAssets");
+                if (File.Exists(Path.Combine(streamingAssetsRoot, preferred)))
+                {
+                    return preferred;
+                }
+                if (File.Exists(Path.Combine(streamingAssetsRoot, legacy)))
+                {
+                    return legacy;
+                }
+                return preferred;
             }
 
-            const string tfliteSuffix = ".tflite";
             if (modelFileName.EndsWith(tfliteSuffix, StringComparison.OrdinalIgnoreCase))
             {
                 return modelFileName.Substring(0, modelFileName.Length - tfliteSuffix.Length) + "_encoder.tflite";

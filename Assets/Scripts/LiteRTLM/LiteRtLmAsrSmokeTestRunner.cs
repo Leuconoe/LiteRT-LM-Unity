@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Globalization;
 using System.IO;
 using System.Text.RegularExpressions;
 using UnityEngine;
@@ -19,6 +20,7 @@ namespace LiteRTLM.Unity
         [SerializeField] private string backend = "GPU_FP16";
         [SerializeField] private string asrMode = "parakeet";
         [SerializeField] private string asrLanguage = "auto";
+        [SerializeField] private int benchmarkRuns = 1;
 
         private LiteRtLmUnityClient client;
 
@@ -38,7 +40,7 @@ namespace LiteRTLM.Unity
         private IEnumerator RunSmokeTest()
         {
             ApplyRuntimeConfigOverrides();
-            WriteStatus("START", $"mode={asrMode}, backend={backend}, language={asrLanguage}, model={modelPath}, audio={audioPath}, platform={Application.platform}");
+            WriteStatus("START", $"mode={asrMode}, backend={backend}, language={asrLanguage}, model={modelPath}, audio={audioPath}, benchmarkRuns={benchmarkRuns}, platform={Application.platform}");
 
 #if UNITY_ANDROID && !UNITY_EDITOR
             string resolvedModelPath = null;
@@ -79,6 +81,26 @@ namespace LiteRTLM.Unity
                 }
 
                 WriteStatus("ENCODER_MODEL_READY", DescribeFile(resolvedEncoderCompanionPath));
+
+                var nativeEncoderAliasPath = GetWhisperLegacyEncoderCompanionPath(resolvedModelPath);
+                if (!string.IsNullOrWhiteSpace(nativeEncoderAliasPath) &&
+                    !string.Equals(nativeEncoderAliasPath, resolvedEncoderCompanionPath, StringComparison.Ordinal))
+                {
+                    var nativeEncoderAliasDirectory = Path.GetDirectoryName(nativeEncoderAliasPath);
+                    if (!string.IsNullOrWhiteSpace(nativeEncoderAliasDirectory))
+                    {
+                        Directory.CreateDirectory(nativeEncoderAliasDirectory);
+                    }
+
+                    var shouldCopyAlias = !File.Exists(nativeEncoderAliasPath) ||
+                        new FileInfo(nativeEncoderAliasPath).Length != new FileInfo(resolvedEncoderCompanionPath).Length;
+                    if (shouldCopyAlias)
+                    {
+                        File.Copy(resolvedEncoderCompanionPath, nativeEncoderAliasPath, true);
+                    }
+
+                    WriteStatus("ENCODER_NATIVE_ALIAS_READY", DescribeFile(nativeEncoderAliasPath));
+                }
             }
 
             string resolvedAudioPath = null;
@@ -124,7 +146,6 @@ namespace LiteRTLM.Unity
                 WriteStatus("MODEL_READY", DescribeFile(resolvedModelPath));
                 WriteStatus("TOKENIZER_READY", DescribeFile(resolvedTokenizerPath));
 
-                var startedAt = Time.realtimeSinceStartup;
                 var inspectionJson = client.InspectLiteRtModel(resolvedModelPath);
                 WriteStatus("INSPECT_RESULT", OneLine(Truncate(inspectionJson, 3000)));
 
@@ -134,23 +155,59 @@ namespace LiteRTLM.Unity
                 var normalizedLanguage = string.IsNullOrWhiteSpace(asrLanguage)
                     ? "auto"
                     : asrLanguage.Trim().ToLowerInvariant();
-                WriteStatus("ASR_INVOKE", $"Invoking {normalizedMode} LiteRT ASR smoke path with backend={backend}, language={normalizedLanguage}.");
-                var asrJson = normalizedMode == "whisper"
-                    ? client.RunWhisperAsrSmoke(resolvedModelPath, resolvedAudioPath, resolvedTokenizerPath, backend, normalizedLanguage)
-                    : client.RunParakeetAsrSmoke(resolvedModelPath, resolvedAudioPath, resolvedTokenizerPath, backend);
-                var elapsedSeconds = Time.realtimeSinceStartup - startedAt;
+                var runs = Math.Max(1, benchmarkRuns);
+                var totalElapsedSeconds = 0.0;
+                var totalCompileSeconds = 0.0;
+                var totalEncodeSeconds = 0.0;
+                var totalDecodeSeconds = 0.0;
+                var compileCount = 0;
+                var encodeCount = 0;
+                var decodeCount = 0;
+                var lastAsrJson = string.Empty;
 
-                if (string.IsNullOrWhiteSpace(asrJson))
+                for (var run = 1; run <= runs; run++)
                 {
-                    throw new InvalidOperationException($"{normalizedMode} ASR smoke test returned an empty result.");
-                }
-                if (asrJson.Contains("\"success\": false", StringComparison.OrdinalIgnoreCase))
-                {
-                    throw new InvalidOperationException($"{normalizedMode} ASR smoke test reported failure: {OneLine(Truncate(asrJson, 1000))}");
+                    var startedAt = Time.realtimeSinceStartup;
+                    WriteStatus("ASR_INVOKE", $"run={run}/{runs}, invoking {normalizedMode} LiteRT ASR smoke path with backend={backend}, language={normalizedLanguage}.");
+                    var asrJson = normalizedMode == "whisper"
+                        ? client.RunWhisperAsrSmoke(resolvedModelPath, resolvedAudioPath, resolvedTokenizerPath, backend, normalizedLanguage)
+                        : client.RunParakeetAsrSmoke(resolvedModelPath, resolvedAudioPath, resolvedTokenizerPath, backend);
+                    var elapsedSeconds = Time.realtimeSinceStartup - startedAt;
+
+                    if (string.IsNullOrWhiteSpace(asrJson))
+                    {
+                        throw new InvalidOperationException($"{normalizedMode} ASR smoke test returned an empty result on run {run}/{runs}.");
+                    }
+                    if (asrJson.Contains("\"success\": false", StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new InvalidOperationException($"{normalizedMode} ASR smoke test reported failure on run {run}/{runs}: {OneLine(Truncate(asrJson, 1000))}");
+                    }
+
+                    totalElapsedSeconds += elapsedSeconds;
+                    if (TryGetJsonDouble(asrJson, "compileSeconds", out var compileSeconds))
+                    {
+                        totalCompileSeconds += compileSeconds;
+                        compileCount++;
+                    }
+                    if (TryGetJsonDouble(asrJson, "encodeSeconds", out var encodeSeconds))
+                    {
+                        totalEncodeSeconds += encodeSeconds;
+                        encodeCount++;
+                    }
+                    if (TryGetJsonDouble(asrJson, "decodeSeconds", out var decodeSeconds))
+                    {
+                        totalDecodeSeconds += decodeSeconds;
+                        decodeCount++;
+                    }
+
+                    lastAsrJson = asrJson;
+                    WriteStatus("ASR_RESULT", $"run={run}/{runs}, elapsedSeconds={elapsedSeconds:0.###}, raw={OneLine(Truncate(asrJson, 3000))}");
                 }
 
-                WriteStatus("ASR_RESULT", OneLine(Truncate(asrJson, 3000)));
-                WriteStatus("SUCCESS", $"elapsedSeconds={elapsedSeconds:0.###}, resultLength={asrJson.Length}");
+                WriteStatus(
+                    "ASR_BENCHMARK_SUMMARY",
+                    $"runs={runs}, averageElapsedSeconds={(totalElapsedSeconds / runs):0.###}, averageCompileSeconds={FormatAverage(totalCompileSeconds, compileCount)}, averageEncodeSeconds={FormatAverage(totalEncodeSeconds, encodeCount)}, averageDecodeSeconds={FormatAverage(totalDecodeSeconds, decodeCount)}");
+                WriteStatus("SUCCESS", $"runs={runs}, elapsedSeconds={totalElapsedSeconds:0.###}, averageElapsedSeconds={(totalElapsedSeconds / runs):0.###}, resultLength={lastAsrJson.Length}");
             }
             catch (Exception ex)
             {
@@ -272,8 +329,12 @@ namespace LiteRTLM.Unity
                 {
                     asrLanguage = configuredAsrLanguage;
                 }
+                if (TryGetJsonInt(json, "benchmarkRuns", out var configuredBenchmarkRuns) && configuredBenchmarkRuns > 0)
+                {
+                    benchmarkRuns = configuredBenchmarkRuns;
+                }
 
-                WriteStatus("CONFIG", $"loaded={configPath}, mode={asrMode}, model={modelPath}, backend={backend}, language={asrLanguage}");
+                WriteStatus("CONFIG", $"loaded={configPath}, mode={asrMode}, model={modelPath}, backend={backend}, language={asrLanguage}, benchmarkRuns={benchmarkRuns}");
             }
             catch (Exception ex)
             {
@@ -333,6 +394,37 @@ namespace LiteRTLM.Unity
             return false;
         }
 
+        private static bool TryGetJsonInt(string json, string propertyName, out int value)
+        {
+            var match = Regex.Match(json, $"\"{Regex.Escape(propertyName)}\"\\s*:\\s*(-?[0-9]+)");
+            if (match.Success && int.TryParse(match.Groups[1].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out value))
+            {
+                return true;
+            }
+
+            value = 0;
+            return false;
+        }
+
+        private static bool TryGetJsonDouble(string json, string propertyName, out double value)
+        {
+            var match = Regex.Match(json, $"\"{Regex.Escape(propertyName)}\"\\s*:\\s*(-?(?:[0-9]+\\.?[0-9]*|[0-9]*\\.[0-9]+)(?:[eE][+-]?[0-9]+)?)");
+            if (match.Success && double.TryParse(match.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out value))
+            {
+                return true;
+            }
+
+            value = 0.0;
+            return false;
+        }
+
+        private static string FormatAverage(double total, int count)
+        {
+            return count <= 0
+                ? "N/A"
+                : (total / count).ToString("0.###", CultureInfo.InvariantCulture);
+        }
+
         private bool IsWhisperGpuRequested()
         {
             return string.Equals(asrMode, "whisper", StringComparison.OrdinalIgnoreCase)
@@ -354,23 +446,55 @@ namespace LiteRTLM.Unity
                 return null;
             }
 
-            string companionFileName;
+            string preferredCompanionFileName;
+            string legacyCompanionFileName = null;
             if (fileName.EndsWith("_f32.tflite", StringComparison.OrdinalIgnoreCase))
             {
-                companionFileName = fileName.Substring(0, fileName.Length - "_f32.tflite".Length) + "_encoder_f32.tflite";
+                preferredCompanionFileName = fileName.Substring(0, fileName.Length - ".tflite".Length) + "_encoder.tflite";
+                legacyCompanionFileName = fileName.Substring(0, fileName.Length - "_f32.tflite".Length) + "_encoder_f32.tflite";
             }
             else if (fileName.EndsWith(".tflite", StringComparison.OrdinalIgnoreCase))
             {
-                companionFileName = fileName.Substring(0, fileName.Length - ".tflite".Length) + "_encoder.tflite";
+                preferredCompanionFileName = fileName.Substring(0, fileName.Length - ".tflite".Length) + "_encoder.tflite";
             }
             else
             {
                 return null;
             }
 
+            var preferredPath = string.IsNullOrWhiteSpace(directory)
+                ? preferredCompanionFileName
+                : Path.Combine(directory, preferredCompanionFileName).Replace("\\", "/");
+            if (File.Exists(preferredPath) || string.IsNullOrWhiteSpace(legacyCompanionFileName))
+            {
+                return preferredPath;
+            }
+
+            var legacyPath = string.IsNullOrWhiteSpace(directory)
+                ? legacyCompanionFileName
+                : Path.Combine(directory, legacyCompanionFileName).Replace("\\", "/");
+            return File.Exists(legacyPath) ? legacyPath : preferredPath;
+        }
+
+        private static string GetWhisperLegacyEncoderCompanionPath(string configuredModelPath)
+        {
+            if (string.IsNullOrWhiteSpace(configuredModelPath))
+            {
+                return null;
+            }
+
+            var directory = Path.GetDirectoryName(configuredModelPath);
+            var fileName = Path.GetFileName(configuredModelPath);
+            if (string.IsNullOrWhiteSpace(fileName) ||
+                !fileName.EndsWith("_f32.tflite", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            var legacyCompanionFileName = fileName.Substring(0, fileName.Length - "_f32.tflite".Length) + "_encoder_f32.tflite";
             return string.IsNullOrWhiteSpace(directory)
-                ? companionFileName
-                : Path.Combine(directory, companionFileName).Replace("\\", "/");
+                ? legacyCompanionFileName
+                : Path.Combine(directory, legacyCompanionFileName).Replace("\\", "/");
         }
     }
 }

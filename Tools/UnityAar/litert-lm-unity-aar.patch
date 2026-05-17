@@ -112,10 +112,10 @@ index 0000000..9af2cb4
 +  }
 +}
 diff --git a/kotlin/java/com/google/ai/edge/litertlm/jni/BUILD b/kotlin/java/com/google/ai/edge/litertlm/jni/BUILD
-index 03c4367..af1cc2e 100644
+index 03c4367..9e96319 100644
 --- a/kotlin/java/com/google/ai/edge/litertlm/jni/BUILD
 +++ b/kotlin/java/com/google/ai/edge/litertlm/jni/BUILD
-@@ -19,10 +19,35 @@ package(
+@@ -19,10 +19,36 @@ package(
      default_visibility = ["//kotlin:__subpackages__"],
  )
  
@@ -144,6 +144,7 @@ index 03c4367..af1cc2e 100644
 +        "@platforms//os:android": [
 +            "-lEGL",
 +            "-lGLESv3",
++            "-Wl,--allow-multiple-definition",
 +            "-Wl,--unresolved-symbols=ignore-all",
 +        ],
 +        "//conditions:default": [],
@@ -151,11 +152,10 @@ index 03c4367..af1cc2e 100644
      deps = [
          "@com_google_absl//absl/base:log_severity",
          "@com_google_absl//absl/container:flat_hash_map",
-@@ -34,7 +59,11 @@ cc_binary(
+@@ -34,7 +60,10 @@ cc_binary(
          "@com_google_absl//absl/time",
          "@nlohmann_json//:json",
          "@litert//litert/c/internal:litert_logging",
-+        "@litert//litert/c:litert_model",
 +        "@litert//litert/cc:litert_api_with_dynamic_runtime",
 +        "@kissfft//:kissfftr",
          "//runtime/components:model_resources",
@@ -164,10 +164,10 @@ index 03c4367..af1cc2e 100644
          "//runtime/conversation",
          "//runtime/conversation:io_types",
 diff --git a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
-index c6db59f..83aa8a5 100644
+index c6db59f..6525108 100644
 --- a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
 +++ b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
-@@ -13,11 +13,24 @@
+@@ -13,11 +13,25 @@
  // limitations under the License.
  
  #include <jni.h>
@@ -185,6 +185,7 @@ index c6db59f..83aa8a5 100644
 +#include <fstream>
 +#include <limits>
  #include <memory>
++#include <mutex>
  #include <optional>
 +#include <sstream>
  #include <string>
@@ -192,7 +193,7 @@ index c6db59f..83aa8a5 100644
  #include <utility>
  #include <variant>
  #include <vector>
-@@ -28,9 +41,20 @@
+@@ -28,9 +42,20 @@
  #include "absl/log/globals.h"  // from @com_google_absl
  #include "absl/status/status.h"  // from @com_google_absl
  #include "absl/status/statusor.h"  // from @com_google_absl
@@ -213,7 +214,7 @@ index c6db59f..83aa8a5 100644
  #include "runtime/components/prompt_template.h"
  #include "runtime/conversation/conversation.h"
  #include "runtime/conversation/io_types.h"
-@@ -46,6 +70,20 @@
+@@ -46,6 +71,20 @@
  #include "schema/capabilities/capabilities_c.h"
  #include "tflite/logger.h"  // from @litert
  #include "tflite/minimal_logging.h"  // from @litert
@@ -234,7 +235,7 @@ index c6db59f..83aa8a5 100644
  
  // For Windows, __declspec( dllexport ) is required to export function in .dll.
  // https://learn.microsoft.com/en-us/cpp/cpp/using-dllimport-and-dllexport-in-cpp-classes?view=msvc-170
-@@ -84,6 +122,1503 @@ using litert::lm::Responses;
+@@ -84,6 +123,1572 @@ using litert::lm::Responses;
  using litert::lm::SessionConfig;
  using litert::lm::proto::SamplerParameters;
  
@@ -1240,13 +1241,7 @@ index c6db59f..83aa8a5 100644
 +              ", validFeatureFrames=" + std::to_string(valid_feature_frames));
 +
 +  auto started = absl::Now();
-+  UnityAsrLog("Whisper ASR creating LiteRT environment/options.");
-+  auto env_or = ::litert::Environment::Create({});
-+  if (!env_or.HasValue()) {
-+    result["error"] = env_or.Error().Message();
-+    return result;
-+  }
-+  auto env = std::move(env_or.Value());
++  UnityAsrLog("Whisper ASR preparing LiteRT environment/options.");
 +  std::string normalized_backend = backend;
 +  std::transform(normalized_backend.begin(), normalized_backend.end(),
 +                 normalized_backend.begin(),
@@ -1336,7 +1331,22 @@ index c6db59f..83aa8a5 100644
 +      !encoder_model_path.empty() && std::ifstream(encoder_model_path).good();
 +  const bool use_split_encoder_gpu = use_gpu_requested && split_encoder_available;
 +
-+  std::unique_ptr<::litert::CompiledModel> split_encoder_model;
++  struct WhisperAsrCompiledModelCacheEntry {
++    std::string key;
++    std::unique_ptr<::litert::Environment> env;
++    std::unique_ptr<::litert::CompiledModel> encoder_model;
++    std::unique_ptr<::litert::CompiledModel> decoder_model;
++    int encode_index = -1;
++    int decode_index = -1;
++    bool use_split_encoder_gpu = false;
++    std::string backend_used;
++    std::string encoder_model_path;
++    double initial_compile_seconds = 0.0;
++    double initial_encoder_compile_seconds = 0.0;
++  };
++  static std::mutex whisper_asr_cache_mutex;
++  static std::unique_ptr<WhisperAsrCompiledModelCacheEntry> whisper_asr_cache;
++
 +  if (use_gpu_requested && !split_encoder_available) {
 +    result["gpuFallbackReason"] =
 +        "Whisper GPU was requested, but an encoder-only companion model was "
@@ -1345,63 +1355,123 @@ index c6db59f..83aa8a5 100644
 +                "not found. Falling back to CPU.");
 +  }
 +
-+  if (use_split_encoder_gpu) {
-+    result["encoderModelPath"] = encoder_model_path;
-+    result["backendUsed"] = "GPU_ENCODER_CPU_DECODER";
-+    UnityAsrLog("Whisper ASR configuring split backend: GPU encoder, CPU decoder.");
-+    auto encoder_options = make_gpu_options();
-+    if (!encoder_options.has_value()) {
-+      return result;
-+    }
-+    auto encoder_compile_started = absl::Now();
-+    UnityAsrLog("Whisper ASR compiling encoder model: " + encoder_model_path);
-+    auto encoder_model_or =
-+        ::litert::CompiledModel::Create(env, encoder_model_path, *encoder_options);
-+    if (!encoder_model_or.HasValue()) {
-+      result["error"] = encoder_model_or.Error().Message();
-+      return result;
-+    }
-+    split_encoder_model = std::make_unique<::litert::CompiledModel>(
-+        std::move(encoder_model_or.Value()));
-+    result["encoderCompileSeconds"] =
-+        absl::ToDoubleSeconds(absl::Now() - encoder_compile_started);
++  const std::string cache_key =
++      model_path + "\n" + encoder_model_path + "\n" + normalized_backend;
++  std::unique_lock<std::mutex> cache_lock(whisper_asr_cache_mutex);
++  const bool cache_hit =
++      whisper_asr_cache != nullptr && whisper_asr_cache->key == cache_key;
++  if (cache_hit) {
++    UnityAsrLog("Whisper ASR compiled model cache hit.");
 +  } else {
-+    UnityAsrLog("Whisper ASR configuring CPU backend.");
-+    result["backendUsed"] = "CPU";
++    UnityAsrLog("Whisper ASR compiled model cache miss; compiling models.");
++    whisper_asr_cache.reset();
++    auto cache_entry = std::make_unique<WhisperAsrCompiledModelCacheEntry>();
++    cache_entry->key = cache_key;
++    cache_entry->use_split_encoder_gpu = use_split_encoder_gpu;
++
++    auto env_or = ::litert::Environment::Create({});
++    if (!env_or.HasValue()) {
++      result["error"] = env_or.Error().Message();
++      return result;
++    }
++    cache_entry->env =
++        std::make_unique<::litert::Environment>(std::move(env_or.Value()));
++
++    if (use_split_encoder_gpu) {
++      UnityAsrLog("Whisper ASR configuring split backend: GPU encoder, CPU decoder.");
++      auto encoder_options = make_gpu_options();
++      if (!encoder_options.has_value()) {
++        return result;
++      }
++      auto encoder_compile_started = absl::Now();
++      UnityAsrLog("Whisper ASR compiling encoder model: " + encoder_model_path);
++      auto encoder_model_or = ::litert::CompiledModel::Create(
++          *cache_entry->env, encoder_model_path, *encoder_options);
++      if (!encoder_model_or.HasValue()) {
++        result["error"] = encoder_model_or.Error().Message();
++        return result;
++      }
++      cache_entry->encoder_model = std::make_unique<::litert::CompiledModel>(
++          std::move(encoder_model_or.Value()));
++      cache_entry->initial_encoder_compile_seconds =
++          absl::ToDoubleSeconds(absl::Now() - encoder_compile_started);
++      cache_entry->encoder_model_path = encoder_model_path;
++      cache_entry->backend_used = "GPU_ENCODER_CPU_DECODER";
++    } else {
++      UnityAsrLog("Whisper ASR configuring CPU backend.");
++      cache_entry->backend_used = "CPU";
++    }
++
++    auto decoder_options = make_cpu_options();
++    if (!decoder_options.has_value()) {
++      return result;
++    }
++    UnityAsrLog("Whisper ASR compiling decoder/full model.");
++    auto compiled_model_or = ::litert::CompiledModel::Create(
++        *cache_entry->env, model_path, *decoder_options);
++    if (!compiled_model_or.HasValue()) {
++      result["error"] = compiled_model_or.Error().Message();
++      return result;
++    }
++    cache_entry->decoder_model = std::make_unique<::litert::CompiledModel>(
++        std::move(compiled_model_or.Value()));
++
++    auto& encode_model_for_index = cache_entry->encoder_model
++                                       ? *cache_entry->encoder_model
++                                       : *cache_entry->decoder_model;
++    auto encode_index_or = encode_model_for_index.GetSignatureIndex("encode");
++    if (!encode_index_or.HasValue()) {
++      result["error"] = encode_index_or.Error().Message();
++      return result;
++    }
++    auto decode_index_or =
++        cache_entry->decoder_model->GetSignatureIndex("decode");
++    if (!decode_index_or.HasValue()) {
++      result["error"] = decode_index_or.Error().Message();
++      return result;
++    }
++    cache_entry->encode_index = encode_index_or.Value();
++    cache_entry->decode_index = decode_index_or.Value();
++    cache_entry->initial_compile_seconds =
++        absl::ToDoubleSeconds(absl::Now() - started);
++    UnityAsrLog("Whisper ASR compile done: seconds=" +
++                std::to_string(cache_entry->initial_compile_seconds));
++    whisper_asr_cache = std::move(cache_entry);
 +  }
 +
-+  auto decoder_options = make_cpu_options();
-+  if (!decoder_options.has_value()) {
-+    return result;
++  auto& cached_models = *whisper_asr_cache;
++  result["compiledModelCache"] = cache_hit ? "hit" : "miss";
++  result["backendUsed"] = cached_models.backend_used;
++  result["compileSeconds"] = cache_hit ? 0.0 : cached_models.initial_compile_seconds;
++  if (cached_models.use_split_encoder_gpu) {
++    result["encoderModelPath"] = cached_models.encoder_model_path;
++    result["encoderCompileSeconds"] =
++        cache_hit ? 0.0 : cached_models.initial_encoder_compile_seconds;
++    const bool use_fp16 = normalized_backend.find("FP16") != std::string::npos;
++    const bool use_texture_weights =
++        normalized_backend.find("NO_TEXTURE") == std::string::npos;
++    const bool convert_weights_on_gpu =
++        normalized_backend.find("NO_CONVERT") == std::string::npos;
++    const bool relaxed_delegation =
++        normalized_backend.find("RELAXED") != std::string::npos;
++    result["gpuPrecision"] = use_fp16 ? "fp16" : "fp32";
++    result["gpuPreferTextureWeights"] = use_texture_weights;
++    result["gpuConvertWeightsOnGpu"] = convert_weights_on_gpu;
++    result["gpuRelaxedDelegation"] = relaxed_delegation;
 +  }
-+  UnityAsrLog("Whisper ASR compiling decoder/full model.");
-+  auto compiled_model_or =
-+      ::litert::CompiledModel::Create(env, model_path, *decoder_options);
-+  if (!compiled_model_or.HasValue()) {
-+    result["error"] = compiled_model_or.Error().Message();
-+    return result;
-+  }
-+  auto compiled_model = std::move(compiled_model_or.Value());
-+  result["compileSeconds"] = absl::ToDoubleSeconds(absl::Now() - started);
-+  UnityAsrLog("Whisper ASR compile done: seconds=" +
-+              std::to_string(result["compileSeconds"].get<double>()));
 +
-+  auto& encode_model =
-+      split_encoder_model ? *split_encoder_model : compiled_model;
-+  auto& decode_model = compiled_model;
++  auto& encode_model = cached_models.encoder_model
++                           ? *cached_models.encoder_model
++                           : *cached_models.decoder_model;
++  auto& decode_model = *cached_models.decoder_model;
++  const int encode_index = cached_models.encode_index;
++  const int decode_index = cached_models.decode_index;
 +
-+  auto encode_index_or = encode_model.GetSignatureIndex("encode");
-+  if (!encode_index_or.HasValue()) {
-+    result["error"] = encode_index_or.Error().Message();
-+    return result;
++  if (use_split_encoder_gpu) {
++    UnityAsrLog("Whisper ASR using split backend: GPU encoder, CPU decoder.");
++  } else {
++    UnityAsrLog("Whisper ASR using CPU backend.");
 +  }
-+  auto decode_index_or = decode_model.GetSignatureIndex("decode");
-+  if (!decode_index_or.HasValue()) {
-+    result["error"] = decode_index_or.Error().Message();
-+    return result;
-+  }
-+  const int encode_index = encode_index_or.Value();
-+  const int decode_index = decode_index_or.Value();
 +
 +  auto encode_started = absl::Now();
 +  UnityAsrLog("Whisper ASR creating encode buffers.");
@@ -1738,7 +1808,7 @@ index c6db59f..83aa8a5 100644
  void ThrowLiteRtLmJniException(JNIEnv* env, const std::string& message) {
    jclass exClass =
        env->FindClass("com/google/ai/edge/litertlm/LiteRtLmJniException");
-@@ -193,6 +1728,51 @@ jobject CreateBenchmarkInfoJni(
+@@ -193,6 +1798,51 @@ jobject CreateBenchmarkInfoJni(
        last_decode_tokens_per_second);
  }
  
@@ -1790,7 +1860,7 @@ index c6db59f..83aa8a5 100644
  // Converts a Java InputData array to a C++ vector of InputData.
  std::vector<InputData> GetNativeInputData(JNIEnv* env,
                                            jobjectArray input_data) {
-@@ -333,6 +1913,279 @@ nlohmann::ordered_json GetExtraContextJson(JNIEnv* env,
+@@ -333,6 +1983,279 @@ nlohmann::ordered_json GetExtraContextJson(JNIEnv* env,
  
  extern "C" {
  
@@ -2070,7 +2140,7 @@ index c6db59f..83aa8a5 100644
  LITERTLM_JNIEXPORT void JNICALL
  Java_com_google_ai_edge_litertlm_NativeLibraryLoader_nativeCheckLoaded(
      JNIEnv* env, jclass thiz) {}
-@@ -549,7 +2402,10 @@ LITERTLM_JNIEXPORT jlong JNICALL JNI_METHOD(nativeCreateBenchmark)(
+@@ -549,7 +2472,10 @@ LITERTLM_JNIEXPORT jlong JNICALL JNI_METHOD(nativeCreateBenchmark)(
      return 0;
    }
  
@@ -2082,7 +2152,7 @@ index c6db59f..83aa8a5 100644
    if (!settings.ok()) {
      ThrowLiteRtLmJniException(env, "Failed to create engine settings: " +
                                         settings.status().ToString());
-@@ -577,6 +2433,9 @@ LITERTLM_JNIEXPORT jlong JNICALL JNI_METHOD(nativeCreateBenchmark)(
+@@ -577,6 +2503,9 @@ LITERTLM_JNIEXPORT jlong JNICALL JNI_METHOD(nativeCreateBenchmark)(
    auto& benchmark_params = settings->GetMutableBenchmarkParams();
    benchmark_params.set_num_prefill_tokens(prefill_tokens);
    benchmark_params.set_num_decode_tokens(decode_tokens);
@@ -2911,3 +2981,605 @@ index 6a168f9..e84b74b 100644
  }  // namespace
  }  // namespace litert::lm
 -
+diff --git a/tools/docker/build_unity_aar.ps1 b/tools/docker/build_unity_aar.ps1
+new file mode 100644
+index 0000000..9fc9d74
+--- /dev/null
++++ b/tools/docker/build_unity_aar.ps1
+@@ -0,0 +1,73 @@
++param(
++    [string]$ImageName = "litert-lm-android-builder",
++    [string]$ArtifactDir = "",
++    [string]$UnityPluginsDir = "",
++    [switch]$SkipImageBuild,
++    [string]$ReuseContainer = "",
++    [switch]$SyncWorktree,
++    [switch]$SyncOnly,
++    [switch]$PackageOnly,
++    [string]$ReuseAar = "",
++    [string]$BazelJobs = "",
++    [Parameter(ValueFromRemainingArguments = $true)]
++    [string[]]$ExtraArgs
++)
++
++$ErrorActionPreference = "Stop"
++
++$BashScript = Join-Path $PSScriptRoot "build_unity_aar.sh"
++if (!(Test-Path $BashScript)) {
++    throw "Missing bash build script: $BashScript"
++}
++
++$BashCandidates = @(
++    "C:\Program Files\Git\bin\bash.exe",
++    "C:\Program Files\Git\usr\bin\bash.exe"
++)
++$BashPath = $BashCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
++if ([string]::IsNullOrWhiteSpace($BashPath)) {
++    $Command = Get-Command bash -ErrorAction SilentlyContinue
++    if ($Command) {
++        $BashPath = $Command.Source
++    }
++}
++if ([string]::IsNullOrWhiteSpace($BashPath)) {
++    throw "bash was not found. Install Git for Windows or run tools/docker/build_unity_aar.sh from an existing bash shell."
++}
++
++$Arguments = @($BashScript, "--image-name", $ImageName)
++if (![string]::IsNullOrWhiteSpace($ArtifactDir)) {
++    $Arguments += @("--artifact-dir", $ArtifactDir)
++}
++if (![string]::IsNullOrWhiteSpace($UnityPluginsDir)) {
++    $Arguments += @("--unity-plugins-dir", $UnityPluginsDir)
++}
++if ($SkipImageBuild) {
++    $Arguments += "--skip-image-build"
++}
++if (![string]::IsNullOrWhiteSpace($ReuseContainer)) {
++    $Arguments += @("--reuse-container", $ReuseContainer)
++}
++if ($SyncWorktree) {
++    $Arguments += "--sync-worktree"
++}
++if ($SyncOnly) {
++    $Arguments += "--sync-only"
++}
++if ($PackageOnly) {
++    $Arguments += "--package-only"
++}
++if (![string]::IsNullOrWhiteSpace($ReuseAar)) {
++    $Arguments += @("--reuse-aar", $ReuseAar)
++}
++if (![string]::IsNullOrWhiteSpace($BazelJobs)) {
++    $Arguments += @("--bazel-jobs", $BazelJobs)
++}
++if ($ExtraArgs -and $ExtraArgs.Count -gt 0) {
++    $Arguments += $ExtraArgs
++}
++
++& $BashPath @Arguments
++if ($LASTEXITCODE -ne 0) {
++    throw "Bash Unity AAR build failed with exit code $LASTEXITCODE."
++}
+diff --git a/tools/docker/build_unity_aar.sh b/tools/docker/build_unity_aar.sh
+new file mode 100644
+index 0000000..3ce02f8
+--- /dev/null
++++ b/tools/docker/build_unity_aar.sh
+@@ -0,0 +1,517 @@
++#!/usr/bin/env bash
++set -euo pipefail
++
++SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
++REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd -P)"
++
++IMAGE_NAME="litert-lm-android-builder"
++ARTIFACT_DIR="$REPO_ROOT/artifacts/unity-android"
++UNITY_PLUGINS_DIR="$REPO_ROOT/LiteRT-LM-Unity/Assets/Plugins/Android"
++REUSE_CONTAINER_NAME=""
++REUSE_AAR_PATH=""
++SKIP_IMAGE_BUILD=0
++SYNC_WORKTREE=0
++SYNC_ONLY=0
++PACKAGE_ONLY=0
++BAZEL_JOBS=""
++
++usage() {
++  cat <<'EOF'
++Usage: build_unity_aar.sh [options]
++
++Options:
++  --image-name NAME        Docker image name to build/use.
++  --artifact-dir DIR       Directory where litertlm-unity-bridge.aar is written.
++  --unity-plugins-dir DIR  Unity Android plugin directory to update.
++  --skip-image-build       Reuse an existing Docker image instead of rebuilding it.
++  --reuse-container NAME   Run the build in an existing warm container.
++  --sync-worktree          Sync AAR source inputs into --reuse-container first.
++  --sync-only              Only sync files, then exit. Requires --reuse-container.
++  --package-only           Skip Bazel build and repackage existing warm outputs.
++  --reuse-aar PATH         Fallback AAR to reuse classes/JNI from in --package-only mode.
++  --bazel-jobs N           Limit Bazel jobs for full builds.
++  -h, --help               Show this help.
++EOF
++}
++
++normalize_path() {
++  local path="$1"
++  if command -v cygpath >/dev/null 2>&1; then
++    case "$path" in
++      [A-Za-z]:/*|[A-Za-z]:\\*)
++        cygpath -u "$path"
++        return
++        ;;
++    esac
++  fi
++
++  case "$path" in
++    /*) printf '%s\n' "$path" ;;
++    *) printf '%s\n' "$PWD/$path" ;;
++  esac
++}
++
++absolute_dir() {
++  local path
++  path="$(normalize_path "$1")"
++  mkdir -p "$path"
++  (cd "$path" && pwd -P)
++}
++
++absolute_file() {
++  local path dir base
++  path="$(normalize_path "$1")"
++  dir="$(dirname "$path")"
++  base="$(basename "$path")"
++  (cd "$dir" && printf '%s/%s\n' "$(pwd -P)" "$base")
++}
++
++to_windows_path() {
++  local path="$1"
++  if command -v cygpath >/dev/null 2>&1; then
++    cygpath -w "$path"
++  else
++    printf '%s\n' "$path"
++  fi
++}
++
++while [[ $# -gt 0 ]]; do
++  case "$1" in
++    --image-name)
++      IMAGE_NAME="${2:?Missing value for --image-name}"
++      shift 2
++      ;;
++    --artifact-dir)
++      ARTIFACT_DIR="${2:?Missing value for --artifact-dir}"
++      shift 2
++      ;;
++    --unity-plugins-dir)
++      UNITY_PLUGINS_DIR="${2:?Missing value for --unity-plugins-dir}"
++      shift 2
++      ;;
++    --skip-image-build)
++      SKIP_IMAGE_BUILD=1
++      shift
++      ;;
++    --reuse-container)
++      REUSE_CONTAINER_NAME="${2:?Missing value for --reuse-container}"
++      SKIP_IMAGE_BUILD=1
++      shift 2
++      ;;
++    --sync-worktree)
++      SYNC_WORKTREE=1
++      shift
++      ;;
++    --sync-only)
++      SYNC_ONLY=1
++      SYNC_WORKTREE=1
++      shift
++      ;;
++    --package-only)
++      PACKAGE_ONLY=1
++      shift
++      ;;
++    --reuse-aar)
++      REUSE_AAR_PATH="${2:?Missing value for --reuse-aar}"
++      shift 2
++      ;;
++    --bazel-jobs)
++      BAZEL_JOBS="${2:?Missing value for --bazel-jobs}"
++      shift 2
++      ;;
++    -h|--help)
++      usage
++      exit 0
++      ;;
++    *)
++      echo "Unknown option: $1" >&2
++      usage >&2
++      exit 2
++      ;;
++  esac
++done
++
++if [[ "$PACKAGE_ONLY" -eq 1 && -z "$REUSE_CONTAINER_NAME" ]]; then
++  echo "--package-only requires --reuse-container so warm Bazel outputs can be reused." >&2
++  exit 2
++fi
++
++ARTIFACT_DIR="$(absolute_dir "$ARTIFACT_DIR")"
++UNITY_PLUGINS_DIR="$(absolute_dir "$UNITY_PLUGINS_DIR")"
++WORKSPACE_TEMP_ROOT="$(absolute_dir "$REPO_ROOT/temp/unity-android")"
++BAZEL_DISK_CACHE_DIR="$WORKSPACE_TEMP_ROOT/bazel-disk-cache"
++mkdir -p "$BAZEL_DISK_CACHE_DIR"
++
++AAR_PATH="$ARTIFACT_DIR/litertlm-unity-bridge.aar"
++CONTAINER_NAME="litert-lm-unity-aar-$(date +%Y%m%d%H%M%S)-$$"
++CONTAINER_STAGE_ROOT="/litert_lm/temp/unity-aar-stage"
++CONTAINER_AAR_PATH="/litert_lm/temp/litertlm-unity-bridge.aar"
++CONTAINER_REUSE_AAR_PATH="/litert_lm/temp/reuse-litertlm-unity-bridge.aar"
++CONTAINER_REUSE_AAR_ENV=""
++
++if [[ -n "$REUSE_AAR_PATH" ]]; then
++  REUSE_AAR_PATH="$(absolute_file "$REUSE_AAR_PATH")"
++  if [[ ! -s "$REUSE_AAR_PATH" ]]; then
++    echo "Fallback AAR does not exist or is empty: $REUSE_AAR_PATH" >&2
++    exit 2
++  fi
++fi
++
++cleanup() {
++  if [[ -z "$REUSE_CONTAINER_NAME" ]]; then
++    docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
++  fi
++}
++trap cleanup EXIT
++
++select_reuse_aar_path() {
++  local candidate
++
++  if [[ -n "$REUSE_AAR_PATH" ]]; then
++    printf '%s\n' "$REUSE_AAR_PATH"
++    return 0
++  fi
++
++  for candidate in "$AAR_PATH" "$UNITY_PLUGINS_DIR/litertlm-unity-bridge.aar"; do
++    if [[ -s "$candidate" ]]; then
++      printf '%s\n' "$candidate"
++      return 0
++    fi
++  done
++
++  return 1
++}
++
++prepare_reuse_aar_in_container() {
++  local container_name="$1"
++  local fallback_aar fallback_aar_win
++
++  CONTAINER_REUSE_AAR_ENV=""
++  if [[ "$PACKAGE_ONLY" -ne 1 ]]; then
++    return
++  fi
++
++  if ! fallback_aar="$(select_reuse_aar_path)"; then
++    echo "[LiteRT-LM] No previous AAR found for package-only fallback."
++    return
++  fi
++
++  echo "[LiteRT-LM] Copying package-only fallback AAR into warm container: $fallback_aar"
++  fallback_aar_win="$(to_windows_path "$fallback_aar")"
++  MSYS_NO_PATHCONV=1 docker exec "$container_name" bash -lc "mkdir -p '$(dirname "$CONTAINER_REUSE_AAR_PATH")'"
++  MSYS_NO_PATHCONV=1 docker cp "$fallback_aar_win" "$container_name:$CONTAINER_REUSE_AAR_PATH"
++  CONTAINER_REUSE_AAR_ENV="$CONTAINER_REUSE_AAR_PATH"
++}
++
++sync_worktree_to_container() {
++  local container_name="$1"
++  local paths=(
++    ".bazelrc"
++    ".bazelversion"
++    "WORKSPACE"
++    "BUILD"
++    "BUILD.antlr4"
++    "BUILD.directx_shader_compiler"
++    "BUILD.llguidance"
++    "BUILD.miniaudio"
++    "BUILD.minizip"
++    "BUILD.minja"
++    "BUILD.nanobind_json"
++    "BUILD.sentencepiece"
++    "BUILD.stb"
++    "BUILD.tokenizers_cpp"
++    "Cargo.lock"
++    "Cargo.toml"
++    "cargo-bazel-lock.json"
++    "android_ndk_env.bzl"
++    "rust_cxx_bridge.bzl"
++    "version.bzl"
++    "build_config"
++    "c"
++    "cxxbridge_cmd"
++    "kotlin"
++    "prebuilt"
++    "runtime"
++    "rust"
++    "schema"
++    "src"
++    "unity"
++  )
++  local rel_path host_path host_path_win target_dir
++
++  echo "[LiteRT-LM] Syncing AAR source inputs into warm container '$container_name'..."
++  for rel_path in "${paths[@]}"; do
++    host_path="$REPO_ROOT/$rel_path"
++    if [[ ! -e "$host_path" ]]; then
++      continue
++    fi
++
++    target_dir="/litert_lm/$(dirname "$rel_path")"
++    host_path_win="$(to_windows_path "$host_path")"
++    MSYS_NO_PATHCONV=1 docker exec "$container_name" bash -lc \
++      "rm -rf '/litert_lm/$rel_path' && mkdir -p '$target_dir'"
++    MSYS_NO_PATHCONV=1 docker cp "$host_path_win" "$container_name:/litert_lm/$rel_path"
++  done
++}
++
++read -r -d '' CONTAINER_COMMAND <<'EOF' || true
++set -euo pipefail
++cd /litert_lm
++
++patch_litert_android_runtime_exports() {
++  local output_base source_litert_repo patched_litert_repo litert_defs runtime_linux_lds
++
++  patched_litert_repo="/litert_lm/temp/litert-unity-unversioned"
++  litert_defs="$patched_litert_repo/litert/build_common/litert_build_defs.bzl"
++  runtime_linux_lds="$patched_litert_repo/litert/build_common/export_litert_runtime_only_linux.lds"
++  if [[ -f "$litert_defs" && -f "$runtime_linux_lds" ]] &&
++      grep -q "LITERT_LM_UNITY_UNVERSIONED_DYNSYM_EXPORTS_DF1_GLOBAL" "$runtime_linux_lds" &&
++      grep -q "LITERT_LM_UNITY_DF1_GLOBAL_RUNTIME" "$litert_defs"; then
++    printf '%s\n' "$patched_litert_repo"
++    return
++  fi
++
++  bazel query @litert//litert/c:litert_runtime_c_api_so >/dev/null
++  output_base="$(bazel info output_base)"
++  source_litert_repo="$output_base/external/litert"
++
++  if [[ ! -d "$source_litert_repo" ]]; then
++    echo "Could not find fetched LiteRT Bazel repository: $source_litert_repo" >&2
++    exit 1
++  fi
++
++  rm -rf "$patched_litert_repo"
++  mkdir -p "$(dirname "$patched_litert_repo")"
++  cp -a "$source_litert_repo" "$patched_litert_repo"
++
++  if [[ ! -f "$litert_defs" ]]; then
++    echo "Could not find LiteRT Bazel build definitions: $litert_defs" >&2
++    exit 1
++  fi
++  if [[ ! -f "$runtime_linux_lds" ]]; then
++    echo "Could not find LiteRT runtime export script: $runtime_linux_lds" >&2
++    exit 1
++  fi
++
++  perl -0pi -e '
++    s#"//litert:android": _EXPORT_LRT_COMMON_LINKOPTS_LINUX \+ _LRT_ANDROID_PAGE_SIZE_LINKOPTS \+ \[_EXPORT_LRT_RUNTIME_ONLY_LINKOPT_LINUX\]#"//litert:android": _EXPORT_LRT_COMMON_LINKOPTS_LINUX + _LRT_ANDROID_PAGE_SIZE_LINKOPTS + [_EXPORT_LRT_RUNTIME_ONLY_LINKOPT_LINUX] + ["-Wl,-z,global"]#g;
++  ' "$litert_defs"
++  sed -i '/def export_lrt_runtime_only_linkopt()/a\    # LITERT_LM_UNITY_DF1_GLOBAL_RUNTIME: Android sampler dlopen resolves LiteRt symbols from the linker global group.' "$litert_defs"
++
++  cat > "$runtime_linux_lds" <<'LDS'
++/* LITERT_LM_UNITY_UNVERSIONED_DYNSYM_EXPORTS_DF1_GLOBAL
++ * Unity Android sampler plugins dlopen LiteRT sampler .so files after startup.
++ * They require LiteRt C API symbols to be present in libLiteRt.so's dynamic
++ * symbol table, but Android rejects the upstream VERS_1.0-versioned exports
++ * for those undefined sampler references. Keep the export script for dynsym
++ * visibility, use an anonymous version script so symbols stay unversioned,
++ * and pair this with -z global in litert_build_defs.bzl so Android places
++ * libLiteRt.so in the linker global group.
++ */
++{
++  global:
++    LiteRt*;
++  local:
++    *;
++};
++LDS
++
++  bazel shutdown >/dev/null 2>&1 || true
++  printf '%s\n' "$patched_litert_repo"
++}
++
++if [[ "${LITERTLM_PACKAGE_ONLY:-0}" != "1" ]]; then
++  PATCHED_LITERT_REPO="$(patch_litert_android_runtime_exports)"
++  BAZEL_LITERT_OVERRIDE=(--override_repository=litert="$PATCHED_LITERT_REPO")
++  BAZEL_JOB_ARGS=()
++  if [[ -n "${LITERTLM_BAZEL_JOBS:-}" ]]; then
++    BAZEL_JOB_ARGS=(--jobs="${LITERTLM_BAZEL_JOBS}")
++  fi
++
++  bazel build \
++    "${BAZEL_LITERT_OVERRIDE[@]}" \
++    "${BAZEL_JOB_ARGS[@]}" \
++    --disk_cache=/root/.cache/bazel-android \
++    --config=android_arm64 \
++    --define=litert_link_capi_so=true \
++    --define=resolve_symbols_in_exec=false \
++    //kotlin/java/com/google/ai/edge/litertlm:litertlm-unity-bridge-jar \
++    //kotlin/java/com/google/ai/edge/litertlm/jni:litertlm_loader \
++    //kotlin/java/com/google/ai/edge/litertlm/jni:litertlm_jni
++else
++  echo "[LiteRT-LM] Package-only mode: skipping Bazel build and Bazel query."
++fi
++
++STAGE_ROOT="/litert_lm/temp/unity-aar-stage"
++rm -rf "$STAGE_ROOT"
++mkdir -p "$STAGE_ROOT/jni/arm64-v8a"
++
++REUSE_AAR_EXTRACT_DIR=""
++if [[ -n "${LITERTLM_REUSE_AAR_PATH:-}" && -s "${LITERTLM_REUSE_AAR_PATH:-}" ]]; then
++  REUSE_AAR_EXTRACT_DIR="$STAGE_ROOT/reuse-aar"
++  mkdir -p "$REUSE_AAR_EXTRACT_DIR"
++  (cd "$REUSE_AAR_EXTRACT_DIR" && jar xf "$LITERTLM_REUSE_AAR_PATH")
++fi
++
++copy_stage_file() {
++  local source_path="$1"
++  local fallback_rel_path="$2"
++  local dest_path="$3"
++  local label="$4"
++
++  if [[ -s "$source_path" ]]; then
++    cp -L "$source_path" "$dest_path"
++    return
++  fi
++
++  if [[ -n "$REUSE_AAR_EXTRACT_DIR" && -s "$REUSE_AAR_EXTRACT_DIR/$fallback_rel_path" ]]; then
++    echo "[LiteRT-LM] Reusing $label from fallback AAR."
++    cp -L "$REUSE_AAR_EXTRACT_DIR/$fallback_rel_path" "$dest_path"
++    return
++  fi
++
++  echo "Required AAR input is missing: $label" >&2
++  echo "  Bazel output: $source_path" >&2
++  if [[ -n "$REUSE_AAR_EXTRACT_DIR" ]]; then
++    echo "  Fallback AAR path: $fallback_rel_path" >&2
++  fi
++  echo "Run one full warm build first, then retry --package-only." >&2
++  exit 1
++}
++
++copy_stage_file \
++  /litert_lm/bazel-bin/kotlin/java/com/google/ai/edge/litertlm/liblitertlm-unity-bridge-jar.jar \
++  classes.jar \
++  "$STAGE_ROOT/classes.jar" \
++  classes.jar
++copy_stage_file \
++  /litert_lm/bazel-out/arm64-v8a-opt/bin/external/litert/litert/c/libLiteRt.so \
++  jni/arm64-v8a/libLiteRt.so \
++  "$STAGE_ROOT/jni/arm64-v8a/libLiteRt.so" \
++  libLiteRt.so
++copy_stage_file \
++  /litert_lm/bazel-out/arm64-v8a-opt/bin/kotlin/java/com/google/ai/edge/litertlm/jni/liblitertlm_loader.so \
++  jni/arm64-v8a/liblitertlm_loader.so \
++  "$STAGE_ROOT/jni/arm64-v8a/liblitertlm_loader.so" \
++  liblitertlm_loader.so
++copy_stage_file \
++  /litert_lm/bazel-out/arm64-v8a-opt/bin/kotlin/java/com/google/ai/edge/litertlm/jni/liblitertlm_jni.so \
++  jni/arm64-v8a/liblitertlm_jni.so \
++  "$STAGE_ROOT/jni/arm64-v8a/liblitertlm_jni.so" \
++  liblitertlm_jni.so
++
++shopt -s nullglob
++PREBUILT_LIBS=(/litert_lm/prebuilt/android_arm64/*.so)
++if [[ "${#PREBUILT_LIBS[@]}" -gt 0 ]]; then
++  cp -L "${PREBUILT_LIBS[@]}" "$STAGE_ROOT/jni/arm64-v8a/"
++elif [[ -n "$REUSE_AAR_EXTRACT_DIR" ]]; then
++  cp -L "$REUSE_AAR_EXTRACT_DIR"/jni/arm64-v8a/libLiteRt* "$STAGE_ROOT/jni/arm64-v8a/" 2>/dev/null || true
++fi
++
++LITERT_CREATE_ENVIRONMENT_SYMBOLS="$(
++  readelf --wide --dyn-syms "$STAGE_ROOT/jni/arm64-v8a/libLiteRt.so" | grep 'LiteRtCreateEnvironment' || true
++)"
++if ! grep -Eq '[[:space:]]LiteRtCreateEnvironment([[:space:]]|$)' <<<"$LITERT_CREATE_ENVIRONMENT_SYMBOLS"; then
++  echo "libLiteRt.so does not export unversioned LiteRtCreateEnvironment in .dynsym." >&2
++  printf '%s\n' "$LITERT_CREATE_ENVIRONMENT_SYMBOLS" >&2
++  exit 1
++fi
++if grep -q 'LiteRtCreateEnvironment@@' <<<"$LITERT_CREATE_ENVIRONMENT_SYMBOLS"; then
++  echo "libLiteRt.so still exports versioned LiteRtCreateEnvironment in .dynsym." >&2
++  printf '%s\n' "$LITERT_CREATE_ENVIRONMENT_SYMBOLS" >&2
++  exit 1
++fi
++if ! readelf -d "$STAGE_ROOT/jni/arm64-v8a/libLiteRt.so" | grep -Eq 'FLAGS_1.*GLOBAL|Flags:.*GLOBAL'; then
++  echo "libLiteRt.so is missing DF_1_GLOBAL. Android sampler dlopen needs libLiteRt in the linker global group." >&2
++  readelf -d "$STAGE_ROOT/jni/arm64-v8a/libLiteRt.so" | grep -E 'FLAGS|GLOBAL' >&2 || true
++  exit 1
++fi
++
++cat > "$STAGE_ROOT/AndroidManifest.xml" <<'MANIFEST'
++<manifest xmlns:android="http://schemas.android.com/apk/res/android"
++    package="com.google.ai.edge.litertlm.unitybridge">
++    <uses-sdk android:minSdkVersion="22" />
++    <application>
++        <uses-native-library android:name="libvndksupport.so" android:required="false" />
++        <uses-native-library android:name="libOpenCL.so" android:required="false" />
++        <uses-native-library android:name="libcdsprpc.so" android:required="false" />
++    </application>
++</manifest>
++MANIFEST
++
++(cd "$STAGE_ROOT" && jar cf "/litert_lm/temp/litertlm-unity-bridge.aar" classes.jar AndroidManifest.xml jni)
++test -s "/litert_lm/temp/litertlm-unity-bridge.aar"
++EOF
++
++REPO_ROOT_WIN="$(to_windows_path "$REPO_ROOT")"
++AAR_PATH_WIN="$(to_windows_path "$AAR_PATH")"
++BAZEL_DISK_CACHE_DIR_WIN="$(to_windows_path "$BAZEL_DISK_CACHE_DIR")"
++
++echo "[LiteRT-LM] Workspace temp: $WORKSPACE_TEMP_ROOT"
++MSYS_NO_PATHCONV=1 docker info >/dev/null
++
++if [[ "$SKIP_IMAGE_BUILD" -eq 0 ]]; then
++  echo "[LiteRT-LM] Building Docker image '$IMAGE_NAME'..."
++  MSYS_NO_PATHCONV=1 docker build -f "$REPO_ROOT_WIN/cmake/Containerfile" -t "$IMAGE_NAME" "$REPO_ROOT_WIN"
++else
++  echo "[LiteRT-LM] Skipping Docker image rebuild."
++fi
++
++if [[ -n "$REUSE_CONTAINER_NAME" ]]; then
++  CONTAINER_NAME="$REUSE_CONTAINER_NAME"
++  if ! MSYS_NO_PATHCONV=1 docker inspect "$CONTAINER_NAME" >/dev/null 2>&1; then
++    echo "Warm container does not exist: $CONTAINER_NAME" >&2
++    exit 1
++  fi
++  if [[ "$(MSYS_NO_PATHCONV=1 docker inspect -f '{{.State.Running}}' "$CONTAINER_NAME")" != "true" ]]; then
++    echo "[LiteRT-LM] Starting warm container '$CONTAINER_NAME'..."
++    MSYS_NO_PATHCONV=1 docker start "$CONTAINER_NAME" >/dev/null
++  fi
++  if [[ "$SYNC_WORKTREE" -eq 1 ]]; then
++    sync_worktree_to_container "$CONTAINER_NAME"
++  fi
++  if [[ "$SYNC_ONLY" -eq 1 ]]; then
++    echo "[LiteRT-LM] Sync-only mode complete."
++    exit 0
++  fi
++  prepare_reuse_aar_in_container "$CONTAINER_NAME"
++  echo "[LiteRT-LM] Building Unity AAR inputs in warm container '$CONTAINER_NAME'..."
++  MSYS_NO_PATHCONV=1 docker exec \
++    -e LITERTLM_PACKAGE_ONLY="$PACKAGE_ONLY" \
++    -e LITERTLM_REUSE_AAR_PATH="$CONTAINER_REUSE_AAR_ENV" \
++    -e LITERTLM_BAZEL_JOBS="$BAZEL_JOBS" \
++    "$CONTAINER_NAME" bash -lc "$CONTAINER_COMMAND"
++else
++  echo "[LiteRT-LM] Creating temporary AAR build container '$CONTAINER_NAME'..."
++  MSYS_NO_PATHCONV=1 docker create \
++    --name "$CONTAINER_NAME" \
++    --mount "type=bind,source=$BAZEL_DISK_CACHE_DIR_WIN,target=/root/.cache/bazel-android" \
++    -e LITERTLM_PACKAGE_ONLY="$PACKAGE_ONLY" \
++    -e LITERTLM_REUSE_AAR_PATH="" \
++    -e LITERTLM_BAZEL_JOBS="$BAZEL_JOBS" \
++    "$IMAGE_NAME" bash -lc "$CONTAINER_COMMAND" >/dev/null
++
++  echo "[LiteRT-LM] Building Unity AAR inputs inside Docker..."
++  MSYS_NO_PATHCONV=1 docker start -a "$CONTAINER_NAME"
++fi
++
++rm -f "$AAR_PATH"
++MSYS_NO_PATHCONV=1 docker cp "${CONTAINER_NAME}:${CONTAINER_AAR_PATH}" "$AAR_PATH_WIN"
++
++AAR_SIZE="$(wc -c < "$AAR_PATH" | tr -d '[:space:]')"
++if [[ -z "$AAR_SIZE" || "$AAR_SIZE" -lt 1000000 ]]; then
++  echo "Generated AAR is unexpectedly small: $AAR_PATH" >&2
++  exit 1
++fi
++
++LEGACY_ANDROIDLIB_PATH="$UNITY_PLUGINS_DIR/litertlm-unity-bridge.androidlib"
++if [[ -e "$LEGACY_ANDROIDLIB_PATH" ]]; then
++  echo "[LiteRT-LM] Removing stale Unity androidlib plugin '$LEGACY_ANDROIDLIB_PATH' to avoid duplicate Android namespaces."
++  rm -rf "$LEGACY_ANDROIDLIB_PATH"
++fi
++rm -f "$LEGACY_ANDROIDLIB_PATH.meta"
++
++cp -f "$AAR_PATH" "$UNITY_PLUGINS_DIR/litertlm-unity-bridge.aar"
++
++echo "[LiteRT-LM] Done. AAR exported to '$AAR_PATH'."
++echo "[LiteRT-LM] Copied into LiteRT-LM-Unity: '$UNITY_PLUGINS_DIR/litertlm-unity-bridge.aar'."

@@ -75,7 +75,15 @@ function Get-WhisperEncoderCompanionFileName {
     )
 
     if ($FileName.EndsWith("_f32.tflite", [StringComparison]::OrdinalIgnoreCase)) {
-        return $FileName.Substring(0, $FileName.Length - "_f32.tflite".Length) + "_encoder_f32.tflite"
+        $preferred = $FileName.Substring(0, $FileName.Length - ".tflite".Length) + "_encoder.tflite"
+        $legacy = $FileName.Substring(0, $FileName.Length - "_f32.tflite".Length) + "_encoder_f32.tflite"
+        if (Test-Path (Join-Path $ProjectRoot "Assets\StreamingAssets\$preferred")) {
+            return $preferred
+        }
+        if (Test-Path (Join-Path $ProjectRoot "Assets\StreamingAssets\$legacy")) {
+            return $legacy
+        }
+        return $preferred
     }
 
     if ($FileName.EndsWith(".tflite", [StringComparison]::OrdinalIgnoreCase)) {
