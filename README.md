@@ -2,6 +2,10 @@
 
 Unity integration sample for LiteRT-LM on Windows Editor and Android.
 
+Framework: **LiteRT-LM v0.14.0** (fork branch `unity-v0.14.0` in
+`External/LiteRT-LM`, Unity customizations maintained as
+`Tools/UnityAar/litert-lm-unity-aar.patch`). `.litertlm` format 1.5.0.
+
 ## Requirements
 
 - Unity `6000.4.6f1`
@@ -12,25 +16,87 @@ Unity integration sample for LiteRT-LM on Windows Editor and Android.
 
 ## Recommended LLM Models
 
-| Rank | Model | Source | Note |
+Model files live under `Assets/StreamingAssets` in per-model subfolders
+(`LLM/<model>/`, `Multimodal/<model>/`).
+
+| Rank | Model (StreamingAssets path) | Source | Note |
 | ---: | --- | --- | --- |
-| 1 | `gemma-4-E2B-it.litertlm` | [litert-community/gemma-4-E2B-it-litert-lm](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm) | Primary quality model when memory allows. |
-| 2 | `Qwen2.5-0.5B-Instruct-q8.litertlm` | [litert-community/Qwen2.5-0.5B-Instruct](https://huggingface.co/litert-community/Qwen2.5-0.5B-Instruct) | Fast CPU fallback for smaller memory and low latency. |
-| 3 | `gemma3-1b-it-int4.litertlm` | [litert-community/Gemma3-1B-IT](https://huggingface.co/litert-community/Gemma3-1B-IT) | Compact Android native-GPU-capable fallback. |
+| 1 | `Multimodal/gemma-4-e2b/gemma-4-E2B-it.litertlm` | [litert-community/gemma-4-E2B-it-litert-lm](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm) | Primary quality model when memory allows. Official QAT wNa8o8 build. Also the multimodal (image + audio) and flagship function-calling model (19/20 FC benchmark). |
+| 2 | `LLM/lfm2.5-1.2b/LFM2.5-1.2B-Instruct_int4.litertlm` | LiquidAI LFM2.5-1.2B-Instruct (LiteRT export) | Mid-tier function-calling pick (17/20 with the Hermes-style prompt, fastest FC decode on Windows CPU). Requires the v0.14 runtime; device-validated. |
+| 3 | `LLM/qwen3-0.6b/qwen3_0_6b_mixed_int4.litertlm` | [litert-community/Qwen3-0.6B](https://huggingface.co/litert-community/Qwen3-0.6B) | Small-tier function-calling pick (18/20 with the Hermes-style prompt, 475 MB mixed int4). |
+| 4 | `LLM/qwen2.5-0.5b/Qwen2.5-0.5B-Instruct-q8.litertlm` | [litert-community/Qwen2.5-0.5B-Instruct](https://huggingface.co/litert-community/Qwen2.5-0.5B-Instruct) | Fast CPU fallback for smaller memory and low latency (self-made wi4b64 i4 variant is +38 % decode at half the size — see `docs/llm-details.md`). |
+| 5 | `LLM/gemma3-1b/gemma3-1b-it-int4.litertlm` | [litert-community/Gemma3-1B-IT](https://huggingface.co/litert-community/Gemma3-1B-IT) | Compact Android native-GPU-capable chat fallback. Not usable as an FC router (3/20). |
 
 ## Recommended ASR Models
 
-ASR models need a matching tokenizer directory under `Assets/StreamingAssets`.
-For example, Whisper Tiny uses `whisper-tiny/tokenizer.json`, and Whisper Base
-uses `whisper-base/tokenizer.json`. Use the tokenizer source links below when
-restoring those tokenizer folders.
+ASR models live under `Assets/StreamingAssets/ASR/<model>/` next to their
+matching `tokenizer.json` (tokenizers differ per tier — medium and
+large-v3/turbo each carry their own). Deployed tiers span whisper
+tiny / base / medium / large-v3 / large-v3-turbo (f32/i8/i4 as noted) plus
+Qwen3-ASR-0.6B. Full CER/WER matrix: [`docs/benchmarks/asr-model-matrix.md`](docs/benchmarks/asr-model-matrix.md).
 
-| Rank | Model | Model source | Tokenizer source | Note |
-| ---: | --- | --- | --- | --- |
-| 1 | `whisper_tiny_30s_i8.tflite` | [litert-community/whisper-tiny](https://huggingface.co/litert-community/whisper-tiny) | [openai/whisper-tiny](https://huggingface.co/openai/whisper-tiny) | Recommended Korean/English ASR model for Android CPU use. |
-| 2 | `whisper_base_30s_f32.tflite` | [litert-community/whisper-base](https://huggingface.co/litert-community/whisper-base) | [openai/whisper-base](https://huggingface.co/openai/whisper-base) | Quality comparison only; it is large and not the default recommendation. |
+| Use case | Model (StreamingAssets path) | Size | Note |
+| --- | --- | ---: | --- |
+| Best accuracy | `ASR/whisper-large-v3-turbo/whisper_large_v3_turbo_30s_i4.tflite` | 755 MB | Best tier in the matrix (8/9 exact, CER 0.000 ko+en). Only whisper tier that passes both 볼륨 업 takes on device. Slow per-clip on device CPU (~21–24 s). |
+| Balanced size/accuracy | `ASR/whisper-base/whisper_base_30s_i8.tflite` | 77 MB | Korean CER 0.000 on sentences, 6/9 exact, RTF 0.48 desktop / ~2.7 s per long clip on device. |
+| Voice commands (device) | `ASR/qwen3-asr-0.6b/qwen3_asr_0.6b_5s_i8.tflite` | 794 MB | Recognizes all short Korean FC commands on device including both 볼륨 업 takes. Spells out numbers (`이천이십오년`); ~0.5 s/decode-step device CPU. |
+| Smallest, English-lean | `ASR/whisper-tiny/whisper_tiny_30s_i8.tflite` | 41 MB | English CER 0.000; Korean numerics unreliable (year errors). |
+| Accuracy reference | `ASR/whisper-large-v3/whisper_large_v3_30s_i4.tflite` | 1148 MB | Character-perfect on all clips but 3–7× slower per step than turbo — reference, not the practical pick. |
+| Mid tier | `ASR/whisper-medium/whisper_medium_30s_i8.tflite` (i4: 664 MB) | 832 MB | 7/9 exact; between base and turbo in size/accuracy. |
+
+Model sources: whisper tiny/base from
+[litert-community](https://huggingface.co/litert-community/whisper-tiny)
+([base](https://huggingface.co/litert-community/whisper-base)); medium,
+large-v3, large-v3-turbo, and all i8/i4 tiers are project-quantized exports
+(int4-minimum-tier policy, `dynamic_wi4b64_afp32` + i8 sensitive scopes).
+Tokenizer sources: [openai/whisper-*](https://huggingface.co/openai/whisper-tiny)
+per tier. Qwen3-ASR from the official tflite export with a project JNI port.
+
+## Test Scenes
+
+Test scenes live under `Assets/Scenes/Tests/` and are generated by
+`Assets/Scripts/LiteRTLM/Editor/LiteRtLmTestSceneGenerator.cs`
+(menu `LiteRT-LM/Test Scenes/Generate All`, or batchmode
+`-executeMethod LiteRTLM.Unity.Editor.LiteRtLmTestSceneGenerator.GenerateAllFromCommandLine`).
+Five generated scenes:
+
+| Scene | Purpose |
+| --- | --- |
+| `LiteRtLmLlmChatTestScene` | Multi-turn chat, 5-model dropdown, think/no_think toggle (Qwen3) |
+| `LiteRtLmAsrTestScene` | ASR model dropdown × 10-clip audio dropdown (whisper + qwen3 modes) |
+| `LiteRtLmMultimodalTestScene` | Image + audio input via `SendMessageWithMedia` (gemma-4) |
+| `LiteRtLmAsrFunctionCallingTestScene` | Voice → transcript → tool call pipeline (device-validated) |
+| `LiteRtLmMultimodalFunctionCallingTestScene` | Image + utterance → tool call (device-validated) |
+
+Legacy smoke/benchmark scenes (`AndroidSmokeTest`, `ConversationTest`,
+`FunctionCallingBenchmark`) were moved to the same folder.
+
+## Windows Runtime
+
+- `Tools/Windows/litert_lm_main.windows_x86_64.exe` — v0.14 build with custom
+  function-calling flags (`--tools_json_file`, `--enable_constrained_decoding`,
+  `--output_message_json`, `--system_message_file`, `--messages_json_file`).
+- `Tools/Windows/litert_lm_advanced_main.windows_x86_64.exe` — supports
+  `[audio:<path>]` / `[image:<path>]` prompt tags and `--audio_backend`; this is
+  the Windows ASR/multimodal path (gemma-4 audio transcription).
+- GPU is the default Windows backend (WebGPU/Dawn over Direct3D 12; ~2× CPU
+  decode on an RTX 4090). `LiteRtLmWindowsCliClient` retries once on CPU when
+  the GPU path fails and remembers the failure for the session.
+- Windows ASR smoke: `Tools/Windows/Run-LiteRtLmWindowsAsrSmokeTest.ps1`
+  (gemma-4 audio path; mp3 supported, whitespace paths auto-staged).
+
+## Device Validation
+
+All four target capabilities — LLM chat, ASR, image recognition, and function
+calling (voice-driven and multimodal) — **pass on the physical test device**
+(`46a880a0`, Qualcomm kona / SM8250, Android 12) across three PDCA cycles with
+20+ fresh-process runs and zero crashes/OOM. Full ledger and per-cycle
+evidence: [`docs/benchmarks/device-cycle1-baseline.md`](docs/benchmarks/device-cycle1-baseline.md).
 
 ## Details
 
 - LLM 세부 설명: [`docs/llm-details.md`](docs/llm-details.md)
 - ASR 세부 설명: [`docs/asr-details.md`](docs/asr-details.md)
+- Benchmarks (source of truth): [`docs/benchmarks/`](docs/benchmarks/) —
+  ASR matrix, FC model benchmark, GGUF comparison, short-utterance research,
+  device cycles, session final report (2026-07-23)

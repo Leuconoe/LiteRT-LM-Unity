@@ -1,5 +1,15 @@
 # Function Calling Handoff
 
+> **Update 2026-07-23**: the custom CLI flags described below do **not** live
+> in a committed `runtime/engine/litert_lm_main.cc` — they are maintained in
+> `Tools/UnityAar/litert-lm-unity-aar.patch`, which is applied to a pristine
+> LiteRT-LM checkout (`External/LiteRT-LM`, branch `unity-v0.14.0`) when
+> building the Windows exe or the Android AAR. The framework has since been
+> upgraded to v0.14.0 and the patch regenerated; see
+> [`v0.14-upgrade-handoff.md`](v0.14-upgrade-handoff.md) for the current
+> state, and `docs/benchmarks/fc-model-benchmark.md` for the shipped
+> function-calling benchmark results.
+
 ## Goal
 
 Implement and stabilize LiteRT-LM Unity function calling by exposing grammar-style constrained decoding in the Windows CLI, wiring it through the Unity Windows client, and validating it with a 20-case Unity benchmark scene.
@@ -31,7 +41,9 @@ Implement and stabilize LiteRT-LM Unity function calling by exposing grammar-sty
 
 ## Implemented Work In Progress
 
-- `runtime/engine/litert_lm_main.cc`
+- `Tools/UnityAar/litert-lm-unity-aar.patch` (applied to
+  `External/LiteRT-LM` `runtime/engine/litert_lm_main.cc` at build time — not
+  committed upstream source)
   - Added CLI flags for system message, tools JSON, messages JSON, constrained decoding, and JSON message output.
 - `Tools/Windows/Run-LiteRtLmSample.ps1`
   - Added forwarding for the new CLI flags.
