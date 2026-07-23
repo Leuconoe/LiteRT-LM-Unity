@@ -65,7 +65,17 @@ function ConvertTo-ProcessArgument {
     return '"' + $Argument.Replace('"', '\"') + '"'
 }
 
+# Benchmark -Model values are HuggingFace repo filenames. Locally the file may live
+# at the StreamingAssets root or inside a subfolder (LLM/, Multimodal/, ...), so fall
+# back to a recursive filename search when the flat path does not exist.
 $modelSource = Join-Path $ProjectRoot "Assets\StreamingAssets\$($benchmark.Model)"
+if (!(Test-Path $modelSource)) {
+    $foundModel = Get-ChildItem -Path (Join-Path $ProjectRoot "Assets\StreamingAssets") -Recurse -File `
+        -Filter (Split-Path -Leaf $benchmark.Model) -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($null -ne $foundModel) {
+        $modelSource = $foundModel.FullName
+    }
+}
 if (!(Test-Path $modelSource)) {
     throw "Benchmark model not found: $modelSource"
 }

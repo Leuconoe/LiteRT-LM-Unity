@@ -1,6 +1,6 @@
 param(
     [string]$ModelFileName = "parakeet_tdt_0.6b_v3_5s_i8.tflite",
-    [string]$AudioFileName = "Tactical Evaluation Results Report - March 5, 2025.mp3",
+    [string]$AudioFileName = "TestAssets/Audio/Tactical Evaluation Results Report - March 5, 2025.mp3",
     [string]$TokenizerJsonPath = "parakeet-tdt-0.6b-v3/tokenizer.json",
     [ValidateSet("parakeet", "whisper")]
     [string]$AsrMode = "parakeet",
@@ -163,18 +163,30 @@ try {
 
     $streamingAssetsCopy = Join-Path $buildProjectRoot "Assets\StreamingAssets"
     New-Item -ItemType Directory -Force -Path $streamingAssetsCopy | Out-Null
-    Copy-Item -Force $modelSource (Join-Path $streamingAssetsCopy $ModelFileName)
-    if (![string]::IsNullOrWhiteSpace($encoderModelSource) -and (Test-Path $encoderModelSource)) {
-        Write-Host "[LiteRT-LM] Including Whisper encoder companion: $encoderModelFileName"
-        Copy-Item -Force $encoderModelSource (Join-Path $streamingAssetsCopy $encoderModelFileName)
-    }
-    Copy-Item -Force $audioSource (Join-Path $streamingAssetsCopy $AudioFileName)
 
-    foreach ($source in @("$modelSource.meta", "$encoderModelSource.meta", "$audioSource.meta")) {
-        if (Test-Path $source) {
-            Copy-Item -Force $source (Join-Path $streamingAssetsCopy (Split-Path -Leaf $source))
+    function Copy-StreamingAssetWithMeta {
+        param(
+            [string]$SourcePath,
+            [string]$RelativeDestination
+        )
+
+        $destination = Join-Path $streamingAssetsCopy $RelativeDestination
+        $destinationParent = Split-Path -Parent $destination
+        if (![string]::IsNullOrWhiteSpace($destinationParent)) {
+            New-Item -ItemType Directory -Force -Path $destinationParent | Out-Null
+        }
+        Copy-Item -Force $SourcePath $destination
+        if (Test-Path "$SourcePath.meta") {
+            Copy-Item -Force "$SourcePath.meta" "$destination.meta"
         }
     }
+
+    Copy-StreamingAssetWithMeta -SourcePath $modelSource -RelativeDestination $ModelFileName
+    if (![string]::IsNullOrWhiteSpace($encoderModelSource) -and (Test-Path $encoderModelSource)) {
+        Write-Host "[LiteRT-LM] Including Whisper encoder companion: $encoderModelFileName"
+        Copy-StreamingAssetWithMeta -SourcePath $encoderModelSource -RelativeDestination $encoderModelFileName
+    }
+    Copy-StreamingAssetWithMeta -SourcePath $audioSource -RelativeDestination $AudioFileName
 
     $resolvedUnityPath = Resolve-UnityPath
     $workspaceTemp = Join-Path $ProjectRoot "temp"

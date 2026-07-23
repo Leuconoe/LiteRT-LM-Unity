@@ -3,9 +3,9 @@ param(
     [string]$DeviceSerial = "46a880a0",
     [string]$PackageName = "com.Leuconoe.LiteRTLMUnity",
     [string]$ApkPath = "",
-    [string]$ModelFileName = "whisper_tiny_30s_i8.tflite",
-    [string]$AudioFileName = "2025년 3월 5일 전술평가 결과 보고.mp3",
-    [string]$TokenizerJsonPath = "whisper-tiny/tokenizer.json",
+    [string]$ModelFileName = "ASR/whisper-tiny/whisper_tiny_30s_i8.tflite",
+    [string]$AudioFileName = "TestAssets/Audio/2025년 3월 5일 전술평가 결과 보고.mp3",
+    [string]$TokenizerJsonPath = "ASR/whisper-tiny/tokenizer.json",
     [ValidateSet("parakeet", "whisper")]
     [string]$AsrMode = "whisper",
     [string]$AsrLanguage = "ko",

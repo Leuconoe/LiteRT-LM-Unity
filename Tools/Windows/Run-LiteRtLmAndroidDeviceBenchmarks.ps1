@@ -158,10 +158,32 @@ function ConvertKilobytesTo-Megabytes {
     return [math]::Round(([double]$Kilobytes / 1024.0), 2)
 }
 
+function Resolve-StreamingAssetModelPath {
+    # Benchmark -Model values are HuggingFace repo filenames. Locally the file may
+    # live at the StreamingAssets root or inside a subfolder (LLM/, Multimodal/, ...),
+    # so fall back to a recursive filename search when the flat path does not exist.
+    param([string]$ModelFileName)
+
+    $streamingAssetsRoot = Join-Path $ProjectRoot "Assets\StreamingAssets"
+    $directPath = Join-Path $streamingAssetsRoot $ModelFileName
+    if (Test-Path $directPath) {
+        return $directPath
+    }
+
+    $leafName = Split-Path -Leaf $ModelFileName
+    $found = Get-ChildItem -Path $streamingAssetsRoot -Recurse -File -Filter $leafName -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if ($null -ne $found) {
+        return $found.FullName
+    }
+
+    return $directPath
+}
+
 function Get-ModelSizeBytes {
     param([string]$ModelFileName)
 
-    $modelPath = Join-Path (Join-Path $ProjectRoot "Assets\StreamingAssets") $ModelFileName
+    $modelPath = Resolve-StreamingAssetModelPath $ModelFileName
     if (!(Test-Path $modelPath)) {
         return ""
     }
@@ -180,7 +202,7 @@ function Push-BenchmarkModel {
         return $false
     }
 
-    $modelPath = Join-Path (Join-Path $ProjectRoot "Assets\StreamingAssets") $ModelFileName
+    $modelPath = Resolve-StreamingAssetModelPath $ModelFileName
     if (!(Test-Path $modelPath)) {
         throw "Model file not found for device push: $modelPath"
     }
