@@ -41,7 +41,9 @@ namespace LiteRTLM.Unity
             int maxNumImages = 0,
             int cpuThreads = 0,
             bool enableSpeculativeDecoding = false,
-            string systemInstruction = "")
+            string systemInstruction = "",
+            string visionBackend = "",
+            string audioBackend = "")
         {
 #if UNITY_ANDROID && !UNITY_EDITOR
             if (string.IsNullOrWhiteSpace(modelPath))
@@ -61,7 +63,9 @@ namespace LiteRTLM.Unity
                 maxNumImages,
                 cpuThreads,
                 enableSpeculativeDecoding,
-                systemInstruction);
+                systemInstruction,
+                visionBackend ?? string.Empty,
+                audioBackend ?? string.Empty);
 #else
             throw new PlatformNotSupportedException("LiteRT-LM Unity wrapper currently supports Android device builds only.");
 #endif
@@ -76,6 +80,31 @@ namespace LiteRTLM.Unity
             }
 
             return _bridge.Call<string>("sendMessage", text, extraContextJson);
+#else
+            throw new PlatformNotSupportedException("LiteRT-LM Unity wrapper currently supports Android device builds only.");
+#endif
+        }
+
+        public string SendMessageWithMedia(
+            string text,
+            byte[] imageBytes = null,
+            string imagePath = "",
+            string audioPath = "",
+            string extraContextJson = "")
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            if (_bridge == null)
+            {
+                throw new InvalidOperationException("LiteRT-LM bridge is not initialized.");
+            }
+
+            return _bridge.Call<string>(
+                "sendMessageWithMedia",
+                text ?? string.Empty,
+                imageBytes,
+                imagePath ?? string.Empty,
+                audioPath ?? string.Empty,
+                extraContextJson ?? string.Empty);
 #else
             throw new PlatformNotSupportedException("LiteRT-LM Unity wrapper currently supports Android device builds only.");
 #endif
@@ -186,6 +215,42 @@ namespace LiteRTLM.Unity
             return _bridge.Call<string>("runWhisperAsrSmoke", modelPath, audioPath, tokenizerJsonPath, backend, language);
 #else
             throw new PlatformNotSupportedException("Whisper ASR smoke test currently supports Android device builds only.");
+#endif
+        }
+
+        public string RunQwen3AsrSmoke(
+            string modelPath,
+            string audioPath,
+            string tokenizerJsonPath,
+            string backend = "CPU",
+            string language = "auto")
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            if (string.IsNullOrWhiteSpace(modelPath))
+            {
+                throw new ArgumentException("modelPath is required.", nameof(modelPath));
+            }
+            if (string.IsNullOrWhiteSpace(audioPath))
+            {
+                throw new ArgumentException("audioPath is required.", nameof(audioPath));
+            }
+            if (string.IsNullOrWhiteSpace(tokenizerJsonPath))
+            {
+                throw new ArgumentException("tokenizerJsonPath is required.", nameof(tokenizerJsonPath));
+            }
+            if (string.IsNullOrWhiteSpace(backend))
+            {
+                throw new ArgumentException("backend is required.", nameof(backend));
+            }
+            if (string.IsNullOrWhiteSpace(language))
+            {
+                language = "auto";
+            }
+
+            EnsureBridge();
+            return _bridge.Call<string>("runQwen3AsrSmoke", modelPath, audioPath, tokenizerJsonPath, backend, language);
+#else
+            throw new PlatformNotSupportedException("Qwen3 ASR smoke test currently supports Android device builds only.");
 #endif
         }
 

@@ -9,7 +9,26 @@ namespace LiteRTLM.Unity
 {
     public sealed class LiteRtLmWindowsCliClient
     {
-        public Task<string> SendMessageAsync(
+        private const string CpuBackendName = "cpu";
+        private const string GpuBackendName = "gpu";
+        private const string FallbackLogPrefix = "[gpu→cpu fallback] ";
+
+        private static int s_gpuUnhealthy;
+
+        /// <summary>
+        /// True once a GPU-backed run has failed this session; subsequent GPU requests go straight to CPU.
+        /// </summary>
+        public static bool IsGpuUnhealthy => Volatile.Read(ref s_gpuUnhealthy) != 0;
+
+        /// <summary>
+        /// Clears the session GPU-unhealthy flag so the next GPU request is attempted on the GPU again.
+        /// </summary>
+        public static void ResetGpuHealth()
+        {
+            Volatile.Write(ref s_gpuUnhealthy, 0);
+        }
+
+        public async Task<string> SendMessageAsync(
             string executablePath,
             string modelPath,
             string prompt,
@@ -22,18 +41,77 @@ namespace LiteRTLM.Unity
             bool enableConstrainedDecoding = false,
             bool outputMessageJson = false)
         {
-            return RunProcessAsync(
-                executablePath,
-                modelPath,
-                prompt,
-                backend,
-                timeout,
-                cancellationToken,
-                systemMessage,
-                toolsJson,
-                messagesJson,
-                enableConstrainedDecoding,
-                outputMessageJson);
+            var isGpuRequest = string.Equals(backend?.Trim(), GpuBackendName, StringComparison.OrdinalIgnoreCase);
+            if (isGpuRequest && IsGpuUnhealthy)
+            {
+                LogFallbackWarning("GPU backend was marked unhealthy earlier this session; running on CPU directly.");
+                backend = CpuBackendName;
+                isGpuRequest = false;
+            }
+
+            try
+            {
+                var output = await RunProcessAsync(
+                        executablePath,
+                        modelPath,
+                        prompt,
+                        backend,
+                        timeout,
+                        cancellationToken,
+                        systemMessage,
+                        toolsJson,
+                        messagesJson,
+                        enableConstrainedDecoding,
+                        outputMessageJson)
+                    .ConfigureAwait(false);
+
+                if (!isGpuRequest || !string.IsNullOrWhiteSpace(output))
+                {
+                    return output;
+                }
+
+                MarkGpuUnhealthy("GPU run produced empty output; retrying once on CPU.");
+            }
+            catch (Exception ex) when (isGpuRequest &&
+                                       !cancellationToken.IsCancellationRequested &&
+                                       IsGpuFallbackEligible(ex))
+            {
+                MarkGpuUnhealthy($"GPU run failed ({ex.GetType().Name}: {ex.Message}); retrying once on CPU.");
+            }
+
+            return await RunProcessAsync(
+                    executablePath,
+                    modelPath,
+                    prompt,
+                    CpuBackendName,
+                    timeout,
+                    cancellationToken,
+                    systemMessage,
+                    toolsJson,
+                    messagesJson,
+                    enableConstrainedDecoding,
+                    outputMessageJson)
+                .ConfigureAwait(false);
+        }
+
+        private static bool IsGpuFallbackEligible(Exception exception)
+        {
+            // Non-zero exit code or empty wrapper output surface as InvalidOperationException;
+            // driver hangs surface as TimeoutException via the caller-provided timeout.
+            return exception is TimeoutException ||
+                   exception is InvalidOperationException ||
+                   exception is IOException;
+        }
+
+        private static void MarkGpuUnhealthy(string reason)
+        {
+            Volatile.Write(ref s_gpuUnhealthy, 1);
+            LogFallbackWarning($"{reason} GPU is marked unhealthy for the rest of this session.");
+        }
+
+        private static void LogFallbackWarning(string message)
+        {
+            UnityEngine.Debug.LogWarning($"{FallbackLogPrefix}{message}");
         }
 
         public string SendMessage(

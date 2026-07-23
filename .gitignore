@@ -79,3 +79,12 @@ crashlytics-build.properties
 /Assets/StreamingAssets/*
 !/Assets/StreamingAssets/model.litertlm
 !/Assets/StreamingAssets/model.litertlm.meta
+
+# Generated build scenes are transient. Keep the folder .meta committed.
+/Assets/Scenes/Tests/Generated/*
+
+# Local secrets
+.env
+
+# Windows exe backups
+Tools/Windows/*.exe.backup-*

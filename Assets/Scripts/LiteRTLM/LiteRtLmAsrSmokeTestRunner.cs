@@ -15,12 +15,16 @@ namespace LiteRTLM.Unity
         private const string ConfigFileName = "LiteRtLmAsrSmokeTest.config.json";
 
         [SerializeField] private string modelPath = "parakeet_tdt_0.6b_v3_5s_i8.tflite";
-        [SerializeField] private string audioPath = "Tactical Evaluation Results Report - March 5, 2025.mp3";
+        [SerializeField] private string audioPath = "TestAssets/Audio/Tactical Evaluation Results Report - March 5, 2025.mp3";
         [SerializeField] private string tokenizerJsonPath = "parakeet-tdt-0.6b-v3/tokenizer.json";
         [SerializeField] private string backend = "GPU_FP16";
         [SerializeField] private string asrMode = "parakeet";
         [SerializeField] private string asrLanguage = "auto";
         [SerializeField] private int benchmarkRuns = 1;
+
+        // Optional reference transcript for a display-only EXPECTED_MATCH
+        // status line (space/punct-insensitive). Never fed to the model.
+        [SerializeField] private string expectedTranscript = "";
 
         private LiteRtLmUnityClient client;
 
@@ -169,9 +173,20 @@ namespace LiteRTLM.Unity
                 {
                     var startedAt = Time.realtimeSinceStartup;
                     WriteStatus("ASR_INVOKE", $"run={run}/{runs}, invoking {normalizedMode} LiteRT ASR smoke path with backend={backend}, language={normalizedLanguage}.");
-                    var asrJson = normalizedMode == "whisper"
-                        ? client.RunWhisperAsrSmoke(resolvedModelPath, resolvedAudioPath, resolvedTokenizerPath, backend, normalizedLanguage)
-                        : client.RunParakeetAsrSmoke(resolvedModelPath, resolvedAudioPath, resolvedTokenizerPath, backend);
+                    string asrJson;
+                    switch (normalizedMode)
+                    {
+                        case "whisper":
+                            asrJson = client.RunWhisperAsrSmoke(resolvedModelPath, resolvedAudioPath, resolvedTokenizerPath, backend, normalizedLanguage);
+                            break;
+                        case "qwen3":
+                        case "qwen3-asr":
+                            asrJson = client.RunQwen3AsrSmoke(resolvedModelPath, resolvedAudioPath, resolvedTokenizerPath, backend, normalizedLanguage);
+                            break;
+                        default:
+                            asrJson = client.RunParakeetAsrSmoke(resolvedModelPath, resolvedAudioPath, resolvedTokenizerPath, backend);
+                            break;
+                    }
                     var elapsedSeconds = Time.realtimeSinceStartup - startedAt;
 
                     if (string.IsNullOrWhiteSpace(asrJson))
@@ -202,6 +217,15 @@ namespace LiteRTLM.Unity
 
                     lastAsrJson = asrJson;
                     WriteStatus("ASR_RESULT", $"run={run}/{runs}, elapsedSeconds={elapsedSeconds:0.###}, raw={OneLine(Truncate(asrJson, 3000))}");
+
+                    if (!string.IsNullOrWhiteSpace(expectedTranscript) &&
+                        TryGetJsonString(asrJson, "transcriptCandidate", out var transcriptCandidate))
+                    {
+                        var matched = NormalizeForMatch(expectedTranscript) == NormalizeForMatch(transcriptCandidate);
+                        WriteStatus(
+                            "EXPECTED_MATCH",
+                            $"run={run}/{runs}, matched={matched}, comparison=space/punct-insensitive, expected={expectedTranscript}, transcript={transcriptCandidate}");
+                    }
                 }
 
                 WriteStatus(
@@ -333,6 +357,10 @@ namespace LiteRTLM.Unity
                 {
                     benchmarkRuns = configuredBenchmarkRuns;
                 }
+                if (TryGetJsonString(json, "expectedTranscript", out var configuredExpectedTranscript))
+                {
+                    expectedTranscript = configuredExpectedTranscript;
+                }
 
                 WriteStatus("CONFIG", $"loaded={configPath}, mode={asrMode}, model={modelPath}, backend={backend}, language={asrLanguage}, benchmarkRuns={benchmarkRuns}");
             }
@@ -379,6 +407,13 @@ namespace LiteRTLM.Unity
             return string.IsNullOrEmpty(value)
                 ? string.Empty
                 : value.Replace("\r", " ").Replace("\n", " ").Trim();
+        }
+
+        private static string NormalizeForMatch(string value)
+        {
+            return string.IsNullOrEmpty(value)
+                ? string.Empty
+                : Regex.Replace(value, "[\\s.,!?\"'()\\-:;·、。，]+", string.Empty).ToLowerInvariant();
         }
 
         private static bool TryGetJsonString(string json, string propertyName, out string value)

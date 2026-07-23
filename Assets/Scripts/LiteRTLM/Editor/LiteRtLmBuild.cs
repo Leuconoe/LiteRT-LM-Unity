@@ -15,12 +15,19 @@ namespace LiteRTLM.Unity.Editor
     public static class LiteRtLmBuild
     {
         private const string ScenePath = "Assets/Scenes/LiteRtLmSampleScene.unity";
-        private const string AndroidSmokeBuildScenePath = "Assets/Scenes/LiteRtLmAndroidSmokeTestBuildScene.generated.unity";
-        private const string AndroidAsrSmokeBuildScenePath = "Assets/Scenes/LiteRtLmAsrSmokeTestBuildScene.generated.unity";
-        private const string ConversationTestScenePath = "Assets/Scenes/LiteRtLmConversationTestScene.unity";
-        private const string FunctionCallingBenchmarkScenePath = "Assets/Scenes/LiteRtLmFunctionCallingBenchmarkScene.unity";
+        private const string AndroidSmokeBuildScenePath = "Assets/Scenes/Tests/Generated/LiteRtLmAndroidSmokeTestBuildScene.generated.unity";
+        private const string AndroidAsrSmokeBuildScenePath = "Assets/Scenes/Tests/Generated/LiteRtLmAsrSmokeTestBuildScene.generated.unity";
+        private const string AndroidAsrFunctionCallingBuildScenePath = "Assets/Scenes/Tests/Generated/LiteRtLmAsrFunctionCallingDemoBuildScene.generated.unity";
+        private const string AndroidAsrFunctionCallingTestBuildScenePath = "Assets/Scenes/Tests/Generated/LiteRtLmAsrFunctionCallingTestBuildScene.generated.unity";
+        private const string ConversationTestScenePath = "Assets/Scenes/Tests/LiteRtLmConversationTestScene.unity";
+        private const string FunctionCallingBenchmarkScenePath = "Assets/Scenes/Tests/LiteRtLmFunctionCallingBenchmarkScene.unity";
+        private const string LlmChatTestScenePath = LiteRtLmTestSceneGenerator.LlmChatTestScenePath;
+        private const string AsrTestScenePath = LiteRtLmTestSceneGenerator.AsrTestScenePath;
+        private const string MultimodalTestScenePath = LiteRtLmTestSceneGenerator.MultimodalTestScenePath;
+        private const string AsrFunctionCallingTestScenePath = LiteRtLmTestSceneGenerator.AsrFunctionCallingTestScenePath;
+        private const string MultimodalFunctionCallingTestScenePath = LiteRtLmTestSceneGenerator.MultimodalFunctionCallingTestScenePath;
         private const string StreamingAssetsModelPath = "Assets/StreamingAssets/model.litertlm";
-        private const string WindowsSelfTestModelFileName = "gemma-4-E2B-it.litertlm";
+        private const string WindowsSelfTestModelFileName = "Multimodal/gemma-4-e2b/gemma-4-E2B-it.litertlm";
         private const string WindowsSelfTestExecutableRelativePath = "Tools/Windows/litert_lm_main.windows_x86_64.exe";
         private const string WindowsSelfTestPrompt = "Say hello from LiteRT-LM Unity editor self-test.";
         private const string WindowsSelfTestStatusRelativePath = "Builds/Logs/LiteRtLmEditorSelfTest.status.txt";
@@ -28,16 +35,20 @@ namespace LiteRTLM.Unity.Editor
         private const string FunctionCallingBenchmarkStatusRelativePath = "Builds/Logs/LiteRtLmFunctionCallingBenchmark.status.txt";
         private const string ConversationRequiredToken = "LRT-CTX-042";
         private const double FunctionCallingBenchmarkConsoleMirrorIntervalSeconds = 1.0;
-        private const string FunctionCallingGemma4ModelPath = "gemma-4-E2B-it.litertlm";
-        private const string FunctionCallingGemma1BModelPath = "gemma3-1b-it-int4.litertlm";
-        private const string FunctionCallingGemma270MModelPath = "gemma3-270m-it-q8.litertlm";
-        private const string FunctionCallingQwen25ModelPath = "Qwen2.5-0.5B-Instruct-q8.litertlm";
-        private const string FunctionCallingQwen25_1_5BModelPath = "Qwen2.5-1.5B-Instruct-q8.litertlm";
-        private const string FunctionCallingQwen3ModelPath = "Qwen3-0.6B.litertlm";
+        private const string FunctionCallingGemma4ModelPath = "Multimodal/gemma-4-e2b/gemma-4-E2B-it.litertlm";
+        private const string FunctionCallingGemma1BModelPath = "LLM/gemma3-1b/gemma3-1b-it-int4.litertlm";
+        private const string FunctionCallingGemma270MModelPath = "LLM/gemma3-270m/gemma3-270m-it-q8.litertlm";
+        private const string FunctionCallingQwen25ModelPath = "LLM/qwen2.5-0.5b/Qwen2.5-0.5B-Instruct-q8.litertlm";
+        private const string FunctionCallingQwen25_1_5BModelPath = "LLM/qwen2.5-1.5b/Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv4096.litertlm";
+        private const string FunctionCallingQwen3ModelPath = "LLM/qwen3-0.6b/Qwen3-0.6B.litertlm";
         private const string FunctionCallingMobileActionsModelPath = "mobile_actions_q8_ekv1024.litertlm";
         private const string AsrSmokeDefaultModelPath = "parakeet_tdt_0.6b_v3_5s_i8.tflite";
-        private const string AsrSmokeDefaultAudioPath = "Tactical Evaluation Results Report - March 5, 2025.mp3";
+        private const string AsrSmokeDefaultAudioPath = "TestAssets/Audio/Tactical Evaluation Results Report - March 5, 2025.mp3";
         private const string AsrSmokeTokenizerJsonPath = "parakeet-tdt-0.6b-v3/tokenizer.json";
+        private const string AsrFunctionCallingDefaultAudioPath = "TestAssets/Audio/2025년 3월 5일 전술평가 결과 보고.mp3";
+        private const string AsrFunctionCallingDefaultAsrModelPath = "ASR/whisper-tiny/whisper_tiny_30s_i8.tflite";
+        private const string AsrFunctionCallingDefaultTokenizerJsonPath = "ASR/whisper-tiny/tokenizer.json";
+        private const string AsrFunctionCallingDefaultOutputApk = "LiteRtLmAndroidAsrFunctionCallingDemo-gemma3-1b-whisper-tiny.apk";
 
         private static bool functionCallingBenchmarkConsoleMirrorActive;
         private static long functionCallingBenchmarkConsoleMirrorPosition;
@@ -101,6 +112,41 @@ namespace LiteRTLM.Unity.Editor
             public string Backend { get; }
             public string AsrMode { get; }
             public string AsrLanguage { get; }
+            public string OutputFileName { get; }
+        }
+
+        private readonly struct AndroidAsrFunctionCallingBuildSettings
+        {
+            public AndroidAsrFunctionCallingBuildSettings(
+                string asrModelFileName,
+                string audioFileName,
+                string tokenizerJsonPath,
+                string asrBackend,
+                string asrLanguage,
+                string llmModelFileName,
+                string llmBackend,
+                int llmMaxNumTokens,
+                string outputFileName)
+            {
+                AsrModelFileName = asrModelFileName;
+                AudioFileName = audioFileName;
+                TokenizerJsonPath = tokenizerJsonPath;
+                AsrBackend = asrBackend;
+                AsrLanguage = asrLanguage;
+                LlmModelFileName = llmModelFileName;
+                LlmBackend = llmBackend;
+                LlmMaxNumTokens = llmMaxNumTokens;
+                OutputFileName = outputFileName;
+            }
+
+            public string AsrModelFileName { get; }
+            public string AudioFileName { get; }
+            public string TokenizerJsonPath { get; }
+            public string AsrBackend { get; }
+            public string AsrLanguage { get; }
+            public string LlmModelFileName { get; }
+            public string LlmBackend { get; }
+            public int LlmMaxNumTokens { get; }
             public string OutputFileName { get; }
         }
 
@@ -345,6 +391,221 @@ namespace LiteRTLM.Unity.Editor
             BuildAndroidAsrSmokeTestApk(new AndroidAsrSmokeBuildSettings(modelFileName, audioFileName, tokenizerJsonPath, backend, asrMode, asrLanguage, outputFileName));
         }
 
+        public static void BuildAndroidAsrFunctionCallingDemoApk()
+        {
+            BuildAndroidAsrFunctionCallingDemoApk(new AndroidAsrFunctionCallingBuildSettings(
+                AsrFunctionCallingDefaultAsrModelPath,
+                AsrFunctionCallingDefaultAudioPath,
+                AsrFunctionCallingDefaultTokenizerJsonPath,
+                "CPU",
+                "ko",
+                FunctionCallingGemma1BModelPath,
+                "GPU",
+                512,
+                AsrFunctionCallingDefaultOutputApk));
+        }
+
+        public static void BuildAndroidAsrFunctionCallingDemoApkFromCommandLine()
+        {
+            var args = Environment.GetCommandLineArgs();
+            var asrModelFileName = GetCommandLineValue(args, "-litertlmAsrModel", AsrFunctionCallingDefaultAsrModelPath);
+            var audioFileName = GetCommandLineValue(args, "-litertlmAsrAudio", AsrFunctionCallingDefaultAudioPath);
+            var tokenizerJsonPath = GetCommandLineValue(args, "-litertlmAsrTokenizer", AsrFunctionCallingDefaultTokenizerJsonPath);
+            var asrBackend = GetCommandLineValue(args, "-litertlmAsrBackend", "CPU");
+            var asrLanguage = GetCommandLineValue(args, "-litertlmAsrLanguage", "ko");
+            var llmModelFileName = GetCommandLineValue(args, "-litertlmLlmModel", FunctionCallingGemma1BModelPath);
+            var llmBackend = GetCommandLineValue(args, "-litertlmLlmBackend", "GPU");
+            var llmMaxNumTokens = GetCommandLineInt(args, "-litertlmLlmMaxNumTokens", 512);
+            var outputFileName = GetCommandLineValue(args, "-litertlmOutputApk", AsrFunctionCallingDefaultOutputApk);
+
+            BuildAndroidAsrFunctionCallingDemoApk(new AndroidAsrFunctionCallingBuildSettings(
+                asrModelFileName,
+                audioFileName,
+                tokenizerJsonPath,
+                asrBackend,
+                asrLanguage,
+                llmModelFileName,
+                llmBackend,
+                llmMaxNumTokens,
+                outputFileName));
+        }
+
+        [MenuItem("LiteRT-LM/Android/Build LLM Chat Test APK")]
+        public static void BuildAndroidLlmChatTestApk()
+        {
+            var packagedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "README.txt",
+                "README.txt.meta",
+            };
+            AddPackagedStreamingAssetIfPresent(packagedFiles, FunctionCallingGemma4ModelPath);
+            AddPackagedStreamingAssetIfPresent(packagedFiles, FunctionCallingGemma1BModelPath);
+            AddPackagedStreamingAssetIfPresent(packagedFiles, FunctionCallingGemma270MModelPath);
+            AddPackagedStreamingAssetIfPresent(packagedFiles, FunctionCallingQwen3ModelPath);
+            AddPackagedStreamingAssetIfPresent(packagedFiles, FunctionCallingQwen25ModelPath);
+
+            BuildAndroidPersistentSceneApk(
+                LlmChatTestScenePath,
+                "LiteRtLmLlmChatTest.apk",
+                packagedFiles,
+                "LLM chat test");
+        }
+
+        [MenuItem("LiteRT-LM/Android/Build ASR Test APK")]
+        public static void BuildAndroidAsrTestApk()
+        {
+            var packagedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "README.txt",
+                "README.txt.meta",
+            };
+            var whisperModels = new[]
+            {
+                "ASR/whisper-tiny/whisper_tiny_30s_i8.tflite",
+                "ASR/whisper-base/whisper_base_30s_f32.tflite",
+            };
+            foreach (var whisperModel in whisperModels)
+            {
+                AddPackagedStreamingAssetIfPresent(packagedFiles, whisperModel);
+                var encoderCompanionModel = GetWhisperEncoderCompanionModelFileName(whisperModel);
+                if (!string.IsNullOrWhiteSpace(encoderCompanionModel))
+                {
+                    AddPackagedStreamingAssetIfPresent(packagedFiles, encoderCompanionModel);
+                }
+            }
+
+            AddPackagedStreamingAssetIfPresent(packagedFiles, "TestAssets/Audio/2025년 3월 5일 전술평가 결과 보고.mp3");
+            AddPackagedStreamingAssetIfPresent(packagedFiles, "TestAssets/Audio/Tactical Evaluation Results Report - March 5, 2025.mp3");
+
+            AddPackagedStreamingAssetIfPresent(packagedFiles, "ASR/whisper-tiny/tokenizer.json");
+            AddPackagedStreamingAssetIfPresent(packagedFiles, "ASR/whisper-base/tokenizer.json");
+
+            BuildAndroidPersistentSceneApk(
+                AsrTestScenePath,
+                "LiteRtLmAsrTest.apk",
+                packagedFiles,
+                "ASR test");
+        }
+
+        [MenuItem("LiteRT-LM/Android/Build ASR Function Calling Test APK")]
+        public static void BuildAndroidAsrFunctionCallingTestApk()
+        {
+            BuildAndroidAsrFunctionCallingDemoApk(
+                new AndroidAsrFunctionCallingBuildSettings(
+                    AsrFunctionCallingDefaultAsrModelPath,
+                    AsrFunctionCallingDefaultAudioPath,
+                    AsrFunctionCallingDefaultTokenizerJsonPath,
+                    "CPU",
+                    "ko",
+                    FunctionCallingGemma1BModelPath,
+                    "GPU",
+                    512,
+                    "LiteRtLmAsrFunctionCallingTest.apk"),
+                CreateAsrFunctionCallingTestBuildSceneCopy);
+        }
+
+        // The multimodal FC runner is runtime-config driven on Android: the
+        // media-capable model (e.g. gemma-4 E2B) and the stage-1 image/audio are
+        // pushed to the device at run time (absolute paths via
+        // LiteRtLmMultimodalFunctionCallingDemo.config.json), so nothing heavy is
+        // packaged into StreamingAssets here.
+        [MenuItem("LiteRT-LM/Android/Build Multimodal Function Calling Test APK")]
+        public static void BuildAndroidMultimodalFunctionCallingTestApk()
+        {
+            var packagedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "README.txt",
+                "README.txt.meta",
+            };
+
+            BuildAndroidPersistentSceneApk(
+                MultimodalFunctionCallingTestScenePath,
+                "LiteRtLmMultimodalFunctionCallingTest.apk",
+                packagedFiles,
+                "multimodal function-calling test");
+        }
+
+        private static void AddPackagedStreamingAssetIfPresent(HashSet<string> packagedFiles, string fileName)
+        {
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                return;
+            }
+
+            var assetPath = Path.Combine(GetProjectRoot(), "Assets", "StreamingAssets", fileName);
+            if (!File.Exists(assetPath))
+            {
+                Debug.LogWarning($"LiteRT-LM Android build skipping missing StreamingAssets file: {fileName}");
+                return;
+            }
+
+            packagedFiles.Add(fileName);
+            packagedFiles.Add(fileName + ".meta");
+        }
+
+        private static void BuildAndroidPersistentSceneApk(
+            string scenePath,
+            string outputFileName,
+            HashSet<string> packagedFiles,
+            string description)
+        {
+            var projectRoot = GetProjectRoot();
+            if (!File.Exists(Path.Combine(projectRoot, scenePath)))
+            {
+                throw new FileNotFoundException(
+                    $"Android {description} scene not found: {scenePath}. Run LiteRT-LM/Test Scenes/Generate All first.",
+                    scenePath);
+            }
+
+            var outputDirectory = Path.Combine(projectRoot, "Builds", "Android");
+            Directory.CreateDirectory(outputDirectory);
+            var outputPath = Path.Combine(outputDirectory, outputFileName);
+            if (File.Exists(outputPath))
+            {
+                File.Delete(outputPath);
+            }
+
+            var previousArchitectures = PlayerSettings.Android.targetArchitectures;
+            var androidBuildTarget = UnityEditor.Build.NamedBuildTarget.Android;
+            var previousScriptingBackend = PlayerSettings.GetScriptingBackend(androidBuildTarget);
+            var previousUseDefaultGraphicsApis = PlayerSettings.GetUseDefaultGraphicsAPIs(BuildTarget.Android);
+            var previousGraphicsApis = PlayerSettings.GetGraphicsAPIs(BuildTarget.Android);
+
+            try
+            {
+                PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
+                PlayerSettings.SetScriptingBackend(androidBuildTarget, ScriptingImplementation.IL2CPP);
+                PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.Android, false);
+                PlayerSettings.SetGraphicsAPIs(BuildTarget.Android, new[] { GraphicsDeviceType.OpenGLES3 });
+
+                WithAndroidSelectedStreamingAssets(packagedFiles, () =>
+                {
+                    var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
+                    {
+                        scenes = new[] { scenePath },
+                        locationPathName = outputPath,
+                        target = BuildTarget.Android,
+                        options = BuildOptions.Development,
+                    });
+
+                    if (report.summary.result != BuildResult.Succeeded)
+                    {
+                        throw new InvalidOperationException(
+                            $"Android {description} build failed with result {report.summary.result}. See Unity Editor log for details.");
+                    }
+                });
+
+                Debug.Log($"LiteRT-LM Android {description} APK built successfully: {outputPath}, scene={scenePath}, packagedFiles={packagedFiles.Count}");
+            }
+            finally
+            {
+                PlayerSettings.Android.targetArchitectures = previousArchitectures;
+                PlayerSettings.SetScriptingBackend(androidBuildTarget, previousScriptingBackend);
+                PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.Android, previousUseDefaultGraphicsApis);
+                PlayerSettings.SetGraphicsAPIs(BuildTarget.Android, previousGraphicsApis);
+            }
+        }
+
         private static void BuildAndroidAvdSmokeTestApk(AndroidSmokeBuildSettings settings)
         {
             if (string.IsNullOrWhiteSpace(settings.ModelFileName))
@@ -515,6 +776,120 @@ namespace LiteRTLM.Unity.Editor
                 });
 
                 Debug.Log($"LiteRT-LM Android ASR smoke APK built successfully: {outputPath}, mode={settings.AsrMode}, model={settings.ModelFileName}, audio={settings.AudioFileName}, tokenizer={settings.TokenizerJsonPath}, backend={settings.Backend}");
+            }
+            finally
+            {
+                DeleteGeneratedBuildScene(buildScenePath);
+                PlayerSettings.Android.targetArchitectures = previousArchitectures;
+                PlayerSettings.SetScriptingBackend(androidBuildTarget, previousScriptingBackend);
+                PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.Android, previousUseDefaultGraphicsApis);
+                PlayerSettings.SetGraphicsAPIs(BuildTarget.Android, previousGraphicsApis);
+            }
+        }
+
+        private static void BuildAndroidAsrFunctionCallingDemoApk(
+            AndroidAsrFunctionCallingBuildSettings settings,
+            Func<AndroidAsrFunctionCallingBuildSettings, string> buildSceneFactory = null)
+        {
+            if (string.IsNullOrWhiteSpace(settings.AsrModelFileName))
+            {
+                throw new ArgumentException("Android ASR function-calling demo ASR model file name is required.", nameof(settings));
+            }
+            if (string.IsNullOrWhiteSpace(settings.AudioFileName))
+            {
+                throw new ArgumentException("Android ASR function-calling demo audio file name is required.", nameof(settings));
+            }
+            if (string.IsNullOrWhiteSpace(settings.TokenizerJsonPath))
+            {
+                throw new ArgumentException("Android ASR function-calling demo tokenizer path is required.", nameof(settings));
+            }
+            if (string.IsNullOrWhiteSpace(settings.LlmModelFileName))
+            {
+                throw new ArgumentException("Android ASR function-calling demo LLM model file name is required.", nameof(settings));
+            }
+            if (string.IsNullOrWhiteSpace(settings.AsrBackend) || string.IsNullOrWhiteSpace(settings.LlmBackend))
+            {
+                throw new ArgumentException("Android ASR function-calling demo backends are required.", nameof(settings));
+            }
+
+            var projectRoot = GetProjectRoot();
+            var streamingAssetsRoot = Path.Combine(projectRoot, "Assets", "StreamingAssets");
+            var asrModelAssetPath = Path.Combine(streamingAssetsRoot, settings.AsrModelFileName);
+            if (!File.Exists(asrModelAssetPath))
+            {
+                throw new FileNotFoundException($"Android ASR function-calling demo ASR model not found: {asrModelAssetPath}", asrModelAssetPath);
+            }
+
+            var llmModelAssetPath = Path.Combine(streamingAssetsRoot, settings.LlmModelFileName);
+            if (!File.Exists(llmModelAssetPath))
+            {
+                throw new FileNotFoundException($"Android ASR function-calling demo LLM model not found: {llmModelAssetPath}", llmModelAssetPath);
+            }
+
+            var audioAssetPath = Path.Combine(streamingAssetsRoot, settings.AudioFileName);
+            if (!File.Exists(audioAssetPath))
+            {
+                throw new FileNotFoundException($"Android ASR function-calling demo audio not found: {audioAssetPath}", audioAssetPath);
+            }
+
+            var tokenizerAssetPath = Path.Combine(streamingAssetsRoot, settings.TokenizerJsonPath);
+            if (!File.Exists(tokenizerAssetPath))
+            {
+                throw new FileNotFoundException($"Android ASR function-calling demo tokenizer not found: {tokenizerAssetPath}", tokenizerAssetPath);
+            }
+
+            var outputDirectory = Path.Combine(projectRoot, "Builds", "Android");
+            Directory.CreateDirectory(outputDirectory);
+            var outputPath = Path.Combine(outputDirectory, settings.OutputFileName);
+            if (File.Exists(outputPath))
+            {
+                File.Delete(outputPath);
+            }
+
+            var previousArchitectures = PlayerSettings.Android.targetArchitectures;
+            var androidBuildTarget = UnityEditor.Build.NamedBuildTarget.Android;
+            var previousScriptingBackend = PlayerSettings.GetScriptingBackend(androidBuildTarget);
+            var previousUseDefaultGraphicsApis = PlayerSettings.GetUseDefaultGraphicsAPIs(BuildTarget.Android);
+            var previousGraphicsApis = PlayerSettings.GetGraphicsAPIs(BuildTarget.Android);
+            var buildScenePath = (buildSceneFactory ?? CreateAndroidAsrFunctionCallingBuildScene)(settings);
+
+            try
+            {
+                PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
+                PlayerSettings.SetScriptingBackend(androidBuildTarget, ScriptingImplementation.IL2CPP);
+                PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.Android, false);
+                PlayerSettings.SetGraphicsAPIs(BuildTarget.Android, new[] { GraphicsDeviceType.OpenGLES3 });
+
+                var packagedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    settings.AsrModelFileName,
+                    settings.AsrModelFileName + ".meta",
+                    settings.LlmModelFileName,
+                    settings.LlmModelFileName + ".meta",
+                    settings.AudioFileName,
+                    settings.AudioFileName + ".meta",
+                    settings.TokenizerJsonPath,
+                    settings.TokenizerJsonPath + ".meta",
+                };
+
+                WithAndroidSelectedStreamingAssets(packagedFiles, () =>
+                {
+                    var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
+                    {
+                        scenes = new[] { buildScenePath },
+                        locationPathName = outputPath,
+                        target = BuildTarget.Android,
+                        options = BuildOptions.Development,
+                    });
+
+                    if (report.summary.result != BuildResult.Succeeded)
+                    {
+                        throw new InvalidOperationException(
+                            $"Android ASR function-calling demo build failed with result {report.summary.result}. See Unity Editor log for details.");
+                    }
+                });
+
+                Debug.Log($"LiteRT-LM Android ASR function-calling demo APK built successfully: {outputPath}, asrModel={settings.AsrModelFileName}, llmModel={settings.LlmModelFileName}, audio={settings.AudioFileName}, tokenizer={settings.TokenizerJsonPath}, asrBackend={settings.AsrBackend}, llmBackend={settings.LlmBackend}");
             }
             finally
             {
@@ -1090,6 +1465,97 @@ namespace LiteRTLM.Unity.Editor
             }
         }
 
+        private static string CreateAndroidAsrFunctionCallingBuildScene(AndroidAsrFunctionCallingBuildSettings settings)
+        {
+            DeleteGeneratedBuildScene(AndroidAsrFunctionCallingBuildScenePath);
+
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, GetTemporarySceneMode());
+            try
+            {
+                var runnerObject = new GameObject("LiteRtLmAsrFunctionCallingDemoRunner");
+                SceneManager.MoveGameObjectToScene(runnerObject, scene);
+                var runner = runnerObject.AddComponent<LiteRtLmAsrFunctionCallingDemoRunner>();
+                ApplyAndroidAsrFunctionCallingBuildSettings(runner, settings);
+
+                var sceneDirectory = Path.GetDirectoryName(Path.Combine(GetProjectRoot(), AndroidAsrFunctionCallingBuildScenePath));
+                if (!string.IsNullOrWhiteSpace(sceneDirectory))
+                {
+                    Directory.CreateDirectory(sceneDirectory);
+                }
+
+                if (!EditorSceneManager.SaveScene(scene, AndroidAsrFunctionCallingBuildScenePath))
+                {
+                    throw new InvalidOperationException($"Failed to save Android ASR function-calling demo build scene: {AndroidAsrFunctionCallingBuildScenePath}");
+                }
+
+                EditorSceneManager.CloseScene(scene, true);
+                AssetDatabase.ImportAsset(AndroidAsrFunctionCallingBuildScenePath, ImportAssetOptions.ForceUpdate);
+                Debug.Log($"LiteRT-LM Android ASR function-calling demo build scene generated: {AndroidAsrFunctionCallingBuildScenePath}, asrModel={settings.AsrModelFileName}, llmModel={settings.LlmModelFileName}, audio={settings.AudioFileName}, asrBackend={settings.AsrBackend}, llmBackend={settings.LlmBackend}");
+                return AndroidAsrFunctionCallingBuildScenePath;
+            }
+            catch
+            {
+                if (scene.IsValid() && scene.isLoaded)
+                {
+                    EditorSceneManager.CloseScene(scene, true);
+                }
+
+                DeleteGeneratedBuildScene(AndroidAsrFunctionCallingBuildScenePath);
+                throw;
+            }
+        }
+
+        private static string CreateAsrFunctionCallingTestBuildSceneCopy(AndroidAsrFunctionCallingBuildSettings settings)
+        {
+            var projectRoot = GetProjectRoot();
+            if (!File.Exists(Path.Combine(projectRoot, AsrFunctionCallingTestScenePath)))
+            {
+                throw new FileNotFoundException(
+                    $"ASR function-calling test scene not found: {AsrFunctionCallingTestScenePath}. Run LiteRT-LM/Test Scenes/Generate All first.",
+                    AsrFunctionCallingTestScenePath);
+            }
+
+            DeleteGeneratedBuildScene(AndroidAsrFunctionCallingTestBuildScenePath);
+            var sceneDirectory = Path.GetDirectoryName(Path.Combine(projectRoot, AndroidAsrFunctionCallingTestBuildScenePath));
+            if (!string.IsNullOrWhiteSpace(sceneDirectory))
+            {
+                Directory.CreateDirectory(sceneDirectory);
+            }
+
+            if (!AssetDatabase.CopyAsset(AsrFunctionCallingTestScenePath, AndroidAsrFunctionCallingTestBuildScenePath))
+            {
+                throw new InvalidOperationException(
+                    $"Failed to copy ASR function-calling test scene to {AndroidAsrFunctionCallingTestBuildScenePath}");
+            }
+
+            try
+            {
+                var scene = EditorSceneManager.OpenScene(AndroidAsrFunctionCallingTestBuildScenePath, OpenSceneMode.Single);
+                var runner = UnityEngine.Object.FindAnyObjectByType<LiteRtLmAsrFunctionCallingDemoRunner>();
+                if (runner == null)
+                {
+                    throw new InvalidOperationException(
+                        $"ASR function-calling test scene does not contain {nameof(LiteRtLmAsrFunctionCallingDemoRunner)}.");
+                }
+
+                ApplyAndroidAsrFunctionCallingBuildSettings(runner, settings);
+                if (!EditorSceneManager.SaveScene(scene, AndroidAsrFunctionCallingTestBuildScenePath))
+                {
+                    throw new InvalidOperationException(
+                        $"Failed to save ASR function-calling test build scene copy: {AndroidAsrFunctionCallingTestBuildScenePath}");
+                }
+
+                AssetDatabase.ImportAsset(AndroidAsrFunctionCallingTestBuildScenePath, ImportAssetOptions.ForceUpdate);
+                Debug.Log($"LiteRT-LM ASR function-calling test build scene copy generated: {AndroidAsrFunctionCallingTestBuildScenePath}, asrModel={settings.AsrModelFileName}, llmModel={settings.LlmModelFileName}");
+                return AndroidAsrFunctionCallingTestBuildScenePath;
+            }
+            catch
+            {
+                DeleteGeneratedBuildScene(AndroidAsrFunctionCallingTestBuildScenePath);
+                throw;
+            }
+        }
+
         private static NewSceneMode GetTemporarySceneMode()
         {
             var activeScene = SceneManager.GetActiveScene();
@@ -1147,6 +1613,22 @@ namespace LiteRTLM.Unity.Editor
             serializedRunner.ApplyModifiedPropertiesWithoutUndo();
         }
 
+        private static void ApplyAndroidAsrFunctionCallingBuildSettings(
+            LiteRtLmAsrFunctionCallingDemoRunner runner,
+            AndroidAsrFunctionCallingBuildSettings settings)
+        {
+            var serializedRunner = new SerializedObject(runner);
+            FindRequiredProperty(serializedRunner, "asrModelPath").stringValue = settings.AsrModelFileName;
+            FindRequiredProperty(serializedRunner, "audioPath").stringValue = settings.AudioFileName;
+            FindRequiredProperty(serializedRunner, "tokenizerJsonPath").stringValue = settings.TokenizerJsonPath;
+            FindRequiredProperty(serializedRunner, "asrBackend").stringValue = settings.AsrBackend;
+            FindRequiredProperty(serializedRunner, "asrLanguage").stringValue = settings.AsrLanguage;
+            FindRequiredProperty(serializedRunner, "llmModelPath").stringValue = settings.LlmModelFileName;
+            FindRequiredProperty(serializedRunner, "llmBackend").stringValue = settings.LlmBackend;
+            FindRequiredProperty(serializedRunner, "llmMaxNumTokens").intValue = Math.Max(1, settings.LlmMaxNumTokens);
+            serializedRunner.ApplyModifiedPropertiesWithoutUndo();
+        }
+
         private static SerializedProperty FindRequiredProperty(SerializedObject serializedObject, string propertyName)
         {
             var property = serializedObject.FindProperty(propertyName);
@@ -1162,7 +1644,9 @@ namespace LiteRTLM.Unity.Editor
         {
             if (string.IsNullOrWhiteSpace(scenePath) ||
                 (!string.Equals(scenePath, AndroidSmokeBuildScenePath, StringComparison.Ordinal) &&
-                 !string.Equals(scenePath, AndroidAsrSmokeBuildScenePath, StringComparison.Ordinal)))
+                 !string.Equals(scenePath, AndroidAsrSmokeBuildScenePath, StringComparison.Ordinal) &&
+                 !string.Equals(scenePath, AndroidAsrFunctionCallingBuildScenePath, StringComparison.Ordinal) &&
+                 !string.Equals(scenePath, AndroidAsrFunctionCallingTestBuildScenePath, StringComparison.Ordinal)))
             {
                 return;
             }
@@ -1203,20 +1687,50 @@ namespace LiteRTLM.Unity.Editor
                 DateTime.UtcNow.ToString("yyyyMMdd-HHmmssfff"));
             var movedFiles = new List<(string OriginalPath, string StashPath)>();
 
+            // Allowed entries are StreamingAssets-relative paths using forward slashes.
+            // An entry may name a single file ("LLM/gemma3-1b/model.litertlm") or a whole
+            // subfolder ("ASR/whisper-tiny"). Folder .meta files of every ancestor of an
+            // allowed entry stay in place so Unity does not regenerate folder GUIDs.
+            var allowedEntries = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var allowedFile in allowedFiles)
+            {
+                if (string.IsNullOrWhiteSpace(allowedFile))
+                {
+                    continue;
+                }
+
+                var normalizedEntry = allowedFile.Replace('\\', '/').Trim('/');
+                allowedEntries.Add(normalizedEntry);
+                var slashIndex = normalizedEntry.IndexOf('/');
+                while (slashIndex > 0)
+                {
+                    allowedEntries.Add(normalizedEntry.Substring(0, slashIndex) + ".meta");
+                    slashIndex = normalizedEntry.IndexOf('/', slashIndex + 1);
+                }
+            }
+
             try
             {
                 if (Directory.Exists(streamingAssetsDirectory))
                 {
-                    foreach (var filePath in Directory.EnumerateFiles(streamingAssetsDirectory, "*", SearchOption.TopDirectoryOnly))
+                    foreach (var filePath in Directory.EnumerateFiles(streamingAssetsDirectory, "*", SearchOption.AllDirectories))
                     {
-                        var fileName = Path.GetFileName(filePath);
-                        if (allowedFiles.Contains(fileName))
+                        var relativePath = filePath
+                            .Substring(streamingAssetsDirectory.Length)
+                            .TrimStart('\\', '/')
+                            .Replace('\\', '/');
+                        if (IsStreamingAssetAllowed(allowedEntries, relativePath))
                         {
                             continue;
                         }
 
-                        Directory.CreateDirectory(stashDirectory);
-                        var stashPath = Path.Combine(stashDirectory, fileName);
+                        var stashPath = Path.Combine(stashDirectory, relativePath.Replace('/', Path.DirectorySeparatorChar));
+                        var stashParent = Path.GetDirectoryName(stashPath);
+                        if (!string.IsNullOrWhiteSpace(stashParent))
+                        {
+                            Directory.CreateDirectory(stashParent);
+                        }
+
                         File.Move(filePath, stashPath);
                         movedFiles.Add((filePath, stashPath));
                     }
@@ -1250,6 +1764,25 @@ namespace LiteRTLM.Unity.Editor
 
                 AssetDatabase.Refresh();
             }
+        }
+
+        private static bool IsStreamingAssetAllowed(HashSet<string> allowedEntries, string relativePath)
+        {
+            if (allowedEntries.Contains(relativePath))
+            {
+                return true;
+            }
+
+            foreach (var allowedEntry in allowedEntries)
+            {
+                if (relativePath.Length > allowedEntry.Length + 1 &&
+                    relativePath.StartsWith(allowedEntry + "/", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static string Truncate(string value, int maxLength)

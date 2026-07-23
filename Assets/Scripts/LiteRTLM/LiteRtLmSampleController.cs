@@ -26,18 +26,19 @@ namespace LiteRTLM.Unity
         }
 
         [Header("LiteRT-LM")]
-        [SerializeField] private string modelPath = "gemma-4-E2B-it.litertlm";
+        [SerializeField] private string modelPath = "Multimodal/gemma-4-e2b/gemma-4-E2B-it.litertlm";
         [SerializeField] private string systemInstruction = "You are a helpful assistant.";
         [SerializeField] private string prompt = "Say hello from LiteRT-LM running inside Unity.";
         [SerializeField] private string backend = "GPU";
         [SerializeField] private string windowsCliExecutablePath = "Tools/Windows/litert_lm_main.windows_x86_64.exe";
-        [SerializeField] private string windowsBackend = "CPU";
+        [SerializeField] private string windowsBackend = "GPU";
         [SerializeField] private float windowsRequestTimeoutSeconds = 30f;
         [SerializeField] private string cacheDir = "";
         [SerializeField] private int maxNumTokens = 0;
         [SerializeField] private int cpuThreads = 0;
         [SerializeField] private bool enableSpeculativeDecoding = true;
         [SerializeField] private bool resetConversationBeforeEachPrompt = true;
+        [SerializeField] private bool enableThinking = false;
 
         private LiteRtLmUnityClient _client;
         private LiteRtLmWindowsCliClient _windowsCliClient;
@@ -162,7 +163,7 @@ namespace LiteRTLM.Unity
                             Debug.Log("[LiteRT-LM Sample] Reset conversation before sending prompt.");
                         }
 
-                        _response = _client.SendMessage(prompt);
+                        _response = _client.SendMessage(ApplyThinkingSoftSwitch(prompt));
                         _status = resetConversationBeforeEachPrompt
                             ? "Response received after conversation reset"
                             : "Response received";
@@ -295,7 +296,7 @@ namespace LiteRTLM.Unity
             var task = _windowsCliClient.SendMessageAsync(
                 _resolvedWindowsExecutablePath,
                 _resolvedModelPath,
-                prompt,
+                ApplyThinkingSoftSwitch(prompt),
                 windowsBackend,
                 TimeSpan.FromSeconds(Mathf.Max(1f, windowsRequestTimeoutSeconds)),
                 _windowsRequestCancellationTokenSource.Token);
@@ -530,6 +531,19 @@ namespace LiteRTLM.Unity
             }
 
             return string.Empty;
+        }
+
+        private string ApplyThinkingSoftSwitch(string text)
+        {
+            // Qwen3 (non-ASR) models support /think and /no_think soft switches; other models are untouched.
+            if (string.IsNullOrEmpty(modelPath) ||
+                modelPath.IndexOf("Qwen3", StringComparison.OrdinalIgnoreCase) < 0 ||
+                modelPath.IndexOf("ASR", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return text;
+            }
+
+            return text + (enableThinking ? " /think" : " /no_think");
         }
 
         private void TryRun(Action action)

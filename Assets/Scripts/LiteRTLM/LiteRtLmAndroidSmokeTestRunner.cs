@@ -25,6 +25,18 @@ namespace LiteRTLM.Unity
         [SerializeField] private string systemInstruction = "You are a concise Unity Android smoke test assistant.";
         [SerializeField] private bool resetConversationBeforeEachPrompt = true;
 
+        // Optional multimodal smoke turns (runtime-config driven). Paths must be
+        // absolute device paths (e.g. pushed via adb) or resolvable files.
+        // visionBackend/audioBackend must be set (e.g. "CPU") for the engine to
+        // load the vision/audio executors; empty string leaves them disabled.
+        [SerializeField] private string visionBackend = "";
+        [SerializeField] private string audioBackend = "";
+        [SerializeField] private bool skipTextTurns;
+        [SerializeField] private string mediaImagePath = "";
+        [SerializeField] private string mediaImagePrompt = "Describe this image briefly.";
+        [SerializeField] private string mediaAudioPath = "";
+        [SerializeField] private string mediaAudioPrompt = "Transcribe the audio:";
+
         private readonly string[] prompts =
         {
             "Reply with exactly: Android LiteRT-LM smoke test turn one.",
@@ -88,11 +100,22 @@ namespace LiteRTLM.Unity
                     maxNumImages,
                     0,
                     enableSpeculativeDecoding,
-                    systemInstruction);
+                    systemInstruction,
+                    visionBackend: visionBackend,
+                    audioBackend: audioBackend);
                 var initializeElapsedSeconds = Time.realtimeSinceStartup - initializeStartedAt;
                 WriteStatus("INITIALIZED", $"isInitialized={client.IsInitialized}, elapsedSeconds={initializeElapsedSeconds:0.###}");
 
-                RunPromptTurns();
+                if (skipTextTurns)
+                {
+                    WriteStatus("TEXT_TURNS_SKIPPED", "skipTextTurns=true (media-only smoke run).");
+                }
+                else
+                {
+                    RunPromptTurns();
+                }
+
+                RunMediaTurns();
 
                 if (runStandaloneBenchmark && benchmarkPrefillTokens > 0 && benchmarkDecodeTokens > 0)
                 {
@@ -140,6 +163,48 @@ namespace LiteRTLM.Unity
                     "RESPONSE",
                     $"{turn}/{prompts.Length}: elapsedSeconds={elapsedSeconds:0.###}, length={response.Length}, preview={OneLine(Truncate(response, 180))}");
             }
+        }
+
+        private void RunMediaTurns()
+        {
+            if (!string.IsNullOrWhiteSpace(mediaImagePath))
+            {
+                RunMediaTurn("image", mediaImagePrompt, mediaImagePath, string.Empty);
+            }
+
+            if (!string.IsNullOrWhiteSpace(mediaAudioPath))
+            {
+                RunMediaTurn("audio", mediaAudioPrompt, string.Empty, mediaAudioPath);
+            }
+        }
+
+        private void RunMediaTurn(string label, string prompt, string imagePath, string audioPath)
+        {
+            var mediaPath = string.IsNullOrWhiteSpace(imagePath) ? audioPath : imagePath;
+            if (!File.Exists(mediaPath))
+            {
+                throw new FileNotFoundException($"Media {label} file not found: {mediaPath}", mediaPath);
+            }
+
+            if (resetConversationBeforeEachPrompt)
+            {
+                WriteStatus("RESET_CONVERSATION", $"media-{label}: clearing previous conversation state before prompt.");
+                client.ResetConversation(systemInstruction);
+            }
+
+            WriteStatus("MEDIA_TURN", $"{label}: prompt={prompt}, path={mediaPath}, bytes={new FileInfo(mediaPath).Length}");
+            var startedAt = Time.realtimeSinceStartup;
+            var response = client.SendMessageWithMedia(prompt, null, imagePath, audioPath);
+            var elapsedSeconds = Time.realtimeSinceStartup - startedAt;
+
+            if (string.IsNullOrWhiteSpace(response))
+            {
+                throw new InvalidOperationException($"Media {label} turn returned an empty response.");
+            }
+
+            WriteStatus(
+                "MEDIA_RESPONSE",
+                $"{label}: elapsedSeconds={elapsedSeconds:0.###}, length={response.Length}, preview={OneLine(Truncate(response, 400))}");
         }
 
         private void RunStandaloneBenchmark(string resolvedModelPath)
@@ -296,8 +361,36 @@ namespace LiteRTLM.Unity
                 {
                     resetConversationBeforeEachPrompt = configuredResetConversation;
                 }
+                if (TryGetJsonString(json, "visionBackend", out var configuredVisionBackend))
+                {
+                    visionBackend = configuredVisionBackend;
+                }
+                if (TryGetJsonString(json, "audioBackend", out var configuredAudioBackend))
+                {
+                    audioBackend = configuredAudioBackend;
+                }
+                if (TryGetJsonBool(json, "skipTextTurns", out var configuredSkipTextTurns))
+                {
+                    skipTextTurns = configuredSkipTextTurns;
+                }
+                if (TryGetJsonString(json, "mediaImagePath", out var configuredMediaImagePath))
+                {
+                    mediaImagePath = configuredMediaImagePath;
+                }
+                if (TryGetJsonString(json, "mediaImagePrompt", out var configuredMediaImagePrompt))
+                {
+                    mediaImagePrompt = configuredMediaImagePrompt;
+                }
+                if (TryGetJsonString(json, "mediaAudioPath", out var configuredMediaAudioPath))
+                {
+                    mediaAudioPath = configuredMediaAudioPath;
+                }
+                if (TryGetJsonString(json, "mediaAudioPrompt", out var configuredMediaAudioPrompt))
+                {
+                    mediaAudioPrompt = configuredMediaAudioPrompt;
+                }
 
-                WriteStatus("CONFIG", $"loaded={configPath}, model={modelPath}, backend={backend}");
+                WriteStatus("CONFIG", $"loaded={configPath}, model={modelPath}, backend={backend}, audioBackend={audioBackend}, skipTextTurns={skipTextTurns}, mediaImagePath={mediaImagePath}, mediaAudioPath={mediaAudioPath}");
             }
             catch (Exception ex)
             {

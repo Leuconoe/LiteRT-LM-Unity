@@ -16,9 +16,9 @@ namespace LiteRTLM.Unity
         private static int backgroundRunActive;
 
         [SerializeField] private bool runOnStart;
-        [SerializeField] private string modelPath = "gemma-4-E2B-it.litertlm";
+        [SerializeField] private string modelPath = "Multimodal/gemma-4-e2b/gemma-4-E2B-it.litertlm";
         [SerializeField] private string windowsCliExecutablePath = "Tools/Windows/litert_lm_main.windows_x86_64.exe";
-        [SerializeField] private string windowsBackend = "CPU";
+        [SerializeField] private string windowsBackend = "GPU";
         [SerializeField] private float timeoutSeconds = 120f;
         [SerializeField] private bool requireConstrainedCli = true;
         [SerializeField] private bool enableConstrainedDecoding = true;
