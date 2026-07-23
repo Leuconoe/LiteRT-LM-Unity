@@ -93,6 +93,71 @@ calling (voice-driven and multimodal) — **pass on the physical test device**
 20+ fresh-process runs and zero crashes/OOM. Full ledger and per-cycle
 evidence: [`docs/benchmarks/device-cycle1-baseline.md`](docs/benchmarks/device-cycle1-baseline.md).
 
+## Benchmark Results (2026-07-23)
+
+측정 지표 읽는 법:
+
+- **prefill tok/s** — 프롬프트(입력)를 처리하는 속도. 긴 문서/이미지 입력에서 체감 대기시간을 좌우.
+- **decode tok/s** — 응답 토큰을 생성하는 속도. 채팅 체감 속도를 좌우 (10 tok/s ≈ 한글 5~7자/초).
+- **CER / WER** — 문자/단어 오류율. 0.000 = 기대 문장과 완전 일치. CER 0.05 = 100자당 5자 오류.
+- **RTF** (real-time factor) — 처리시간 ÷ 오디오 길이. 1.0 미만이면 실시간보다 빠름.
+
+### LLM — 실기기 (46a880a0, CPU decode 기준)
+
+| 모델 | 크기 | decode tok/s | prefill tok/s | 메모 |
+| --- | ---: | ---: | ---: | --- |
+| Qwen2.5-0.5B **wi4b64 (자체 int4)** | 265 MB | **35.5** | — | 최속. 동일 모델 q8(521 MB) 대비 +38 % — int4는 메모리 대역폭이 병목인 모바일에서 크기와 속도를 동시에 얻음 |
+| Qwen3-0.6B mixed_int4 | 475 MB | 20.9 | 31.8 | FC 소형 티어 픽 |
+| LFM2.5-1.2B int4 | 702 MB | 16.8 | — | FC 중형 티어 픽, v0.14 런타임에서 신규 아키텍처 구동 확인 |
+| gemma3-1b int4 | 557 MB | 16.0 (GPU 13.7) | 101 (GPU **184**) | GPU가 디코드는 느리고 프리필은 1.8배 빠름 — 아래 "GPU 사용 지침" 참조 |
+| gemma-4-E2B QAT | 2.6 GB | (멀티모달 전용 사용) | — | 이미지 7.6 s(GPU) / 오디오 전사 4.1 s / 멀티모달 FC 38 s |
+
+**GPU 사용 지침** (플랫폼별로 반대):
+Android(Adreno 650)는 토큰 단위 생성(decode)에서 OpenCL 왕복 오버헤드 때문에 **CPU가 더 빠르고**,
+배치 병렬인 prefill·이미지 인코딩만 GPU가 유리. 반면 Windows(RTX 4090)는 GPU가
+decode도 2배 빠름(49–53 tok/s) — 그래서 Windows 기본값은 GPU + 실패 시 CPU 자동 폴백.
+
+### ASR — 정확도 × 크기 (재녹음 10클립, CER/WER/RTF 전수 측정)
+
+| 모델 | 크기 | 정확 일치 | CER (한/영) | 요점 |
+| --- | ---: | ---: | --- | --- |
+| **whisper-turbo i4** | 755 MB | **8/9** | 0.000 / 0.000 | 종합 1위. 짧은 음성 명령("볼륨 업")까지 디바이스에서 유일하게 전부 인식하는 whisper |
+| whisper-large-v3 i4 | 1.1 GB | 7/9 | 0.000 / 0.000 | 문자 단위 완벽(감점은 띄어쓰기), 단 turbo보다 3–7배 느림 |
+| whisper-base i8 | 77 MB | 6/9 | 0.000 / — | 크기 대비 최고 효율 — 녹음 품질이 좋으면 1 GB급 성능을 77 MB로 |
+| Qwen3-ASR-0.6B i8 | 794 MB | 4/9* | 0.069 / 0.057 | *숫자를 한글로 풀어 씀("이천이십오년") — 내용은 정확. 디바이스 음성 명령 인식 최강 |
+| whisper-tiny i8 | 41 MB | 3/9 | 0.288 / 0.024 | 영어 특화 최소형. 한국어 연도 오인 있음 |
+
+양자화 티어 요약: **i8 = 속도 우선, i4 = 크기 우선** (품질은 혼합 레시피로 유지 —
+민감한 임베딩/인코더만 i8로 남기는 `wi4b64+i8` 방식, 순수 int4는 한국어가 깨지는
+모델이 있어 전 티어 한국어 클립 검증 후 배포). int2/Q5/1.58-bit는 LiteRT에
+커널이 없어 불가.
+
+### Function Calling — 20케이스 벤치마크 (Windows CPU)
+
+시나리오: 시스템에 도구(함수) 목록을 주고 "볼륨 올려줘" 같은 요청에서 올바른
+함수와 인자를 JSON으로 호출하는지 20개 케이스로 채점.
+
+| 티어 | 모델 | 통과 | decode tok/s | 판정 |
+| --- | --- | ---: | ---: | --- |
+| 플래그십 | gemma-4-E2B QAT | **19/20** | 15.5 | 메모리 여유 시 최선 |
+| 중형 | LFM2.5-1.2B int4 (+Hermes 프롬프트) | 17/20 | **23.6** | 가장 빠른 FC. 자체 pythonic 형식 사용 → 파서 확장 시 추가 상승 여지 |
+| 소형 | Qwen3-0.6B mixed_int4 (+QwenHermes) | 18/20 | 7.1 | 475 MB로 18/20 |
+| (참고) | Qwen3-0.6B q8 | 20/20 | 4.4 | 만점이지만 케이스당 22 s로 실용성 낮음 |
+| 부적합 | gemma3-1b / Qwen2.5 계열 | 2–8/20 | — | FC 라우터로 사용 금지 |
+
+실기기 E2E: 음성 → 전사 → 툴 호출 **15.5 s**, 이미지+발화 → 툴 호출 **40.7 s** (모두 PASS).
+
+### 벤치마크 문서 (근거 데이터)
+
+| 문서 | 내용 |
+| --- | --- |
+| [`asr-model-matrix.md`](docs/benchmarks/asr-model-matrix.md) | ASR 전 티어 × 10클립 CER/WER/RTF 매트릭스, 클립별 전사 원문 |
+| [`fc-model-benchmark.md`](docs/benchmarks/fc-model-benchmark.md) | FC 20케이스 모델별 상세(케이스별 실패 분석 포함) |
+| [`device-cycle1-baseline.md`](docs/benchmarks/device-cycle1-baseline.md) | 실기기 PDCA 사이클 1–3 전체 기록 + 최종 PASS/FAIL 원장 |
+| [`gemma4-gguf-vs-litertlm.md`](docs/benchmarks/gemma4-gguf-vs-litertlm.md) | GGUF(llama.cpp) 대비 비교 — Windows 실험용 참고 |
+| [`short-utterance-asr-research.md`](docs/benchmarks/short-utterance-asr-research.md) | 짧은 음성 인식 개선 연구(적용: RMS 정규화·VAD·EOS 가드) |
+| [`session-final-report-20260723.md`](docs/benchmarks/session-final-report-20260723.md) | v0.14 업그레이드 세션 종합 보고서 |
+
 ## Details
 
 - LLM 세부 설명: [`docs/llm-details.md`](docs/llm-details.md)
