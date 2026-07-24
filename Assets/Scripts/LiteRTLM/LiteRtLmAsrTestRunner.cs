@@ -75,6 +75,27 @@ namespace LiteRTLM.Unity
                 tokenizerJsonPath = "ASR/qwen3-asr-0.6b/tokenizer.json",
                 mode = QwenAsrMode,
             },
+            new AsrModelOption
+            {
+                label = "Whisper Base ACFT-KO 5s (voice commands)",
+                modelPath = "ASR/whisper-base-acft-ko/acft_base_5s_drq.tflite",
+                tokenizerJsonPath = "ASR/whisper-base-acft-ko/tokenizer.json",
+                mode = "whisper",
+            },
+            new AsrModelOption
+            {
+                label = "Whisper Medium ACFT-KO 5s",
+                modelPath = "ASR/whisper-medium-acft-ko/acft_medium_5s_drq.tflite",
+                tokenizerJsonPath = "ASR/whisper-medium-acft-ko/tokenizer.json",
+                mode = "whisper",
+            },
+            new AsrModelOption
+            {
+                label = "Whisper Turbo ACFT-KO 5s",
+                modelPath = "ASR/whisper-turbo-acft-ko/acft_turbo_5s_drq.tflite",
+                tokenizerJsonPath = "ASR/whisper-turbo-acft-ko/tokenizer.json",
+                mode = "whisper",
+            },
         };
 
         [SerializeField] private int selectedModelIndex;

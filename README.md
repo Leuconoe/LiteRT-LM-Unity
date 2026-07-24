@@ -16,7 +16,7 @@
 | 기능 | 디바이스 실측 | 사용 모델 |
 | --- | --- | --- |
 | **LLM 채팅** | 16~35.5 tok/s (CPU) | Qwen2.5/Qwen3/gemma3/LFM2.5 계열 |
-| **음성 인식 (ASR)** | 짧은 명령 ~2 s, 문장 전사 CER 0.000 | Qwen3-ASR-0.6B, whisper turbo i4 등 |
+| **음성 인식 (ASR)** | 짧은 명령 0.7~0.8 s, 문장 전사 CER 0.000 | whisper ACFT-KO 5s (base/turbo), whisper turbo i4 등 |
 | **이미지 인식** | 이미지 묘사 7.6 s (GPU) | gemma-4-E2B (QAT 멀티모달) |
 | **펑션콜링** | 음성→도구 호출 15.5 s / 이미지→도구 호출 40.7 s E2E | gemma3-1b, gemma-4-E2B |
 
@@ -75,12 +75,14 @@ ASR 모델은 `Assets/StreamingAssets/ASR/<model>/`에 해당 `tokenizer.json`�
 
 | Use case (device) | Model (StreamingAssets path) | Size | Device 결과 |
 | --- | --- | ---: | --- |
-| 음성 명령 (짧은 발화) 제1픽 | `ASR/qwen3-asr-0.6b/qwen3_asr_0.6b_5s_i8.tflite` | 794 MB | 짧은 한국어 명령("볼륨 업" 구/신 녹음 모두) 전부 인식하는 유일 모델군. ~0.5 s/step CPU. 숫자를 한글로 표기(`이천이십오년`) |
+| 음성 명령 (짧은 발화) 제1픽 | `ASR/whisper-base-acft-ko/acft_base_5s_drq.tflite` | 101 MB | 한국어 ACFT 5s 윈도우 학습 모델 — 정상 음량 명령 전부 exact, E2E 0.7–0.8 s (stock base 대비 ~3.5×, turbo-30s 대비 ~30× 빠름). 조용한 녹음은 아래 turbo-acft로 폴백 |
+| 음성 명령 정확도 폴백 | `ASR/whisper-turbo-acft-ko/acft_turbo_5s_drq.tflite` | 883 MB | **디바이스 5/5 유일 모델** (조용한 "볼륨 업" 구녹음 + `음량 증가` + 숫자 표기까지 전부 exact). 콜드 ~4 s / 웜 ~1.9 s. Qwen3-ASR 대체 (숫자를 그대로 표기) |
 | 문장 전사 최고 정확도 | `ASR/whisper-large-v3-turbo/whisper_large_v3_turbo_30s_i4.tflite` | 755 MB | 디바이스 게이트 3/3 통과 — whisper 중 유일하게 볼륨 명령까지 인식. 매트릭스 종합 1위(8/9, CER 0.000). 단 클립당 ~21–24 s CPU (배치/비실시간 용도) |
 | 균형(크기·속도·정확도) | `ASR/whisper-base/whisper_base_30s_i8.tflite` | 77 MB | 문장 한국어 CER 0.000, 긴 클립 ~2.7 s. 주의: 1.2 s 미만 초단클립은 디바이스에서 불안정(mel 수치 특성) — 음성 명령은 위 두 모델 사용 |
 | 초소형(영어 위주) | `ASR/whisper-tiny/whisper_tiny_30s_i8.tflite` | 41 MB | 영어 CER 0.000. 한국어 연도 오인 + 초단클립 불안정 |
 | 정확도 레퍼런스 | `ASR/whisper-large-v3/whisper_large_v3_30s_i4.tflite` | 1148 MB | 문자 단위 완벽하나 turbo보다 3–7배 느림 — 비교 기준용 |
 | 중간 티어 | `ASR/whisper-medium/whisper_medium_30s_i8.tflite` (i4: 664 MB) | 832 MB | 7/9 정확 — base와 turbo 사이 절충 |
+| 음성 명령 (구 제1픽) | `ASR/qwen3-asr-0.6b/qwen3_asr_0.6b_5s_i8.tflite` | 794 MB | 짧은 명령 전부 인식하나 숫자를 한글로 표기(`이천이십오년`) — turbo-acft가 동급 크기로 대체. qwen3 모드 검증용으로 유지 |
 
 **대안 경로**: gemma-4 오디오 입력(LLM 1번)으로도 전사 가능 — LLM이 이미
 상주할 때 추가 모델 없이 **전사+펑션콜링을 한 턴에** 처리 (디바이스 4.1 s,

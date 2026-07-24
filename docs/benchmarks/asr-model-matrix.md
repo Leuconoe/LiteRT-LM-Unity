@@ -474,3 +474,91 @@ output the character-perfect `볼륨업`.
 Tokenizer per tier verified by md5: medium uses the 80-mel/51865-vocab medium
 tokenizer, large-v3 and turbo use their own 128-mel/51866-vocab tokenizers
 (all three differ from whisper-base's).
+
+---
+
+## Addendum 2 — Korean fine-tunes (seastar105 Korean-Whisper collection), 2026-07-23 (desktop, evening)
+
+Evaluation of the [seastar105 Korean-Whisper collection](https://huggingface.co/collections/seastar105/korean-whisper)
+against the deployed lineup. **Verdict: nothing deployed** — every candidate
+tier loses to its deployed counterpart (details below).
+
+### Candidates
+
+Collection = `whisper-{tiny,base,small,medium}-komixv2` (all 80-mel /
+vocab 51865, full fine-tunes on Korean komix-v2 data). Off-collection
+same-author candidates also evaluated: `whisper-turbo-komix-lora`
+(128-mel / 51866; repo `model.safetensors` verified to be the **merged**
+LoRA — decoder `q_proj/k_proj` differ from `openai/whisper-large-v3-turbo`,
+non-target modules bit-identical). Skipped: `whisper-tiny-komixv2` and
+`whisper-turbo-komixv2` (flax-msgpack-only weights; tiny is the weakest
+tier and turbo-komixv2 is a Korean-only full FT — disqualified by the same
+English collapse measured on its base/small/medium siblings),
+`whisper-{small,medium}-ko-zeroth` and `whisper-base-{kspon,komix(v1)}`
+(older, superseded by komixv2 from the same author).
+
+### Conversion / quantization (same toolchain as the main matrix)
+
+`convert_whisper_turbo.py` (TF export, encode/decode-split 30s graph,
+same signatures as deployed tiers) → f32 tflite → i8
+(`dynamic_wi8_afp32` + forced-i8 on the embed GATHER scope) → i4
+(`dynamic_wi4b64_afp32` + emb-at-i8 override = deployed "mixD"/"L1" recipe).
+Recipe parity confirmed by size: ko-medium i4 = 664.3 MB and
+ko-turbolora i8/i4 = 1088.3 / 755.3 MB — byte-for-byte the same sizes as the
+deployed medium i4 / turbo i8 / turbo i4. Note the converter-generated
+80-mel graphs keep the tied logits FC weight as an f32 duplicate
+(`arith.constant1_duplicated_*`) that `ai_edge_quantizer` refuses to quantize
+even with a forced `.*` scope — so ko-base i8 is 183 MB where the deployed
+(litert-community-graph) base i8 is 77 MB; identical structure exists inside
+the deployed medium/large/turbo tiers. Tokenizers: komixv2 tokenizer content
+== deployed whisper-base tokenizer; komix-lora tokenizer content == deployed
+turbo tokenizer (serialization-only md5 diff in both cases).
+
+### Summary — 10-clip set (9-clip matrix set + old quiet `volume-볼륨 업.mp3`), `bench_asr_v2.py --norm-boost --vad`, greedy, 8 CPU threads
+
+Controls re-measured in the same session for apples-to-apples.
+
+| Model | Tier | Size MB | Exact /10 | CER ko | WER ko | CER en | WER en | Avg RTF | ms/step | Verdict |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| base-komixv2 | f32 | 289.9 | 3 | 0.036 | 0.297 | 0.969 | 1.143 | 0.42 | 58 | lose (en destroyed) |
+| base-komixv2 | i8 | 183.1 | 3 | 0.036 | 0.297 | 0.969 | 1.143 | 0.31 | 43 | lose (en destroyed, 2.4× base i8 size) |
+| base-komixv2 | i4 | 164.4 | 2 | 0.157 | 0.440 | 0.865 | 1.143 | 0.31 | 43 | lose (ko also degrades) |
+| small-komixv2 | f32 | 966.3 | 3 | 0.083 | 0.297 | 0.950 | 1.217 | 1.18 | 156 | lose (en destroyed) |
+| small-komixv2 | i8 | 408.8 | 3 | 0.083 | 0.297 | 0.950 | 1.074 | 0.78 | 101 | lose (en destroyed) |
+| small-komixv2 | i4 | 319.4 | 3 | 0.083 | 0.297 | 0.950 | 1.170 | 0.79 | 98 | lose (en destroyed) |
+| medium-komixv2 | i8 | 990.9 | 4 | **0.000** | 0.226 | 0.320 | 0.625 | 1.94 | 260 | lose (en broken; ko ties turbo i4 at 3.8× step time) |
+| medium-komixv2 | i4 | 664.3 | 3 | 0.381 | 0.369 | 0.552 | 0.747 | 1.92 | 257 | lose (i4 breaks ko too) |
+| turbo-komix-lora | f32 | 3234.3 | 4 | 0.083 | 0.369 | 0.016 | 0.048 | 2.60 | 134 | lose (ko regression vs stock turbo) |
+| turbo-komix-lora | i8 | 1088.3 | 4 | 0.083 | 0.369 | 0.016 | 0.048 | 1.56 | 77 | lose (ko regression) |
+| turbo-komix-lora | i4 | 755.3 | 3 | 0.131 | 0.416 | 0.016 | 0.048 | 1.75 | 81 | lose (ko regression) |
+| **deployed base i8 (control)** | i8 | 77.0 | 6 | 0.048 | 0.248 | 0.031 | 0.095 | 0.23 | 40 | — |
+| **deployed turbo i4 (control)** | i4 | 755.3 | **8** | **0.000** | **0.200** | **0.000** | **0.000** | 1.60 | 68 | **still champion** |
+
+### Observations
+
+- **English collapse in the komixv2 full fine-tunes**: base/small/medium
+  komixv2 transcribe English audio as *Hangul phonetic transliteration*
+  even with the `<|en|>` language token (e.g. clip 2 → `텍트 글베리 웨이션
+  리서트 리폴트…`). CER en 0.32–0.97. This alone disqualifies the whole
+  collection for the bilingual deployment target.
+- **medium-komixv2 i8 is the only tier with a real Korean win**: CER ko
+  0.000 including `음량 증가` exact (deployed medium i8/i4 mishear it as
+  `음향 증가`, their only content error). If a **Korean-only** deployment
+  slot ever exists, medium-komixv2 i8 (991 MB, 260 ms/step) is the candidate
+  to revisit — but deployed turbo i4 already gets CER ko 0.000 at 68 ms/step
+  and keeps English, so there is no niche today.
+- **turbo-komix-lora preserves English** (CER en 0.016 — style-only
+  `March 5th`) but **regresses Korean short commands** vs stock turbo:
+  `볼륨, 업` → `볼륨 어`(~), `음량 증가` → `응량 증가` (CER ko 0.083 f32/i8,
+  0.131 i4; stock turbo i4 control: 0.000/0.000). The v1-komix LoRA
+  (r=32, q/k_proj only) is trained on older data than komixv2 and hurts the
+  exact clip class the deployment cares about (FC gate / volume commands).
+- **볼륨 업 short-command failures are NOT fixed** by any candidate: on the
+  old quiet take every Korean fine-tune outputs the same spacing-merged
+  `볼륨업` as the deployed tiers; on the re-recorded take the lora tiers are
+  *worse* (`볼륨 어`).
+- No `Assets/StreamingAssets/ASR/` change was made. Quantized artifacts kept
+  for reference in `External/korean-whisper/` (`ko_*_30s_{i8,i4}.tflite`;
+  f32 sources deleted to stay under the disk budget — regenerable with
+  `convert_whisper_turbo.py`). Raw bench JSON: scratchpad
+  `bench_results/korean/*.json` (`ctl_*` = same-session controls).

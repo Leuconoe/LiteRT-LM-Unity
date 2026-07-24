@@ -252,6 +252,137 @@ AAR rebuilt via `Tools/Windows/Build-LiteRtLmUnityAarFromPatch.ps1`
 
 ---
 
+## ACFT evaluation (2026-07-23, task #21)
+
+**Question**: can futo-org's ACFT (audio-context fine-tuning) fix our two
+30s-window pain points on LiteRT — (a) a 0.8 s command paying for a full
+30 s encode, (b) sub-1.2 s clips destabilizing tiny/base?
+
+### Method (what ACFT actually is)
+
+[futo-org/whisper-acft](https://github.com/futo-org/whisper-acft):
+self-distillation fine-tune so the model tolerates a **reduced encoder
+audio context** (whisper.cpp's `audio_ctx`). A frozen reference model runs
+the full 1500-position encoder; the target model's encoder runs with
+`n_ctx ≈ round(50 × audio_seconds) ± rand(≤64)` — mel truncated to
+`2·n_ctx` frames, positional table sliced `embed_positions.weight[:n_ctx]`
+— and MSE loss pulls the target's decoder hidden states to the
+reference's. Adam lr=1e-6, batch 1, 8 epochs over **google/fleurs en_us
+only** (~10 h English), skip >29 s. Result (their VoxPopuli de eval):
+stock model at dynamic ctx WER 318 (repetition storms) → ACFT 22.3,
+matching the full-window baseline. **Weights-only, identical graph** —
+safetensor checkpoints `futo-org/acft-whisper-{tiny,base,small}`
+(+ `.en` variants); no medium/large.
+
+Key consequence for LiteRT: because reduced ctx = *slicing a fixed
+sinusoid positional table*, a **fixed short-window export needs no dynamic
+shapes** — set `max_source_positions=N`, slice `embed_positions[:N]`, and
+our existing TF exporter + `ai_edge_quantizer` chain works unchanged.
+
+### Retrospective: why `leuconoe/whisper-komixv2-acft-ggml` underperformed
+
+The model = seastar105/whisper-{tiny,base,small}-komixv2 (Korean
+fine-tune of stock whisper) → futo ACFT applied → GGML (f32/q8_0/q5_0),
+run via a whisper.unity fork. The fork **did** pass dynamic ctx:
+`WhisperOptimization.CalculateAudioContext = clamp(len/30·1500·1.1, 64,
+1500)`. Plainly:
+
+1. **ACFT buys speed, not accuracy** — training only teaches the model to
+   *match its own full-window behavior* at reduced ctx. Expectations of
+   better short-command Korean accuracy were structurally impossible.
+2. **min ctx 64 is out-of-distribution** — a 0.8–1.3 s command got ctx
+   64–72 (≈1.3 s effective window). FLEURS has almost no sub-2 s
+   utterances and the ±64 training jitter dominates at that scale, so the
+   hardest clips ran in the regime ACFT never trained.
+3. **English-only distillation on top of a Korean fine-tune** — hidden
+   states were matched on English audio; mild Korean drift is expected
+   (we measured one: the futo base checkpoint at full window reads
+   `음량 증가` as `은량 증가`, which stock base gets exact).
+4. whisper.cpp with flash-attn already encodes cheaply on desktop, so the
+   2–6× encoder saving was a small share of end-to-end latency there —
+   unlike our LiteRT device path (turbo: 21–24 s/clip on device).
+5. q5_0 on top of all of the above.
+
+### Prototype: fixed short-window tflite exports (desktop, CPU)
+
+`External/acft-work/` — `convert_acft.py` (exporter with `frames` arg;
+slices `embed_positions` exactly like the futo notebook), `bench_acft.py`
+(window-size auto-detected from the `encode` signature; same slaney
+log-mel + greedy loop as the JNI), `run_matrix.py`, `results.jsonl`.
+Checkpoint: `futo-org/acft-whisper-base` (multilingual). Clips: 4 Korean
+FC commands (incl. the quiet 0.79 s take), 2 Korean sentences, 1 English.
+
+| Variant | Size MB | Encode s (median) | Exact | Notes |
+| --- | ---: | ---: | :-: | --- |
+| stock base 30s f32 (deployed) | 290 | 0.63 | 5/7 | baseline; En `and soul` slip, quiet clip `볼륨어` |
+| ACFT base 30s f32 | 290 | 0.65–0.73 | 4/7 | `음량→은량` regression (En-only distill cost); En exact |
+| ACFT base 10s f32 | 288 | 0.17 | 5/7 | all Korean ✓ |
+| **ACFT base 5s f32** | 287 | **0.08** | 5/7 | transcripts **identical to stock-30s on all 7 clips** |
+| stock base 5s f32 (control) | 287 | 0.08 | 4/7 | **repetition meltdown** on a 3.24 s sentence: 13.1 s decode, CER 10.4 — the exact failure ACFT prevents |
+| ACFT base 5s i8 (post-quant) | 181 | 0.03 | 5/7 | transcripts unchanged |
+| **ACFT base 5s drq i8** | **101** | **0.03** | 5/7 | converter-time DRQ; decode also fastest (0.20–0.51 s) |
+
+- **Speed**: 30s→5s = **7.9× encoder** at f32; the 5s drq-i8 encodes in
+  0.03 s vs 0.63 s stock f32 (**21×**) and its worst-case full pipeline
+  (sentence) is 0.54 s. Projected on device 46a880a0 (base i8 encode was
+  0.61–0.64 s at 30 s): **~0.1 s encode** for a command clip.
+- **Accuracy**: ACFT-5s = stock-30s transcript-for-transcript on all 7
+  clips (it even *fixes* the ACFT-30s `은량` regression — shorter padded
+  windows are closer to the fine-tune's operating point). The quiet
+  0.79 s clip still reads `볼륨어` in every base variant — confirming
+  pain point (b) is loudness/model-capacity, **not** window length; ACFT
+  does not (and cannot) fix it.
+- **Control**: stock base at 5 s window works on 5/7 clips but melts down
+  stochastically (repetition loop) — a short-window export **requires**
+  an ACFT'd checkpoint; do not ship a stock model with a cropped window.
+- 5 s window truncates longer audio: fine for FC commands (≤2 s, wide
+  headroom), use the 10 s export (still 3.9×) for dictation-style input.
+
+### JNI delta (report only — no native edits made)
+
+The take5 whisper path hardcodes the window: `constexpr int kMaxFrames =
+3000` in mel extraction, and encode-input resolution **requires**
+`dims[2] == 3000` (`Tools/UnityAar/litert-lm-unity-aar.patch`, ~lines
+2523 / 3644), plus the `featureMd5` diagnostic assumes `[1, n_mels,
+3000]`. A short-window model currently would not even be recognized.
+Delta (~15 lines): resolve `n_frames` from the encode signature's
+`dims[2]` (500/1000/3000), size the mel buffer as `n_frames × 160`
+samples, thread `n_frames` into the feature-MD5 note. Decode-side binding
+already resolves by shape and is length-agnostic.
+
+### Verdict + plan
+
+- **ACFT-short-window fixes the speed pain point (a) outright** — ~8×
+  encoder at f32, 21× vs deployed f32 after DRQ — at **zero measured
+  Korean accuracy cost** vs the deployed stock-30s baseline. It does
+  **not** fix short-clip accuracy (b); pair it with the already-shipped
+  VAD-trim + RMS-boost work (above) which attacks (b) directly.
+- **Ship path**: JNI n_frames delta → deploy `acft_base_5s_drq.tflite`
+  (101 MB, vs 77 MB deployed base-i8) → device re-validation on 46a880a0.
+- **Korean-specific ACFT training is warranted only as a combine-step**:
+  if the parallel seastar105-komixv2 evaluation shows a real Korean
+  accuracy win over stock base, apply ACFT *to that checkpoint* to get
+  both benefits (leuconoe's mistake was min-ctx 64 + English-only
+  distillation, not the combination itself). Recipe: futo
+  `finetune.ipynb` with model_train = model_base =
+  `seastar105/whisper-base-komixv2`; data = zeroth-korean (~51.6 h,
+  openslr; KsponSpeech needs AIHub access) **plus oversampled short
+  utterances (0.5–3 s)**, and clamp the training `n_ctx` floor to ~250 to
+  match a fixed 5 s deployment window (in-distribution by construction);
+  MSE on decoder hidden states, Adam lr=1e-6, batch 1, 2–8 epochs.
+  Est. RTX 4090: base ≈ 0.1–0.15 s/step ⇒ ~22 k-utt epoch ≈ 1 h;
+  practical run (3 epochs) **≈ 3–4 h**, small ≈ 10–12 h. Then re-export
+  with `convert_acft.py <ckpt> out.tflite drq 500`.
+
+ACFT sources: [futo-org/whisper-acft](https://github.com/futo-org/whisper-acft)
+· [HF collection](https://huggingface.co/collections/futo-org/whisper-acft-667c430f8de3a22b73151d74)
+· [whisper.cpp #137 — audio_ctx origin](https://github.com/ggerganov/whisper.cpp/issues/137)
+· [leuconoe/whisper-komixv2-acft-ggml](https://huggingface.co/leuconoe/whisper-komixv2-acft-ggml)
+· [leuconoe/whisper.unity fork](https://github.com/leuconoe/whisper.unity)
+· [seastar105 korean-whisper collection](https://huggingface.co/collections/seastar105/korean-whisper)
+
+---
+
 ## Sources
 
 - [NPUsper: Eliminating Redundant Computation for Real-Time Whisper on Mobile NPUs](https://arxiv.org/pdf/2607.01108) — 30 s pad vs hallucination trade-off, hush-word buffering

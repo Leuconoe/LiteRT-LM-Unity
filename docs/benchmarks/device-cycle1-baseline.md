@@ -500,3 +500,234 @@ shape), turbo became the on-device ASR accuracy king (only tier passing both
 numeric delta, not decode), and both function-calling pipelines (voice-driven
 and multimodal) run end-to-end on device with the expected tool selected.
 PDCA device-testing directive: **complete**.
+
+---
+
+# Device Cycle 4 — ACFT short-window on device (take6 AAR)
+
+- Date: 2026-07-24 (08:36–08:39 host; device clock UTC). Device `46a880a0`.
+- AAR: `Assets/Plugins/Android/litertlm-unity-bridge.aar` rebuilt 2026-07-23
+  23:57 ("take6"): whisper window frames auto-detected from the `encode`
+  signature (no 3000-frame hardcode); smoke JSON adds `windowFrames` next to
+  `melBins`/`vocabSize`/`featureMd5`. First device test of take6.
+- APK: `Builds/Android/LiteRtLmAndroidAsrSmokeTest-generic.apk` rebuilt 07:56
+  from take6 (temp-copy batchmode; build-script copy with `External/` excluded
+  from the robocopy mirror — the overnight ACFT training left tens of GB of
+  datasets/checkpoints/venv there that the stock mirror would copy).
+- Models under test (pushed at runtime, tokenizers = stock whisper
+  `tokenizer.json`, vocab 51865 — Korean training used the stock
+  `openai/whisper-{base,tiny}` checkpoints per `train_acft.py`, and the device
+  JSON confirms `vocabSize: 51865` on every run):
+  - futo `External/acft-work/acft_base_5s_drq.tflite` (101 MB, futo-org
+    ACFT checkpoint, desktop-validated 2026-07-23)
+  - Korean-trained `External/acft-training/export/base/acft_base_5s_drq.tflite`
+    (101 MB) and `export/tiny/acft_tiny_5s_drq.tflite` (59 MB) from the
+    overnight Korean ACFT run (gates passed; note `export/*/bench.jsonl` is
+    all `list index out of range` rows — desktop bench script bug, so this
+    cycle is the first real evaluation of those exports)
+  - stock `whisper_base_30s_i8.tflite` (77 MB) as the 3000-frame regression
+    control
+- All runs: CPU, whisper mode, `ko`, fresh app process per run. 13/13 runs
+  reached SUCCESS status — zero crashes/OOM.
+- Logs: `Builds/Logs/AndroidDeviceRuns/20260724-083*-c4-*.{summary,status,logcat}.txt`
+  Matrix scripts: scratchpad `Run-Cycle4AcftMatrix.ps1` + `Invoke-AsrDeviceRunC4.ps1`.
+
+## 1. take6 flexible-window JNI — PASS
+
+Every ACFT-5s run reports `windowFrames: 500, melBins: 80, vocabSize: 51865`
+auto-detected from the model (`encode` input `[1, 80, 500]`, encoder output
+`[1, 250, 512]`); the stock-30s control reports `windowFrames: 3000` on the
+same APK. `decodeBindingStrategy: "shape"` resolved the ACFT exports'
+`(mask, audio, tokens)` input order (indices 0/1/2 = mask/audio/token) —
+opposite of the stock base export — with no positional-binding faults.
+`featureMd5` is identical for the same clip across futo and Korean-trained
+runs (e.g. clip1 `d7b2b5e0…` in both), confirming one shared mel frontend at
+500 frames.
+
+## 2. ACFT base 5s drq on device — futo vs Korean-trained (THE key test)
+
+| Model | Clip | Device transcript | Match | Compile s | Encode s | Decode s (steps) | Total s |
+| --- | --- | --- | :-: | ---: | ---: | ---: | ---: |
+| futo b5 drq | clip1 (3.8 s) | `2025년 3월 5일 전술평가 결과 보고` | ✓ exact | 0.18 | 0.053 | 0.96 (14) | 1.33 |
+| futo b5 drq | `볼륨, 업` (re-rec) | `볼륨 업` | ✓ exact | 0.18 | 0.048 | 0.40 (6) | 0.76 |
+| futo b5 drq | `볼륨 업` (old quiet) | `볼륨어` | ✗ | 0.18 | 0.059 | 0.41 (6) | 0.78 |
+| ko b5 drq | clip1 | `2025년 3월 5일 전술평가 결과 보고` | ✓ exact | 0.18 | 0.050 | 0.99 (14) | 1.35 |
+| ko b5 drq | `볼륨, 업` (re-rec) | `볼륨 업` | ✓ exact | 0.18 | 0.047 | 0.42 (6) | 0.78 |
+| ko b5 drq | `볼륨 업` (old quiet) | `볼륨어` | ✗ | 0.18 | 0.049 | 0.43 (6) | 0.79 |
+| ko b5 drq | `소리 키워줘` | `소리 키워줘` | ✓ exact | 0.19 | 0.060 | 0.34 (5) | 0.71 |
+| ko b5 drq | `음량 증가` | `음량 증가` | ✓ exact | 0.18 | 0.047 | 0.42 (6) | 0.78 |
+
+- **Short-command accuracy on device is fixed for normal-loudness takes.**
+  Cycle-2 stock base-30s i8 on this device read `볼륨, 업` as `'뽈림'` and
+  `볼륨 업` as `보여요.` — both ACFT-5s models now read the re-rec take
+  **exact** and every Korean FC command (`소리 키워줘`, `음량 증가`) exact.
+  Device transcripts equal the desktop futo-5s-drq references
+  transcript-for-transcript on all shared clips (incl. the `볼륨어` miss) —
+  the cycle-3 ~0.1 % mel delta does not flip ACFT-5s outputs.
+- The old **quiet** 0.79 s take still reads `볼륨어` — same in every base
+  variant on desktop and device; loudness/model-capacity pain point, not a
+  window or training issue (as predicted by the desktop ACFT evaluation).
+- **futo vs Korean-trained: identical transcripts and timings on the 3 shared
+  clips.** The Korean training cost nothing; its value shows on `음량 증가`
+  (exact — the futo 30s export had the `은량` regression) and in provenance
+  (trained with Korean + oversampled short utterances in-distribution).
+- **Speed: ~12× encoder vs deployed stock base-30s on this device** (0.047–
+  0.060 s vs 0.617 s) and ~1.8× decode per step (≈0.069 vs 0.125 s/step).
+  Full pipeline for a command clip: **0.71–0.79 s** vs 2.7 s stock — and vs
+  21–24 s turbo, the previous only-accurate-tier for both 볼륨 업 takes.
+
+## 3. Korean ACFT tiny 5s drq — REJECT for deployment
+
+| Clip | Device transcript | Match | Total s |
+| --- | --- | :-: | ---: |
+| `볼륨, 업` (re-rec) | `보입니다.` | ✗ | 0.50 |
+| `볼륨 업` (old quiet) | `보일해봐` | ✗ | 0.49 |
+| `소리 키워줘` | `소리 키워줘` | ✓ | 0.49 |
+| `음량 증가` | `음양증가` | ✗ | 0.48 |
+
+1/4 exact. `볼륨, 업` → `보입니다.` is character-identical to stock tiny-30s
+on this device (cycles 1–3) — tiny's failure is model capacity, unchanged by
+window length or Korean ACFT. The ~0.3 s saved over base-5s does not buy a
+usable command tier; **do not deploy tiny-5s**.
+
+## 4. stock base-30s i8 regression on take6 — PASS
+
+`2025년 3월 5일 전술 평가 결과 보고` — character-identical to cycles 1–3.
+`windowFrames: 3000` reported; compile 0.29 s / encode 0.62 s / decode 1.62 s
+(13 steps), all in family with cycle-2 (0.29/0.66/1.68). take6's flexible
+window detection did not disturb the 3000-frame path.
+
+## Cycle-4 pass/fail ledger
+
+| Item | Verdict |
+| --- | :-: |
+| take6 window auto-detection (500 ↔ 3000 on one APK) | PASS |
+| futo acft_base_5s_drq × 3 gate clips | PASS — 2/3 exact; miss = known quiet-clip `볼륨어`, encode 0.05 s (expected <0.2 s) |
+| Korean acft_base_5s_drq × 5 clips | PASS — 4/5 exact; all normal-loudness FC commands exact; fixes cycle-2 `'뽈림'` failure |
+| Korean acft_tiny_5s_drq × 4 commands | FAIL — 1/4 exact (capacity, same as stock tiny) |
+| stock base-30s i8 3000-frame regression | PASS — transcript bit-identical to cycles 1–3 |
+| App stability | PASS — 13 fresh-process runs, zero crashes/OOM |
+
+## Cycle-4 verdict — is Korean ACFT 5s ready?
+
+**Yes — recommend deploying the Korean-trained `acft_base_5s_drq.tflite`
+(101 MB) as the voice-command ASR tier** (recommendation only; nothing
+deployed to StreamingAssets this cycle):
+
+- Suggested placement: `Assets/StreamingAssets/ASR/whisper-base-acft-ko/
+  acft_base_5s_drq.tflite` + reuse of the existing stock
+  `ASR/whisper-base/tokenizer.json` (verified compatible, vocab 51865).
+- Role: **augment, not replace.** 5 s window truncates longer audio — keep
+  stock `whisper_base_30s_i8` (77 MB) for dictation/long clips and turbo i4
+  as the accuracy fallback. For FC voice commands the ACFT tier is 0.7–0.8 s
+  end-to-end (3.5× faster than stock base, ~30× faster than turbo) and more
+  accurate on device than stock base ever was on short takes.
+- Prefer the Korean-trained export over the futo one: identical device
+  behavior on shared clips, plus the `음량 증가` guarantee and Korean
+  short-utterance training in-distribution.
+- Residual gap: quiet takes (`볼륨어` on the 0.79 s clip) — attack with
+  capture-side AGC/loudness normalization or turbo fallback, not with more
+  ACFT.
+- Follow-up (non-blocking): fix `External/acft-training` desktop bench
+  (`bench.jsonl` all-errors) so future exports get a desktop reference before
+  device time.
+
+# Device Cycle 5 — ACFT medium/turbo on device + tier deployment (take6 AAR)
+
+- Date: 2026-07-25 (07:09–07:12 host). Device `46a880a0`, same take6 APK as
+  cycle 4 (no reinstall). All runs: CPU, whisper mode, `ko`, fresh app process
+  per run. **11/11 runs reached SUCCESS status — zero crashes/OOM** (the one ✗
+  below is a transcript mismatch, not a pipeline failure).
+- Deployed this cycle (user-approved batch) — the ACFT queue finished all 4
+  gates (base/tiny/medium/turbo) and the medium/turbo 5s exports are now in
+  StreamingAssets + `LiteRtLmAsrTestRunner.cs` modelOptions:
+  - `ASR/whisper-base-acft-ko/acft_base_5s_drq.tflite` (101 MB, from cycle 4)
+  - `ASR/whisper-medium-acft-ko/acft_medium_5s_drq.tflite` (826 MB) + copy of
+    `ASR/whisper-medium/tokenizer.json` (md5 `e259e7c7…`, identical to the
+    training base tokenizer, vocab 51865 — confirmed on device)
+  - `ASR/whisper-turbo-acft-ko/acft_turbo_5s_drq.tflite` (883 MB) + copy of
+    `ASR/whisper-large-v3-turbo/tokenizer.json` (md5 `5e5ac406…`, identical to
+    the training base tokenizer, vocab 51866 — confirmed on device)
+- Desktop rebench: `export/{medium,turbo}/bench.jsonl` regenerated with the
+  fixed bench path — 42/42 rows clean (the cycle-4 "all `list index out of
+  range`" rows are gone). Per-window mean CER over the 7-clip matrix
+  (non-zero rows are trailing-punctuation diffs on the two sentence clips
+  unless noted):
+  - medium: 5s **0.000 Korean-exact incl. the quiet `볼륨 업` take**; 10s/30s
+    regress `음량 증가` → `음향(증가)` (CER 0.25). Encode 0.37 s (5s) →
+    4.7 s (30s), decode ≈0.41–1.2 s/step (desktop CPU).
+  - turbo: **5s and 10s all-Korean-exact** (quiet take included); 30s drops
+    `볼륨, 업` → `볼륨` (CER 0.33). Encode 0.72 s (5s) → 8.6 s (30s), decode
+    ≈0.15–0.33 s/step. Set means: medium 0.0393, turbo 0.0313 — turbo-5s is
+    the best export of the queue, matching its training gate (ko-short CER
+    0.182, best of all tiers).
+- Logs: `Builds/Logs/AndroidDeviceRuns/20260725-07*-c5-*.{summary,status,logcat}.txt`
+  Matrix script: scratchpad `Run-Cycle5AcftMatrix.ps1` (+ `Invoke-AsrDeviceRunC4.ps1`).
+
+## 1. Cycle-5 device matrix (all 5s-window ACFT drq exports)
+
+Every run auto-detected `windowFrames: 500`; vocab 51865 (base/medium) and
+51866 (turbo) as expected per tokenizer family. `compiledModelCache: miss` on
+every row (fresh process each run), so compile time is included in totals.
+
+| Model | Clip | Device transcript | Match | Compile s | Encode s | Decode s (steps) | Total s |
+| --- | --- | --- | :-: | ---: | ---: | ---: | ---: |
+| base acft-ko 5s (regression) | `볼륨, 업` (re-rec) | `볼륨 업` | ✓ exact | 0.19 | 0.052 | 0.44 (6) | 0.81 |
+| medium acft-ko 5s | clip1 (3.8 s) | `2025년 3월 5일 전술평가 결과 보고` | ✓ exact | 1.86 | 0.564 | 6.41 (14) | 8.97 |
+| medium acft-ko 5s | `볼륨, 업` (re-rec) | `볼륨 업` | ✓ exact | 1.86 | 0.560 | 2.73 (6) | 5.28 |
+| medium acft-ko 5s | `볼륨 업` (old quiet) | `볼륨업` | ✓ | 1.85 | 0.544 | 2.73 (6) | 5.25 |
+| medium acft-ko 5s | `소리 키워줘` | `소리 키워줘` | ✓ exact | 1.86 | 0.532 | 2.32 (5) | 4.84 |
+| medium acft-ko 5s | `음량 증가` | `음향증가` | ✗ | 1.86 | 0.523 | 2.29 (5) | 4.80 |
+| turbo acft-ko 5s | clip1 (3.8 s) | `2025년 3월 5일 전술평가 결과 보고` | ✓ exact | 2.21 | 1.038 | 2.21 (14) | 5.61 |
+| turbo acft-ko 5s | `볼륨, 업` (re-rec) | `볼륨 업` | ✓ exact | 1.92 | 1.037 | 0.91 (6) | 4.00 |
+| turbo acft-ko 5s | `볼륨 업` (old quiet) | `볼륨업` | ✓ | 1.91 | 1.013 | 0.91 (6) | 3.97 |
+| turbo acft-ko 5s | `소리 키워줘` | `소리 키워줘` | ✓ exact | 1.92 | 1.069 | 0.73 (5) | 3.85 |
+| turbo acft-ko 5s | `음량 증가` | `음량 증가` | ✓ exact | 1.92 | 1.037 | 0.90 (6) | 4.00 |
+
+## 2. Findings
+
+- **Turbo acft-ko 5s: 5/5 exact — the first model in five cycles to read every
+  clip including the quiet `볼륨 업` take.** The quiet take that produced
+  `볼륨어` on every base variant (desktop + device, cycles 2–5) and `보여요.`
+  on stock base-30s reads `볼륨업` here. It also keeps digits (`2025년`, not
+  `이천이십오년` like Qwen3-ASR) and gets `음량 증가` exact.
+- **Medium acft-ko 5s: 4/5.** Fixes the quiet take too, but flips `음량 증가`
+  → `음향증가` on device — desktop medium-5s reads the same clip exact
+  (CER 0.000), so the residual ~0.1 % device mel delta (cycle 3) lands exactly
+  on medium's borderline clip (desktop medium 10s/30s also read `음향`).
+  Medium is also *slower* than turbo on device (decode ≈0.46 s/step, 24-layer
+  decoder, vs turbo ≈0.15 s/step, 4-layer): command clips 4.8–5.3 s vs
+  3.8–4.0 s. Slower **and** less accurate **and** no size advantage
+  (826 vs 883 MB) — no deployment role of its own.
+- **Base acft-ko 5s regression: PASS** — `볼륨 업` exact at 0.81 s total,
+  timings identical to cycle 4.
+- Turbo-5s command latency ~4 s total is dominated by compile (1.9 s, cache
+  miss every fresh process) + encode (1.0 s); with the whisper compiled-model
+  cache warm in a resident app process, repeat commands drop to ~1.6–1.9 s
+  (encode+decode), still ~6× faster than turbo-30s i4 (21–24 s) on the same
+  device.
+
+## Cycle-5 pass/fail ledger
+
+| Item | Verdict |
+| --- | :-: |
+| base acft-ko 5s regression (1 clip) | PASS — exact, 0.81 s |
+| medium acft-ko 5s × 5 clips | PARTIAL — 4/5 exact; quiet take fixed, `음향증가` flip on device |
+| turbo acft-ko 5s × 5 clips | PASS — **5/5 exact incl. quiet take** |
+| windowFrames/vocab verification (500 / 51865 / 51866) | PASS — every row |
+| App stability | PASS — 11 fresh-process runs, zero crashes/OOM |
+
+## Cycle-5 verdict — final ASR voice-command lineup
+
+| Tier | Model | Size | Role |
+| --- | --- | ---: | --- |
+| **1st pick (voice commands)** | `ASR/whisper-base-acft-ko/acft_base_5s_drq.tflite` | 101 MB | 0.7–0.8 s E2E, exact on all normal-loudness commands. Default FC command path. |
+| **Accuracy fallback (voice commands)** | `ASR/whisper-turbo-acft-ko/acft_turbo_5s_drq.tflite` | 883 MB | Only 5/5 model on device (quiet takes + `음량 증가` + digits). ~4 s cold / ~1.9 s warm. Use for low-confidence retry or quiet capture. |
+| Dictation / long clips | `ASR/whisper-base/whisper_base_30s_i8.tflite` | 77 MB | unchanged (5 s window truncates long audio) |
+| Long-form accuracy | `ASR/whisper-large-v3-turbo/whisper_large_v3_turbo_30s_i4.tflite` | 755 MB | unchanged |
+| Not recommended | medium acft-ko 5s (deployed for the test scene only) | 826 MB | slower + less accurate than turbo-5s on device |
+| Not recommended | tiny acft-ko 5s | 59 MB | cycle-4 REJECT (capacity) |
+
+The turbo-acft-5s tier displaces Qwen3-ASR-0.6B (794 MB) as the short-command
+accuracy fallback: same size class, better transcripts (digits preserved,
+5/5 vs digit-spelling diffs), and one shared whisper runtime path.
