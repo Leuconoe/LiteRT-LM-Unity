@@ -98,8 +98,17 @@ namespace LiteRTLM.Unity
             },
         };
 
+        // ASR preprocessing VAD modes (native dual-mode VAD, task #24):
+        // Off = no trim/normalization, Energy = adaptive energy gate
+        // (default), AI = Silero VAD tflite (falls back to Energy with a
+        // vadError field in the result JSON when the model is unavailable).
+        private static readonly string[] VadModeOptions = { "off", "energy", "ai" };
+        private static readonly string[] VadModeLabels = { "Off", "Energy (default)", "AI (Silero)" };
+        private const string SileroVadModelPath = "ASR/silero-vad/silero_vad_16k.tflite";
+
         [SerializeField] private int selectedModelIndex;
         [SerializeField] private int selectedAudioIndex;
+        [SerializeField] private int selectedVadModeIndex = 1;
         [SerializeField] private string language = "ko";
         [SerializeField] private string backend = "CPU";
 
@@ -109,6 +118,7 @@ namespace LiteRTLM.Unity
         private bool _isBusy;
         private bool _modelListExpanded;
         private bool _audioListExpanded;
+        private bool _vadModeListExpanded;
         private float _requestStartedAt;
         private Vector2 _logScroll;
         private bool _hasImeTextFieldFocus;
@@ -144,6 +154,7 @@ namespace LiteRTLM.Unity
             _hasImeTextFieldFocus = false;
             DrawModelDropdown();
             DrawAudioDropdown();
+            DrawVadModeDropdown();
 
             GUILayout.Label("Language");
             language = DrawImeTextField(language, "LiteRtLmAsrLanguageField");
@@ -235,6 +246,30 @@ namespace LiteRTLM.Unity
             }
         }
 
+        private void DrawVadModeDropdown()
+        {
+            GUILayout.Label("VAD Mode");
+            selectedVadModeIndex = Mathf.Clamp(selectedVadModeIndex, 0, VadModeOptions.Length - 1);
+            if (GUILayout.Button($"{VadModeLabels[selectedVadModeIndex]} {(_vadModeListExpanded ? "▲" : "▼")}"))
+            {
+                _vadModeListExpanded = !_vadModeListExpanded;
+            }
+
+            if (!_vadModeListExpanded)
+            {
+                return;
+            }
+
+            for (var i = 0; i < VadModeOptions.Length; i++)
+            {
+                if (GUILayout.Button((i == selectedVadModeIndex ? "✓ " : "   ") + VadModeLabels[i]))
+                {
+                    selectedVadModeIndex = i;
+                    _vadModeListExpanded = false;
+                }
+            }
+        }
+
         private AsrModelOption GetSelectedModelOption()
         {
             if (modelOptions == null || modelOptions.Length == 0)
@@ -286,6 +321,13 @@ namespace LiteRTLM.Unity
                 }
             }
 
+            var vadMode = VadModeOptions[Mathf.Clamp(selectedVadModeIndex, 0, VadModeOptions.Length - 1)];
+            var resolvedSileroPath = string.Empty;
+            if (resolveError == null && vadMode == "ai")
+            {
+                yield return ResolveStreamingAssetPath(SileroVadModelPath, path => resolvedSileroPath = path, ex => resolveError = ex);
+            }
+
             if (resolveError != null)
             {
                 _status = $"Error: {resolveError.Message}";
@@ -304,13 +346,17 @@ namespace LiteRTLM.Unity
                         resolvedAudioPath,
                         resolvedTokenizerPath,
                         backend,
-                        language)
+                        language,
+                        vadMode,
+                        resolvedSileroPath)
                     : _client.RunWhisperAsrSmoke(
                         resolvedModelPath,
                         resolvedAudioPath,
                         resolvedTokenizerPath,
                         backend,
-                        language);
+                        language,
+                        vadMode,
+                        resolvedSileroPath);
                 var elapsedSeconds = Time.realtimeSinceStartup - startedAt;
 
                 if (string.IsNullOrWhiteSpace(asrJson))
@@ -326,7 +372,7 @@ namespace LiteRTLM.Unity
                 var transcript = ExtractTranscript(asrJson);
                 var expectedLine = DescribeExpectedMatch(selectedAudioIndex, transcript);
                 _transcriptLog.Add(
-                    $"model={option.label}, audio={AudioOptions[selectedAudioIndex]}, backend={backend}, language={language}\n" +
+                    $"model={option.label}, audio={AudioOptions[selectedAudioIndex]}, backend={backend}, language={language}, vadMode={vadMode}\n" +
                     $"elapsedSeconds={elapsedSeconds:0.###}\n" +
                     $"transcript={transcript}\n" +
                     expectedLine +

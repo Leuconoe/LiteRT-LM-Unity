@@ -9,6 +9,9 @@ param(
     [ValidateSet("parakeet", "whisper")]
     [string]$AsrMode = "whisper",
     [string]$AsrLanguage = "ko",
+    [ValidateSet("off", "energy", "ai")]
+    [string]$VadMode = "energy",
+    [string]$VadSileroModelPath = "ASR/silero-vad/silero_vad_16k.tflite",
     [ValidateSet("GPU_FP16", "GPU", "GPU_RELAXED", "GPU_NO_TEXTURE", "GPU_NO_CONVERT", "GPU_RELAXED_NO_CONVERT", "CPU")]
     [string]$Backend = "CPU",
     [int]$BenchmarkRuns = 1,
@@ -102,6 +105,8 @@ function Push-AsrRuntimeConfig {
         asrMode = $AsrMode
         asrLanguage = $AsrLanguage
         benchmarkRuns = [Math]::Max(1, $BenchmarkRuns)
+        vadMode = $VadMode
+        vadSileroModelPath = $VadSileroModelPath
     }
 
     ($config | ConvertTo-Json -Depth 4) | Set-Content -Path $configPath -Encoding utf8
@@ -143,6 +148,13 @@ if ($AsrMode -eq "whisper" -and $Backend.StartsWith("GPU", [StringComparison]::O
             Write-Host "[LiteRT-LM] Pushing Whisper encoder companion: $encoderCompanion"
             Push-FileToAsrData -SourcePath $encoderSource -RelativeDevicePath $encoderCompanion
         }
+    }
+}
+if ($VadMode -eq "ai" -and ![string]::IsNullOrWhiteSpace($VadSileroModelPath)) {
+    $sileroSource = Join-Path $ProjectRoot "Assets\StreamingAssets\$VadSileroModelPath"
+    if (Test-Path $sileroSource) {
+        Write-Host "[LiteRT-LM] Pushing Silero VAD model: $VadSileroModelPath"
+        Push-FileToAsrData -SourcePath $sileroSource -RelativeDevicePath $VadSileroModelPath
     }
 }
 Push-AsrRuntimeConfig

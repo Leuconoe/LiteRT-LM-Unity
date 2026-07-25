@@ -182,12 +182,24 @@ namespace LiteRTLM.Unity
 #endif
         }
 
+        /// <param name="vadMode">
+        /// ASR preprocessing VAD mode: "off" (no trim/normalization), "energy"
+        /// (adaptive energy gate, default) or "ai" (Silero VAD tflite;
+        /// requires <paramref name="sileroModelPath"/>, falls back to
+        /// "energy" with a vadError field in the result JSON on failure).
+        /// </param>
+        /// <param name="sileroModelPath">
+        /// Absolute path to the Silero VAD tflite; only used when
+        /// <paramref name="vadMode"/> is "ai". Empty disables AI mode.
+        /// </param>
         public string RunWhisperAsrSmoke(
             string modelPath,
             string audioPath,
             string tokenizerJsonPath,
             string backend = "CPU",
-            string language = "auto")
+            string language = "auto",
+            string vadMode = "energy",
+            string sileroModelPath = "")
         {
 #if UNITY_ANDROID && !UNITY_EDITOR
             if (string.IsNullOrWhiteSpace(modelPath))
@@ -210,9 +222,15 @@ namespace LiteRTLM.Unity
             {
                 throw new ArgumentException("language is required.", nameof(language));
             }
+            if (string.IsNullOrWhiteSpace(vadMode))
+            {
+                vadMode = "energy";
+            }
 
             EnsureBridge();
-            return _bridge.Call<string>("runWhisperAsrSmoke", modelPath, audioPath, tokenizerJsonPath, backend, language);
+            return _bridge.Call<string>(
+                "runWhisperAsrSmoke", modelPath, audioPath, tokenizerJsonPath, backend, language,
+                vadMode, sileroModelPath ?? string.Empty);
 #else
             throw new PlatformNotSupportedException("Whisper ASR smoke test currently supports Android device builds only.");
 #endif
@@ -223,7 +241,9 @@ namespace LiteRTLM.Unity
             string audioPath,
             string tokenizerJsonPath,
             string backend = "CPU",
-            string language = "auto")
+            string language = "auto",
+            string vadMode = "energy",
+            string sileroModelPath = "")
         {
 #if UNITY_ANDROID && !UNITY_EDITOR
             if (string.IsNullOrWhiteSpace(modelPath))
@@ -246,9 +266,15 @@ namespace LiteRTLM.Unity
             {
                 language = "auto";
             }
+            if (string.IsNullOrWhiteSpace(vadMode))
+            {
+                vadMode = "energy";
+            }
 
             EnsureBridge();
-            return _bridge.Call<string>("runQwen3AsrSmoke", modelPath, audioPath, tokenizerJsonPath, backend, language);
+            return _bridge.Call<string>(
+                "runQwen3AsrSmoke", modelPath, audioPath, tokenizerJsonPath, backend, language,
+                vadMode, sileroModelPath ?? string.Empty);
 #else
             throw new PlatformNotSupportedException("Qwen3 ASR smoke test currently supports Android device builds only.");
 #endif

@@ -22,6 +22,12 @@ namespace LiteRTLM.Unity
         [SerializeField] private string asrLanguage = "auto";
         [SerializeField] private int benchmarkRuns = 1;
 
+        // ASR preprocessing VAD: "off" | "energy" (default) | "ai".
+        // "ai" additionally needs vadSileroModelPath (StreamingAssets-relative
+        // path to the Silero VAD tflite, e.g. "ASR/silero-vad/silero_vad_16k.tflite").
+        [SerializeField] private string vadMode = "energy";
+        [SerializeField] private string vadSileroModelPath = "ASR/silero-vad/silero_vad_16k.tflite";
+
         // Optional reference transcript for a display-only EXPECTED_MATCH
         // status line (space/punct-insensitive). Never fed to the model.
         [SerializeField] private string expectedTranscript = "";
@@ -135,14 +141,36 @@ namespace LiteRTLM.Unity
                 yield break;
             }
 
-            RunAsrWithStatus(resolvedModelPath, resolvedAudioPath, resolvedTokenizerPath);
+            string resolvedSileroPath = string.Empty;
+            var vadModeForResolve = string.IsNullOrWhiteSpace(vadMode)
+                ? "energy"
+                : vadMode.Trim().ToLowerInvariant();
+            if (vadModeForResolve == "ai" && !string.IsNullOrWhiteSpace(vadSileroModelPath))
+            {
+                Exception resolveSileroError = null;
+                yield return ResolveStreamingAssetPath(
+                    vadSileroModelPath,
+                    "silero_vad",
+                    path => resolvedSileroPath = path,
+                    ex => resolveSileroError = ex);
+
+                if (resolveSileroError != null)
+                {
+                    WriteFailure(resolveSileroError);
+                    yield break;
+                }
+
+                WriteStatus("SILERO_VAD_READY", DescribeFile(resolvedSileroPath));
+            }
+
+            RunAsrWithStatus(resolvedModelPath, resolvedAudioPath, resolvedTokenizerPath, resolvedSileroPath);
 #else
             WriteStatus("SKIP", "ASR smoke test runner only executes in Android player builds.");
             yield break;
 #endif
         }
 
-        private void RunAsrWithStatus(string resolvedModelPath, string resolvedAudioPath, string resolvedTokenizerPath)
+        private void RunAsrWithStatus(string resolvedModelPath, string resolvedAudioPath, string resolvedTokenizerPath, string resolvedSileroPath = "")
         {
             try
             {
@@ -172,16 +200,19 @@ namespace LiteRTLM.Unity
                 for (var run = 1; run <= runs; run++)
                 {
                     var startedAt = Time.realtimeSinceStartup;
-                    WriteStatus("ASR_INVOKE", $"run={run}/{runs}, invoking {normalizedMode} LiteRT ASR smoke path with backend={backend}, language={normalizedLanguage}.");
+                    var normalizedVadMode = string.IsNullOrWhiteSpace(vadMode)
+                        ? "energy"
+                        : vadMode.Trim().ToLowerInvariant();
+                    WriteStatus("ASR_INVOKE", $"run={run}/{runs}, invoking {normalizedMode} LiteRT ASR smoke path with backend={backend}, language={normalizedLanguage}, vadMode={normalizedVadMode}.");
                     string asrJson;
                     switch (normalizedMode)
                     {
                         case "whisper":
-                            asrJson = client.RunWhisperAsrSmoke(resolvedModelPath, resolvedAudioPath, resolvedTokenizerPath, backend, normalizedLanguage);
+                            asrJson = client.RunWhisperAsrSmoke(resolvedModelPath, resolvedAudioPath, resolvedTokenizerPath, backend, normalizedLanguage, normalizedVadMode, resolvedSileroPath);
                             break;
                         case "qwen3":
                         case "qwen3-asr":
-                            asrJson = client.RunQwen3AsrSmoke(resolvedModelPath, resolvedAudioPath, resolvedTokenizerPath, backend, normalizedLanguage);
+                            asrJson = client.RunQwen3AsrSmoke(resolvedModelPath, resolvedAudioPath, resolvedTokenizerPath, backend, normalizedLanguage, normalizedVadMode, resolvedSileroPath);
                             break;
                         default:
                             asrJson = client.RunParakeetAsrSmoke(resolvedModelPath, resolvedAudioPath, resolvedTokenizerPath, backend);
@@ -361,8 +392,16 @@ namespace LiteRTLM.Unity
                 {
                     expectedTranscript = configuredExpectedTranscript;
                 }
+                if (TryGetJsonString(json, "vadMode", out var configuredVadMode))
+                {
+                    vadMode = configuredVadMode;
+                }
+                if (TryGetJsonString(json, "vadSileroModelPath", out var configuredVadSileroModelPath))
+                {
+                    vadSileroModelPath = configuredVadSileroModelPath;
+                }
 
-                WriteStatus("CONFIG", $"loaded={configPath}, mode={asrMode}, model={modelPath}, backend={backend}, language={asrLanguage}, benchmarkRuns={benchmarkRuns}");
+                WriteStatus("CONFIG", $"loaded={configPath}, mode={asrMode}, model={modelPath}, backend={backend}, language={asrLanguage}, benchmarkRuns={benchmarkRuns}, vadMode={vadMode}");
             }
             catch (Exception ex)
             {

@@ -383,6 +383,101 @@ ACFT sources: [futo-org/whisper-acft](https://github.com/futo-org/whisper-acft)
 
 ---
 
+## Dual-mode VAD (2026-07-25, task #24)
+
+The ASR preprocessing path now has a per-request `vadMode`:
+`"off"` (no trim/normalization, pre-take3 behavior), `"energy"` (adaptive
+energy VAD v2, **default**) and `"ai"` (Silero VAD v5 tflite). Whisper and
+Qwen3 smoke entry points both take `vadMode` + `sileroModelPath`; the result
+JSON reports `vadMode`/`vadModeUsed`/`speechSegments`/`trimmedSeconds`/
+`vadGain`/`speechRms` (+ `vadError` when AI mode falls back to energy).
+
+### Energy VAD v2 (replaces the take3 v1 gate)
+
+v1 was a single fixed threshold at max(peak-window − 20 dB, 1e-4). v2 adds:
+
+- **Noise-floor tracking**: floor = 20th-percentile window RMS; speech-on
+  threshold = max(floor + 9 dB, peak − 30 dB, 1e-4).
+- **Hysteresis**: speech-off threshold 6 dB below speech-on.
+- **Hangover**: segment closes only after 7 consecutive sub-off windows
+  (~210 ms) — keeps intra-word pauses and final consonants.
+- **Pre-roll**: segment opens 3 windows (~90 ms) before the trigger window.
+- **Speech-referenced gain**: the boost-only RMS normalization toward
+  −20 dBFS now computes its reference RMS over the speech segments only
+  (silence no longer dilutes the gain), still peak-clamped at −1 dBFS.
+- Trim margins unchanged: 0.1 s head, 0.3 s tail.
+
+### AI VAD (Silero v5 tflite)
+
+- **Acquisition**: no official TF/TFLite port exists (upstream explicitly
+  declined; ONNX/JIT only). Found a community LiteRT conversion on HF:
+  [`pat229988/silero-vad-16k-tflite`](https://huggingface.co/pat229988/silero-vad-16k-tflite)
+  (MIT, converted from the upstream `silero_vad_16k` weights, 1.25 MB
+  1:1-shape port of the v5 streaming graph). Verified locally: signature
+  `serving_default`, inputs `[1,576]` audio (64-sample context + 512-sample
+  chunk) + `[2,1,128]` recurrent state, outputs `[1,1]` probability +
+  state; clean frame-level speech probabilities on all 10 test clips.
+  Deployed to `Assets/StreamingAssets/ASR/silero-vad/silero_vad_16k.tflite`.
+- **Segmenter**: threshold 0.5 on / 0.35 off, min silence ~100 ms, min
+  speech ~100 ms (upstream defaults with min-speech shortened for
+  sub-second command clips).
+- **Head margin 0.2 s** (vs 0.1 s for energy): silero marks onset at the
+  first >0.5 chunk, tighter than an energy gate; with only 0.1 s head the
+  re-recorded "볼륨, 업" regressed to `볼륨? 어` on base-30s-i8, ≥0.15 s
+  restored it. VAD compute cost is negligible (1–15 ms per clip, CPU
+  desktop).
+
+### Phase-1 desktop comparison (10 clips × 4 modes × 2 models)
+
+Exact-match counts (punct/space-insensitive), whisper 80-mel, ko/en forced:
+
+| Mode | ACFT-KO base 5s drq | stock base 30s i8 | Notes |
+| --- | :-: | :-: | --- |
+| off | 6/10 | 8/10 | ACFT-5s misses = 2 capacity clips + 2 >5 s truncation-window clips |
+| energy v1 (take3) | 6/10 | 8/10 | marginal CER regression on the long EN clip (0.15→0.18, ACFT-5s) |
+| **energy v2** | **6/10** | **8/10** | matches off everywhere; avoids the v1 long-EN-clip slip |
+| ai (silero, 0.2 s head) | 6/10 | 8/10 | parity after the head-margin fix |
+
+The two clips that fail in *every* mode on both models are the quiet 0.79 s
+`볼륨 업` (`볼륨어`) and the EN "in Seoul" (`and soul`) — both model-capacity.
+
+### Quiet-clip verdict: NOT a VAD/gain problem (hypothesis closed)
+
+16-variant sweep on `volume-볼륨 업.mp3` (v2 trim × gains 1.31/2/3/4/6 ×
+{0.3 s tail, no tail, +0.5 s pad}) on both models: **every variant still
+reads `볼륨어`**; at 6× gain it degrades further (`보여 봐`/`보여요`).
+Combined with the earlier findings (turbo/qwen3 tiers hear `볼륨업`
+character-perfect; ACFT window length ruled out), the failure is
+**model capacity at the base tier**, not loudness, trim boundaries or
+padding. Better VAD cannot fix it; tier escalation (turbo/qwen3) is the
+only fix for that clip.
+
+### Default verdict
+
+`energy` (v2) stays the default: it equals AI-mode accuracy on this clip
+set at zero model cost and strictly dominates v1. `ai` ships as an opt-in
+for acoustically hostile environments (nonstationary noise breaks
+percentile-floor energy gates; silero is trained for that) at +1.25 MB
+and ~ms-level latency. `off` remains for A/B diagnostics.
+
+### Native delta (AAR take7)
+
+- `litertlm.cc`: v1 gate replaced by `EnergyVadSegments` (v2) +
+  `RunSileroVadProbabilities` (CompiledModel cache, CPU, chunk-streaming
+  with recurrent state) + `SileroSegmentsFromProbabilities` + shared
+  `TrimAndNormalizePcm`; `PreprocessAsrPcm(pcm, vadMode, sileroPath,
+  report)`; whisper + qwen3 entry points extended
+  (`vadMode`/`sileroModelPath` params, VAD report in result JSON).
+- `UnityLiteRtLmBridge.java`: 7-arg overloads for
+  `runWhisperAsrSmoke`/`runQwen3AsrSmoke` (5-arg wrappers kept,
+  defaulting to `energy`).
+- C#: `LiteRtLmUnityClient.RunWhisperAsrSmoke/RunQwen3AsrSmoke` gained
+  `vadMode`/`sileroModelPath` defaults; `LiteRtLmAsrTestRunner` gained a
+  VAD-mode dropdown (Off / Energy (default) / AI (Silero));
+  `LiteRtLmAsrSmokeTestRunner` gained `vadMode`/`vadSileroModelPath`
+  runtime-config keys; `Run-LiteRtLmAndroidAsrSmokeTest.ps1` gained
+  `-VadMode`/`-VadSileroModelPath` (pushes the silero tflite for AI runs).
+
 ## Sources
 
 - [NPUsper: Eliminating Redundant Computation for Real-Time Whisper on Mobile NPUs](https://arxiv.org/pdf/2607.01108) — 30 s pad vs hallucination trade-off, hush-word buffering

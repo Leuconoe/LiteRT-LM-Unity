@@ -731,3 +731,79 @@ every row (fresh process each run), so compile time is included in totals.
 The turbo-acft-5s tier displaces Qwen3-ASR-0.6B (794 MB) as the short-command
 accuracy fallback: same size class, better transcripts (digits preserved,
 5/5 vs digit-spelling diffs), and one shared whisper runtime path.
+
+---
+
+# Device Cycle 6 — dual-mode VAD (take7 AAR)
+
+- Date: 2026-07-25 (10:07–10:11 host). Device `46a880a0`, CPU, whisper mode,
+  `ko`, fresh app process per run. **10/10 runs SUCCESS — zero crashes/OOM.**
+- AAR rebuilt 10:01 ("take7", 31.6 MB): dual-mode VAD in the shared ASR PCM
+  path (task #24). `vadMode` per request: `off` (no preprocessing) /
+  `energy` (adaptive energy VAD **v2** — noise-floor percentile threshold,
+  6 dB hysteresis, 210 ms hangover, 90 ms pre-roll, speech-only-RMS gain;
+  replaces the take3 fixed gate as default) / `ai` (Silero VAD v5 tflite,
+  1.25 MB, from HF `pat229988/silero-vad-16k-tflite`, pushed at runtime to
+  `LiteRTLM/ASR/ASR/silero-vad/`). Result JSON now reports
+  `vadMode`/`vadModeUsed`/`speechSegments`/`trimmedSeconds`/`vadGain`/
+  `speechRms` (+ `vadError` on ai→energy fallback).
+- APK: `LiteRtLmAndroidAsrSmokeTest-generic.apk` rebuilt 10:07 (137 MB) with
+  take7 AAR + `vadMode`/`vadSileroModelPath` runtime-config keys.
+- Offline phase-1 (desktop, 10 clips × 4 modes × base-acft-5s/base-30s-i8/
+  turbo-acft-5s): see `short-utterance-asr-research.md` "Dual-mode VAD".
+- Logs: `Builds/Logs/AndroidDeviceRuns/20260725-10*-c6-*.{summary,status,logcat}.txt`
+  Matrix script: scratchpad `Run-Cycle6VadMatrix.ps1` (+ `Invoke-AsrDeviceRunC6.ps1`).
+
+## 1. Cycle-6 device matrix
+
+| Model | Clip | vadMode | Device transcript | Match | Compile s | Encode s | Decode s (steps) | vadGain | Segments s |
+| --- | --- | --- | --- | :-: | ---: | ---: | ---: | ---: | --- |
+| base acft-ko 5s | `볼륨 업` (old quiet) | off | `볼륨어` | ✗ | 0.19 | 0.048 | 0.43 (6) | 1.000 | — |
+| base acft-ko 5s | `볼륨 업` (old quiet) | energy | `볼륨어` | ✗ | 0.18 | 0.053 | 0.41 (6) | 1.311 | [0.09, 0.78] |
+| base acft-ko 5s | `볼륨 업` (old quiet) | ai | `볼륨어` | ✗ | 0.19 | 0.063 | 0.44 (6) | 1.223 | [0.19, 0.79] |
+| turbo acft-ko 5s | `볼륨 업` (old quiet) | off | `볼륨업` | ✓ | 1.92 | 1.046 | 0.87 (6) | 1.000 | — |
+| turbo acft-ko 5s | `볼륨 업` (old quiet) | energy | `볼륨업` | ✓ | 1.92 | 1.076 | 0.90 (6) | 1.311 | [0.09, 0.78] |
+| turbo acft-ko 5s | `볼륨 업` (old quiet) | ai | `볼륨업` | ✓ | 1.92 | 1.071 | 0.85 (6) | 1.223 | [0.19, 0.79] |
+| base acft-ko 5s | `소리 키워줘` | energy | `소리 키워줘` | ✓ exact | 0.19 | 0.057 | 0.35 (5) | 1.335 | [0.09, 1.32] |
+| base acft-ko 5s | `소리 키워줘` | ai | `소리 키워줘.` | ✓ | 0.18 | 0.050 | 0.41 (6) | 1.220 | [0.26, 1.28] |
+| base acft-ko 5s | `현재 서울의…` (3.2 s) | energy | `현재 서울의 날씨는 흐림입니다.` | ✓ | 0.18 | 0.051 | 0.84 (12) | 1.000 | [0.27, 1.89], [1.83, 3.15] |
+| base acft-ko 5s | `현재 서울의…` (3.2 s) | ai | `현재 서울의 날씨는 흐림입니다.` | ✓ | 0.19 | 0.055 | 0.85 (12) | 1.000 | [0.38, 1.76], [1.92, 2.40], [2.56, 3.01] |
+
+## 2. Findings
+
+- **Device↔desktop VAD parity is exact**: `vadGain` (1.3109500, 1.2225511,
+  1.3346232), segment boundaries and trims match the desktop prototype to
+  every reported digit — both the energy-v2 C++ port and the on-device
+  Silero LiteRT inference reproduce the Python reference bit-for-bit at
+  reporting precision.
+- **Silero VAD runs on-device** (arm64, CPU CompiledModel): compiles inside
+  the run budget (no measurable compile bump vs energy — model is 1.25 MB),
+  per-run VAD cost is noise-level (encode deltas ≤ 0.01 s).
+- **Quiet-clip verdict confirmed on device**: base tier reads `볼륨어` in
+  all three modes; turbo tier reads `볼륨업` in all three — the hypothesis
+  "better VAD + gain staging may fix the quiet clip" is **closed as
+  refuted** (also swept 16 gain/trim/pad variants offline: all fail).
+  Tier escalation remains the only fix (cycle-5 lineup unchanged).
+- **No regressions**: both regression clips exact in energy and ai modes
+  (ai adds a harmless trailing period on `소리 키워줘`).
+- vadModeUsed reported correctly per run, `off` mode reports empty
+  segments, and the ai→energy fallback path (missing silero model) is
+  exercised by the C# guard (SILERO_VAD_READY resolves before invoke).
+
+## Cycle-6 pass/fail ledger
+
+| Item | Verdict |
+| --- | :-: |
+| take7 AAR build (patch regen + pristine apply --check) | PASS |
+| 10-run device matrix, fresh process each | PASS — 10/10 SUCCESS, 0 crashes |
+| energy-v2 default backward compat (take6-equivalent transcripts) | PASS |
+| ai mode on device (silero compile + segments + gain) | PASS |
+| off mode (pre-take3 behavior) | PASS |
+| quiet clip fixed by any VAD mode | REFUTED — capacity-bound (turbo/qwen3 only) |
+
+## Cycle-6 verdict
+
+**Default vadMode = `energy` (v2).** AI mode is accuracy-neutral on the
+clean test set but ships as an opt-in for noisy capture (energy-gate
+percentile floors break under nonstationary noise; silero is trained for
+it) at +1.25 MB. `off` retained for A/B diagnostics.
