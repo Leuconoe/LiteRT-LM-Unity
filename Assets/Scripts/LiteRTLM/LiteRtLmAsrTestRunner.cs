@@ -106,6 +106,15 @@ namespace LiteRTLM.Unity
         private static readonly string[] VadModeLabels = { "Off", "Energy (default)", "AI (Silero)" };
         private const string SileroVadModelPath = "ASR/silero-vad/silero_vad_16k.tflite";
 
+        // Input source: File = bundled test clip dropdown, Mic = live
+        // microphone with C#-side VAD endpointing (LiteRtLmMicVadCapture).
+        // Mic captures are already endpointed, so the native vadMode above
+        // can stay "energy" — the native trim only re-trims the edges of the
+        // captured utterance and the two trims compose safely.
+        private static readonly string[] InputModeLabels = { "File", "Mic" };
+        private const string MicAudioLabel = "mic";
+
+        [SerializeField] private int selectedInputModeIndex;
         [SerializeField] private int selectedModelIndex;
         [SerializeField] private int selectedAudioIndex;
         [SerializeField] private int selectedVadModeIndex = 1;
@@ -113,6 +122,8 @@ namespace LiteRTLM.Unity
         [SerializeField] private string backend = "CPU";
 
         private LiteRtLmUnityClient _client;
+        private LiteRtLmMicVadCapture _micCapture;
+        private string _lastMicWavPath;
         private readonly List<string> _transcriptLog = new List<string>();
         private string _status = "Idle";
         private bool _isBusy;
@@ -122,14 +133,113 @@ namespace LiteRTLM.Unity
         private float _requestStartedAt;
         private Vector2 _logScroll;
         private bool _hasImeTextFieldFocus;
+        // Control rects logged once per input mode so headless device runs
+        // (screencap-blind hardware) can drive the IMGUI via adb input taps.
+        private Rect _inputToolbarRect;
+        private Rect _actionButtonRect;
+        private bool _controlRectsLogged;
 
         private void Awake()
         {
             _client ??= new LiteRtLmUnityClient();
         }
 
+        // Headless verification hook: devices without a touchscreen (or with
+        // FLAG_SECURE displays) cannot be driven via adb taps/screencap, so
+        // an optional config file in persistentDataPath auto-drives the
+        // scene. Absent file = no behavior change.
+        //   { "micSmokeSeconds": 5, "fileTranscribe": true }
+        private const string AutoTestConfigFileName = "LiteRtLmAsrTest.autotest.json";
+
+        private void Start()
+        {
+            var configPath = Path.Combine(Application.persistentDataPath, AutoTestConfigFileName);
+            if (File.Exists(configPath))
+            {
+                StartCoroutine(AutoTestRoutine(configPath));
+            }
+        }
+
+        private IEnumerator AutoTestRoutine(string configPath)
+        {
+            var micSmokeSeconds = 0f;
+            var fileTranscribe = false;
+            try
+            {
+                var json = File.ReadAllText(configPath);
+                var micMatch = Regex.Match(json, "\"micSmokeSeconds\"\\s*:\\s*(?<value>[0-9.]+)");
+                if (micMatch.Success)
+                {
+                    micSmokeSeconds = float.Parse(
+                        micMatch.Groups["value"].Value,
+                        System.Globalization.CultureInfo.InvariantCulture);
+                }
+
+                fileTranscribe = Regex.IsMatch(json, "\"fileTranscribe\"\\s*:\\s*true");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"LiteRtLmAsrTestRunner autotest: failed to read config ({ex.Message})");
+                yield break;
+            }
+
+            Debug.Log($"LiteRtLmAsrTestRunner autotest: micSmokeSeconds={micSmokeSeconds}, fileTranscribe={fileTranscribe}");
+            yield return null;
+
+            if (micSmokeSeconds > 0f)
+            {
+                selectedInputModeIndex = 1;
+                EnsureMicCapture();
+                _micCapture.StartListening();
+                var deadline = Time.realtimeSinceStartup + micSmokeSeconds;
+                while (Time.realtimeSinceStartup < deadline && _micCapture.IsCapturing)
+                {
+                    yield return null;
+                }
+
+                // Ambient noise may have endpointed (and stopped) the capture
+                // already; otherwise stop it explicitly to exercise
+                // Listening -> Idle.
+                if (_micCapture.IsCapturing)
+                {
+                    _micCapture.StopListening();
+                }
+
+                Debug.Log("LiteRtLmAsrTestRunner autotest: mic smoke complete");
+            }
+
+            if (fileTranscribe)
+            {
+                while (_isBusy)
+                {
+                    yield return null;
+                }
+
+                selectedInputModeIndex = 0;
+                var option = GetSelectedModelOption();
+                if (option != null && _client.IsAvailable)
+                {
+                    yield return TranscribeRoutine(option);
+                }
+                else
+                {
+                    Debug.LogWarning("LiteRtLmAsrTestRunner autotest: file transcribe skipped (no model or client unavailable)");
+                }
+
+                Debug.Log("LiteRtLmAsrTestRunner autotest: file transcribe complete");
+            }
+
+            Debug.Log("LiteRtLmAsrTestRunner autotest: done");
+        }
+
         private void OnDestroy()
         {
+            if (_micCapture != null)
+            {
+                _micCapture.OnUtteranceCaptured -= HandleMicUtteranceCaptured;
+                _micCapture.OnCaptureError -= HandleMicCaptureError;
+            }
+
             _client?.Dispose();
             _client = null;
         }
@@ -153,7 +263,29 @@ namespace LiteRTLM.Unity
 
             _hasImeTextFieldFocus = false;
             DrawModelDropdown();
-            DrawAudioDropdown();
+
+            GUILayout.Label("Input");
+            var newInputModeIndex = GUILayout.Toolbar(
+                Mathf.Clamp(selectedInputModeIndex, 0, InputModeLabels.Length - 1),
+                InputModeLabels);
+            if (Event.current.type == EventType.Repaint)
+            {
+                _inputToolbarRect = GUILayoutUtility.GetLastRect();
+            }
+
+            if (newInputModeIndex != selectedInputModeIndex)
+            {
+                selectedInputModeIndex = newInputModeIndex;
+                _controlRectsLogged = false;
+                Debug.Log($"LiteRtLmAsrTestRunner input mode -> {InputModeLabels[selectedInputModeIndex]}");
+            }
+
+            var micMode = selectedInputModeIndex == 1;
+            if (!micMode)
+            {
+                DrawAudioDropdown();
+            }
+
             DrawVadModeDropdown();
 
             GUILayout.Label("Language");
@@ -166,14 +298,25 @@ namespace LiteRTLM.Unity
             }
 
             var selectedOption = GetSelectedModelOption();
-            var transcribeEnabled = _client.IsAvailable && !_isBusy && selectedOption != null && IsOptionEnabled(selectedOption);
-            GUI.enabled = transcribeEnabled;
-            if (GUILayout.Button("Transcribe", GUILayout.Height(40)))
+            if (micMode)
             {
-                StartCoroutine(TranscribeRoutine(selectedOption));
+                DrawMicSection(selectedOption);
+            }
+            else
+            {
+                var transcribeEnabled = _client.IsAvailable && !_isBusy && selectedOption != null && IsOptionEnabled(selectedOption);
+                GUI.enabled = transcribeEnabled;
+                if (GUILayout.Button("Transcribe", GUILayout.Height(40)))
+                {
+                    Debug.Log("LiteRtLmAsrTestRunner: Transcribe pressed");
+                    StartCoroutine(TranscribeRoutine(selectedOption));
+                }
+
+                CaptureActionButtonRect();
+                GUI.enabled = true;
             }
 
-            GUI.enabled = true;
+            LogControlRectsOnce();
 
             GUILayout.Space(8);
             GUILayout.Label("Transcript / Metrics");
@@ -186,6 +329,37 @@ namespace LiteRTLM.Unity
 
             GUILayout.EndScrollView();
             GUILayout.EndArea();
+        }
+
+        private void CaptureActionButtonRect()
+        {
+            if (Event.current.type == EventType.Repaint)
+            {
+                _actionButtonRect = GUILayoutUtility.GetLastRect();
+            }
+        }
+
+        // Logs the tap targets once per input mode: coordinates are screen
+        // pixels (the 20,20 GUILayout.BeginArea origin is added) so headless
+        // device verification can use `adb shell input tap` directly.
+        private void LogControlRectsOnce()
+        {
+            if (_controlRectsLogged || Event.current.type != EventType.Repaint)
+            {
+                return;
+            }
+
+            _controlRectsLogged = true;
+            Debug.Log(
+                "LiteRtLmAsrTestRunner controls: " +
+                $"inputToolbar={FormatScreenRect(_inputToolbarRect)}, " +
+                $"actionButton={FormatScreenRect(_actionButtonRect)}, " +
+                $"mode={InputModeLabels[Mathf.Clamp(selectedInputModeIndex, 0, InputModeLabels.Length - 1)]}");
+        }
+
+        private static string FormatScreenRect(Rect rect)
+        {
+            return $"x={rect.x + 20f:0},y={rect.y + 20f:0},w={rect.width:0},h={rect.height:0}";
         }
 
         private void DrawModelDropdown()
@@ -270,6 +444,154 @@ namespace LiteRTLM.Unity
             }
         }
 
+        // Live-mic input: level meter + VAD state, endpointed by
+        // LiteRtLmMicVadCapture. Capture itself works everywhere (including
+        // the Windows editor, for VAD tuning); the transcription step still
+        // requires the Android bridge like file mode.
+        private void DrawMicSection(AsrModelOption selectedOption)
+        {
+            EnsureMicCapture();
+
+            var levelDb = _micCapture.CurrentLevelDb;
+            var stateLine = _micCapture.IsCapturing
+                ? $"Mic VAD: {_micCapture.State}  level={levelDb:0.0} dB  noiseFloor={_micCapture.NoiseFloorDb:0.0} dB  speechOn={_micCapture.SpeechOnThresholdDb:0.0} dB"
+                : "Mic VAD: Idle";
+            if (_micCapture.State == LiteRtLmMicVadCapture.MicVadState.Speech)
+            {
+                stateLine += $"  utterance={_micCapture.UtteranceSeconds:0.0}s";
+            }
+
+            GUILayout.Label(stateLine);
+            DrawMicLevelMeter(levelDb);
+
+            if (!_micCapture.IsCapturing)
+            {
+                GUI.enabled = !_isBusy;
+                if (GUILayout.Button("Listen (speak; VAD auto-stops and transcribes)", GUILayout.Height(40)))
+                {
+                    Debug.Log("LiteRtLmAsrTestRunner: Listen pressed");
+                    _status = "Listening...";
+                    _micCapture.StartListening();
+                }
+
+                CaptureActionButtonRect();
+                GUI.enabled = true;
+            }
+            else
+            {
+                if (GUILayout.Button("Stop Listening", GUILayout.Height(40)))
+                {
+                    Debug.Log("LiteRtLmAsrTestRunner: Stop Listening pressed");
+                    _micCapture.StopListening();
+                    _status = "Mic capture cancelled";
+                }
+
+                CaptureActionButtonRect();
+            }
+
+            if (!string.IsNullOrEmpty(_lastMicWavPath))
+            {
+                GUILayout.Label($"Last capture: {_lastMicWavPath}");
+            }
+
+            if (selectedOption == null)
+            {
+                GUILayout.Label("No ASR model selected — captures will be saved but not transcribed.");
+            }
+        }
+
+        private void DrawMicLevelMeter(float levelDb)
+        {
+            var rect = GUILayoutUtility.GetRect(0f, 20f, GUILayout.ExpandWidth(true));
+            GUI.Box(rect, GUIContent.none);
+            var previousColor = GUI.color;
+
+            var normalizedLevel = Mathf.InverseLerp(-60f, 0f, levelDb);
+            if (_micCapture.IsCapturing && normalizedLevel > 0f)
+            {
+                GUI.color = _micCapture.State == LiteRtLmMicVadCapture.MicVadState.Speech
+                    ? new Color(0.3f, 0.9f, 0.3f, 0.9f)
+                    : new Color(0.6f, 0.6f, 0.6f, 0.9f);
+                GUI.DrawTexture(
+                    new Rect(rect.x + 1f, rect.y + 1f, (rect.width - 2f) * normalizedLevel, rect.height - 2f),
+                    Texture2D.whiteTexture);
+            }
+
+            if (_micCapture.IsCapturing)
+            {
+                // Speech-on threshold tick.
+                var normalizedThreshold = Mathf.InverseLerp(-60f, 0f, _micCapture.SpeechOnThresholdDb);
+                GUI.color = new Color(0.95f, 0.35f, 0.25f, 0.9f);
+                GUI.DrawTexture(
+                    new Rect(rect.x + 1f + (rect.width - 4f) * normalizedThreshold, rect.y + 1f, 2f, rect.height - 2f),
+                    Texture2D.whiteTexture);
+            }
+
+            GUI.color = previousColor;
+        }
+
+        private void EnsureMicCapture()
+        {
+            if (_micCapture != null)
+            {
+                return;
+            }
+
+            _micCapture = GetComponent<LiteRtLmMicVadCapture>();
+            if (_micCapture == null)
+            {
+                _micCapture = gameObject.AddComponent<LiteRtLmMicVadCapture>();
+            }
+
+            _micCapture.OnUtteranceCaptured += HandleMicUtteranceCaptured;
+            _micCapture.OnCaptureError += HandleMicCaptureError;
+        }
+
+        private void HandleMicCaptureError(string message)
+        {
+            _status = $"Mic error: {message}";
+        }
+
+        private void HandleMicUtteranceCaptured(float[] pcm16k)
+        {
+            string wavPath;
+            try
+            {
+                var captureDirectory = Path.Combine(Application.persistentDataPath, "LiteRTLM", "MicCaptures");
+                Directory.CreateDirectory(captureDirectory);
+                wavPath = Path.Combine(captureDirectory, $"mic_{DateTime.Now:yyyyMMdd_HHmmss_fff}.wav");
+                LiteRtLmMicVadCapture.WriteWav16BitMono(wavPath, pcm16k, LiteRtLmMicVadCapture.TargetSampleRate);
+            }
+            catch (Exception ex)
+            {
+                _status = $"Mic error: failed to write WAV ({ex.Message})";
+                Debug.LogException(ex);
+                return;
+            }
+
+            _lastMicWavPath = wavPath;
+            var utteranceSeconds = pcm16k.Length / (float)LiteRtLmMicVadCapture.TargetSampleRate;
+            var captureLine = $"mic capture: {utteranceSeconds:0.00}s endpointed -> {wavPath}";
+            Debug.Log($"LiteRtLmAsrTestRunner {captureLine}");
+            _transcriptLog.Add(captureLine);
+            _logScroll = new Vector2(0f, float.MaxValue);
+
+            var option = GetSelectedModelOption();
+            if (!_client.IsAvailable)
+            {
+                _status = "Mic capture saved (ASR requires Android build)";
+                return;
+            }
+
+            if (_isBusy || option == null)
+            {
+                _status = "Mic capture saved (runner busy or no model selected)";
+                return;
+            }
+
+            StartCoroutine(TranscribeRoutine(option, wavPath, MicAudioLabel));
+        }
+
         private AsrModelOption GetSelectedModelOption()
         {
             if (modelOptions == null || modelOptions.Length == 0)
@@ -292,9 +614,22 @@ namespace LiteRTLM.Unity
 
         private IEnumerator TranscribeRoutine(AsrModelOption option)
         {
+            return TranscribeRoutine(option, null, null);
+        }
+
+        // overrideAudioPath: absolute path to an already-materialized audio
+        // file (e.g. a mic-captured WAV in persistentDataPath); when null the
+        // selected bundled audio clip is used.
+        private IEnumerator TranscribeRoutine(AsrModelOption option, string overrideAudioPath, string audioLabel)
+        {
             _isBusy = true;
             _requestStartedAt = Time.realtimeSinceStartup;
             _status = "Preparing ASR assets...";
+
+            var usesOverrideAudio = !string.IsNullOrWhiteSpace(overrideAudioPath);
+            var audioDisplayName = usesOverrideAudio
+                ? (audioLabel ?? overrideAudioPath)
+                : AudioOptions[selectedAudioIndex];
 
             string resolvedModelPath = null;
             string resolvedTokenizerPath = null;
@@ -309,7 +644,11 @@ namespace LiteRTLM.Unity
 
             if (resolveError == null)
             {
-                yield return ResolveStreamingAssetPath(AudioOptions[selectedAudioIndex], path => resolvedAudioPath = path, ex => resolveError = ex);
+                // ResolveStreamingAssetPath passes rooted paths straight
+                // through (with an existence check), so the mic WAV reuses
+                // the same resolution flow as the bundled clips.
+                var audioSourcePath = usesOverrideAudio ? overrideAudioPath : AudioOptions[selectedAudioIndex];
+                yield return ResolveStreamingAssetPath(audioSourcePath, path => resolvedAudioPath = path, ex => resolveError = ex);
             }
 
             if (resolveError == null && IsWhisperGpuRequested(option))
@@ -370,13 +709,19 @@ namespace LiteRTLM.Unity
                 }
 
                 var transcript = ExtractTranscript(asrJson);
-                var expectedLine = DescribeExpectedMatch(selectedAudioIndex, transcript);
-                _transcriptLog.Add(
-                    $"model={option.label}, audio={AudioOptions[selectedAudioIndex]}, backend={backend}, language={language}, vadMode={vadMode}\n" +
+                // Expected-transcript comparison only applies to the bundled
+                // clips; mic captures have no reference text.
+                var expectedLine = usesOverrideAudio
+                    ? string.Empty
+                    : DescribeExpectedMatch(selectedAudioIndex, transcript);
+                var resultEntry =
+                    $"model={option.label}, audio={audioDisplayName}, backend={backend}, language={language}, vadMode={vadMode}\n" +
                     $"elapsedSeconds={elapsedSeconds:0.###}\n" +
                     $"transcript={transcript}\n" +
                     expectedLine +
-                    $"raw={OneLine(Truncate(asrJson, 1800))}");
+                    $"raw={OneLine(Truncate(asrJson, 1800))}";
+                _transcriptLog.Add(resultEntry);
+                Debug.Log($"LiteRtLmAsrTestRunner transcription result: {OneLine(Truncate(resultEntry, 1200))}");
                 _logScroll = new Vector2(0f, float.MaxValue);
                 _status = "Transcription complete";
             }

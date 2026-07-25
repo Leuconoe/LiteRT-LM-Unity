@@ -107,7 +107,7 @@ Qwen3-ASR은 공식 tflite + 프로젝트 JNI 포팅.
 | Scene | 용도 (모두 Android 대상, 디바이스 검증 상태) |
 | --- | --- |
 | `LiteRtLmLlmChatTestScene` | 멀티턴 채팅 — 모델 5종 드롭다운, Qwen3 think/no_think 토글 |
-| `LiteRtLmAsrTestScene` | ASR — 모델 드롭다운 × 10클립 오디오 드롭다운 (whisper + qwen3 모드) |
+| `LiteRtLmAsrTestScene` | ASR — 모델 드롭다운 × 10클립 오디오 드롭다운 (whisper + qwen3 모드) + **Mic 입력**: 라이브 마이크 캡처를 C# 에너지 VAD(`LiteRtLmMicVadCapture`, 네이티브 v2 파라미터 미러)로 자동 엔드포인팅 → 16 kHz WAV 저장 → 선택 모델로 자동 전사 (음성 명령 데모) |
 | `LiteRtLmMultimodalTestScene` | 이미지 + 오디오 입력 (`SendMessageWithMedia`, gemma-4) — ✅ 디바이스 PASS |
 | `LiteRtLmAsrFunctionCallingTestScene` | 음성 → 전사 → 도구 호출 파이프라인 — ✅ 디바이스 PASS (15.5 s E2E) |
 | `LiteRtLmMultimodalFunctionCallingTestScene` | 이미지 + 발화 → 도구 호출 — ✅ 디바이스 PASS (40.7 s E2E) |

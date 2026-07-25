@@ -807,3 +807,30 @@ accuracy fallback: same size class, better transcripts (digits preserved,
 clean test set but ships as an opt-in for noisy capture (energy-gate
 percentile floors break under nonstationary noise; silero is trained for
 it) at +1.25 MB. `off` retained for A/B diagnostics.
+
+## Mic input added to ASR test scene (post-cycle-6)
+
+`LiteRtLmAsrTestScene` now has a "Mic" input mode next to the file
+dropdown: `LiteRtLmMicVadCapture` records the default microphone
+(16 kHz mono loop buffer) and endpoints utterances with a C# streaming
+energy VAD mirroring the native v2 parameters (300 ms noise-floor
+calibration, +9/+6 dB on/off hysteresis, 210 ms hangover, 90 ms preroll,
+200 ms min-speech, 8 s max-utterance). Endpointed audio is written as a
+16-bit/16 kHz WAV under `persistentDataPath/LiteRTLM/MicCaptures/` and
+auto-submitted to the selected ASR model through the existing
+`RunWhisperAsrSmoke`/`RunQwen3AsrSmoke` file path. Native `vadMode` can
+stay `energy` — both trims are conservative and compose safely.
+
+Device verification (46a880a0, 2026-07-25, `LiteRtLmAsrTest-micvad.apk`):
+scene load PASS; RECORD_AUDIO auto-added to the manifest by Unity and
+platform-fixed granted on this unit (runtime prompt path exists but is
+not exercisable here); mic state machine PASS on live ambient audio
+(Idle→Calibrating→Listening at noiseFloor≈-40 dB→Speech→8 s max-utterance
+endpoint→8.01 s 16 kHz WAV→auto Whisper Tiny transcription success:true
+in 1.24 s); file-mode regression PASS (packaged report clip, whisper-tiny
+CPU, success:true, 1.71 s, tiny-tier accuracy unchanged); 0 crashes.
+Because this unit has no touchscreen and a FLAG_SECURE display, the run
+was driven by the optional `LiteRtLmAsrTest.autotest.json` hook in
+persistentDataPath (`{"micSmokeSeconds": N, "fileTranscribe": true}`) —
+absent file = normal interactive behavior. Real voice-accuracy testing is
+manual (speak Korean voice commands, check the transcript log).
