@@ -8,8 +8,13 @@
 - Framework: **LiteRT-LM v0.14.0** (`External/LiteRT-LM`, 커스텀은
   `Tools/UnityAar/litert-lm-unity-aar.patch`로 관리), `.litertlm` 포맷 1.5.0
 - 실기기 검증: **Snapdragon 865 (kona) / 7.5 GB RAM / Android 12** 기기에서
-  4대 기능 전부 PASS — 3회 PDCA 사이클, 40+ 런, 크래시 0
+  4대 기능 전부 PASS — 6회 PDCA 사이클, 80+ 런, 크래시 0
   ([검증 원장](docs/benchmarks/device-cycle1-baseline.md))
+- 자체 학습 모델 공개: 순수 ACFT 변환
+  [litert-community/whisper-acft](https://huggingface.co/litert-community/whisper-acft) ·
+  한국어 ACFT 학습본
+  [leuconoe/whisper-acft-ko](https://huggingface.co/leuconoe/whisper-acft-ko) ·
+  양자화 모음 [leuconoe/litert-lm-unity-quantized](https://huggingface.co/leuconoe/litert-lm-unity-quantized)
 
 ## 온디바이스 핵심 기능 (실기기 검증 완료)
 
@@ -77,6 +82,7 @@ ASR 모델은 `Assets/StreamingAssets/ASR/<model>/`에 해당 `tokenizer.json`�
 | --- | --- | ---: | --- |
 | 음성 명령 (짧은 발화) 제1픽 | `ASR/whisper-base-acft-ko/acft_base_5s_drq.tflite` | 101 MB | 한국어 ACFT 5s 윈도우 학습 모델 — 정상 음량 명령 전부 exact, E2E 0.7–0.8 s (stock base 대비 ~3.5×, turbo-30s 대비 ~30× 빠름). 조용한 녹음은 아래 turbo-acft로 폴백 |
 | 음성 명령 정확도 폴백 | `ASR/whisper-turbo-acft-ko/acft_turbo_5s_drq.tflite` | 883 MB | **디바이스 5/5 유일 모델** (조용한 "볼륨 업" 구녹음 + `음량 증가` + 숫자 표기까지 전부 exact). 콜드 ~4 s / 웜 ~1.9 s. Qwen3-ASR 대체 (숫자를 그대로 표기) |
+| **장문 (>30 s) 전체 전사** | `ASR/qwen3-asr-0.6b/qwen3_asr_0.6b_5s_i8.tflite` | 794 MB | 5초 청크 루프로 길이 무제한 — 디바이스 98 s 오디오 20청크 완전 전사(4.2분, RAM 평탄). **유일한 장문 경로**. ⚠️ whisper 30s 모델에 >30 s 오디오 직접 입력 금지(절단+토큰 캡+조기 종료 3중 실패) |
 | 문장 전사 최고 정확도 | `ASR/whisper-large-v3-turbo/whisper_large_v3_turbo_30s_i4.tflite` | 755 MB | 디바이스 게이트 3/3 통과 — whisper 중 유일하게 볼륨 명령까지 인식. 매트릭스 종합 1위(8/9, CER 0.000). 단 클립당 ~21–24 s CPU (배치/비실시간 용도) |
 | 균형(크기·속도·정확도) | `ASR/whisper-base/whisper_base_30s_i8.tflite` | 77 MB | 문장 한국어 CER 0.000, 긴 클립 ~2.7 s. 주의: 1.2 s 미만 초단클립은 디바이스에서 불안정(mel 수치 특성) — 음성 명령은 위 두 모델 사용 |
 | 초소형(영어 위주) | `ASR/whisper-tiny/whisper_tiny_30s_i8.tflite` | 41 MB | 영어 CER 0.000. 한국어 연도 오인 + 초단클립 불안정 |
@@ -87,6 +93,19 @@ ASR 모델은 `Assets/StreamingAssets/ASR/<model>/`에 해당 `tokenizer.json`�
 **대안 경로**: gemma-4 오디오 입력(LLM 1번)으로도 전사 가능 — LLM이 이미
 상주할 때 추가 모델 없이 **전사+펑션콜링을 한 턴에** 처리 (디바이스 4.1 s,
 내용 정확).
+
+**VAD (음성 구간 검출)**: 모든 ASR 경로에 `vadMode` 지원 — `energy`(기본,
+적응 임계값 v2, 비용 0) / `ai`(Silero 1.25 MB, 옵트인) / `off`. 98 s
+31발화 스트레스 클립에서 31/31 검출, 디바이스↔데스크톱 경계 완전 일치.
+Unity 쪽 라이브 마이크 캡처(`LiteRtLmMicVadCapture`)도 동일 파라미터로
+자동 엔드포인팅.
+
+**한국어 ACFT 5s 모델 학습 배경**: stock whisper를 5초 짧은 컨텍스트에
+그대로 넣으면 붕괴(반복 폭주, CER 1.1~24.9)하므로, futo ACFT 방법에 두
+가지 보정(ctx 하한 250, 한70:영30 zeroth+fleurs 증류)을 더해 자체
+학습했습니다. 게이트 결과(5s ctx 한국어 단문 CER): turbo 0.182 · medium
+0.208 · base 0.305 · tiny 0.457. 인코더는 30초 창 대비 ~12배 빠릅니다.
+모델·카드: [leuconoe/whisper-acft-ko](https://huggingface.co/leuconoe/whisper-acft-ko).
 
 모델 출처: whisper tiny/base는
 [litert-community](https://huggingface.co/litert-community/whisper-tiny)
@@ -107,15 +126,16 @@ Qwen3-ASR은 공식 tflite + 프로젝트 JNI 포팅.
 | Scene | 용도 (모두 Android 대상, 디바이스 검증 상태) |
 | --- | --- |
 | `LiteRtLmLlmChatTestScene` | 멀티턴 채팅 — 모델 5종 드롭다운, Qwen3 think/no_think 토글 |
-| `LiteRtLmAsrTestScene` | ASR — 모델 드롭다운 × 10클립 오디오 드롭다운 (whisper + qwen3 모드) + **Mic 입력**: 라이브 마이크 캡처를 C# 에너지 VAD(`LiteRtLmMicVadCapture`, 네이티브 v2 파라미터 미러)로 자동 엔드포인팅 → 16 kHz WAV 저장 → 선택 모델로 자동 전사 (음성 명령 데모) |
+| `LiteRtLmAsrTestScene` | ASR — 모델 드롭다운 × 10클립 오디오 드롭다운 (whisper + qwen3 모드) + **Mic 입력**: 라이브 마이크 캡처를 C# 에너지 VAD(`LiteRtLmMicVadCapture`, 네이티브 v2 파라미터 미러)로 자동 엔드포인팅 → 16 kHz WAV 저장 → 선택 모델로 자동 전사 (음성 명령 데모) + **Continuous 토글**: 상시 청취 루프 — 발화 엔드포인트 → 유한 큐(4, drop-oldest) → 백그라운드 스레드 비동기 전사(캡처 무중단, compiled-model cache로 2회차부터 warm) → 즉시 재청취, 타임스탬프 롤링 전사 로그/큐 깊이/발화당 지연 표시 |
 | `LiteRtLmMultimodalTestScene` | 이미지 + 오디오 입력 (`SendMessageWithMedia`, gemma-4) — ✅ 디바이스 PASS |
 | `LiteRtLmAsrFunctionCallingTestScene` | 음성 → 전사 → 도구 호출 파이프라인 — ✅ 디바이스 PASS (15.5 s E2E) |
 | `LiteRtLmMultimodalFunctionCallingTestScene` | 이미지 + 발화 → 도구 호출 — ✅ 디바이스 PASS (40.7 s E2E) |
+| `LiteRtLmTranslateTestScene` | 번역 2엔진 — **Whisper Direct**: `<|translate|>` 태스크 토큰으로 X→영어 네이티브 번역 (stock whisper 티어, transcribe+translate 2패스로 원문/번역 동시 표시) / **ASR+LLM**: 전사 → Qwen3-0.6B int4 `/no_think` 번역 프롬프트 (영어/일본어/중국어 타깃 드롭다운). 파일 10클립 또는 Mic 단발 캡처 입력 |
 
 레거시 스모크/벤치 씬(`AndroidSmokeTest`, `ConversationTest`,
 `FunctionCallingBenchmark`)도 같은 폴더에 있습니다.
 
-## Benchmark Results (2026-07-23, 실기기 46a880a0)
+## Benchmark Results (2026-07-23~25, 실기기 46a880a0)
 
 측정 지표 읽는 법:
 
