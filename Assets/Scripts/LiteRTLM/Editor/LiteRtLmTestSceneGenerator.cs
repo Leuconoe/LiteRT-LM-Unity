@@ -15,6 +15,7 @@ namespace LiteRTLM.Unity.Editor
         public const string MultimodalTestScenePath = "Assets/Scenes/Tests/LiteRtLmMultimodalTestScene.unity";
         public const string AsrFunctionCallingTestScenePath = "Assets/Scenes/Tests/LiteRtLmAsrFunctionCallingTestScene.unity";
         public const string MultimodalFunctionCallingTestScenePath = "Assets/Scenes/Tests/LiteRtLmMultimodalFunctionCallingTestScene.unity";
+        public const string TranslateTestScenePath = "Assets/Scenes/Tests/LiteRtLmTranslateTestScene.unity";
 
         private const string AsrFunctionCallingDefaultAsrModelPath = "ASR/whisper-tiny/whisper_tiny_30s_i8.tflite";
         private const string AsrFunctionCallingDefaultAudioPath = "TestAssets/Audio/2025년 3월 5일 전술평가 결과 보고.mp3";
@@ -29,6 +30,7 @@ namespace LiteRTLM.Unity.Editor
             MultimodalTestScenePath,
             AsrFunctionCallingTestScenePath,
             MultimodalFunctionCallingTestScenePath,
+            TranslateTestScenePath,
         };
 
         [MenuItem("LiteRT-LM/Test Scenes/Generate All")]
@@ -39,6 +41,7 @@ namespace LiteRTLM.Unity.Editor
             GenerateMultimodalTestScene();
             GenerateAsrFunctionCallingTestScene();
             GenerateMultimodalFunctionCallingTestScene();
+            GenerateTranslateTestScene();
             RegisterTestScenesInBuildSettings();
             Debug.Log($"LiteRT-LM test scene generation completed. Scenes={AllTestScenePaths.Length}");
         }
@@ -112,6 +115,15 @@ namespace LiteRTLM.Unity.Editor
             {
                 var runner = CreateRunnerObject<LiteRtLmMultimodalFunctionCallingRunner>(scene, "LiteRtLmMultimodalFunctionCallingRunner");
                 AddStatusHudOverlay(runner.gameObject, MultimodalFunctionCallingStatusFileName);
+            });
+        }
+
+        [MenuItem("LiteRT-LM/Test Scenes/Generate Translate Test Scene")]
+        public static void GenerateTranslateTestScene()
+        {
+            CreateTestScene(TranslateTestScenePath, scene =>
+            {
+                CreateRunnerObject<LiteRtLmTranslateTestRunner>(scene, "LiteRtLmTranslateTestRunner");
             });
         }
 

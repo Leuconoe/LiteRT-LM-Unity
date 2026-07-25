@@ -164,7 +164,7 @@ index 3264d52f..c0b04ae9 100644
          "//runtime/conversation",
          "//runtime/conversation:io_types",
 diff --git a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
-index 22251ba7..abff8e61 100644
+index 22251ba7..ed8094db 100644
 --- a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
 +++ b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
 @@ -13,11 +13,26 @@
@@ -216,7 +216,7 @@ index 22251ba7..abff8e61 100644
  #include "runtime/components/prompt_template.h"
  #include "runtime/conversation/conversation.h"
  #include "runtime/conversation/io_types.h"
-@@ -45,43 +71,3116 @@
+@@ -45,43 +71,3139 @@
  #include "runtime/util/file_util.h"
  #include "runtime/util/logging.h"
  #include "schema/capabilities/capabilities_c.h"
@@ -2150,10 +2150,11 @@ index 22251ba7..abff8e61 100644
 +nlohmann::ordered_json RunWhisperAsrSmokeToJson(
 +    const std::string& model_path, const std::string& audio_path,
 +    const std::string& tokenizer_json_path, const std::string& backend,
-+    const std::string& language, const std::string& vad_mode,
-+    const std::string& silero_model_path) {
++    const std::string& language, const std::string& task,
++    const std::string& vad_mode, const std::string& silero_model_path) {
 +  UnityAsrLog("Whisper ASR native start: backend=" + backend +
-+              ", language=" + language + ", vadMode=" +
++              ", language=" + language + ", task=" +
++              (task.empty() ? "transcribe" : task) + ", vadMode=" +
 +              (vad_mode.empty() ? "energy" : vad_mode));
 +  nlohmann::ordered_json result;
 +  result["modelPath"] = model_path;
@@ -2175,6 +2176,21 @@ index 22251ba7..abff8e61 100644
 +    return result;
 +  }
 +  result["language"] = normalized_language;
++  // Whisper task: "transcribe" (default, same-language text) or "translate"
++  // (native Whisper X->English translation via the <|translate|> task token).
++  std::string normalized_task = task;
++  std::transform(normalized_task.begin(), normalized_task.end(),
++                 normalized_task.begin(),
++                 [](unsigned char c) { return std::tolower(c); });
++  if (normalized_task.empty()) {
++    normalized_task = "transcribe";
++  }
++  if (normalized_task != "transcribe" && normalized_task != "translate") {
++    result["error"] = "Unsupported Whisper ASR task: " + normalized_task +
++                      ". Supported values are transcribe and translate.";
++    return result;
++  }
++  result["task"] = normalized_task;
 +  result["success"] = false;
 +
 +  auto started = absl::Now();
@@ -2609,8 +2625,15 @@ index 22251ba7..abff8e61 100644
 +  constexpr int kKoreanToken = 50264;
 +  constexpr int kFirstLanguageToken = 50259;
 +  constexpr int kLastLanguageToken = 50358;
++  // Task tokens (verified against tokenizer.json added_tokens):
++  //   51865 family: <|translate|>=50358, <|transcribe|>=50359
++  //   51866 family: <|translate|>=50359, <|transcribe|>=50360
 +  const int kTranscribeToken = is_large_v3_vocab ? 50360 : 50359;
++  const int kTranslateToken = is_large_v3_vocab ? 50359 : 50358;
++  const int kTaskToken =
++      normalized_task == "translate" ? kTranslateToken : kTranscribeToken;
 +  const int kNoTimestampsToken = is_large_v3_vocab ? 50364 : 50363;
++  result["taskTokenId"] = kTaskToken;
 +  std::vector<int32_t> decoder_tokens(kTargetLength, kEosToken);
 +  std::vector<float> causal_mask(kTargetLength * kTargetLength, 0.0f);
 +  for (int row = 0; row < kTargetLength; ++row) {
@@ -2623,11 +2646,11 @@ index 22251ba7..abff8e61 100644
 +  const bool detect_language = normalized_language == "auto";
 +  if (normalized_language == "ko") {
 +    token_ids.push_back(kKoreanToken);
-+    token_ids.push_back(kTranscribeToken);
++    token_ids.push_back(kTaskToken);
 +    token_ids.push_back(kNoTimestampsToken);
 +  } else if (normalized_language == "en") {
 +    token_ids.push_back(kEnglishToken);
-+    token_ids.push_back(kTranscribeToken);
++    token_ids.push_back(kTaskToken);
 +    token_ids.push_back(kNoTimestampsToken);
 +  }
 +  int decode_steps = 0;
@@ -2723,7 +2746,7 @@ index 22251ba7..abff8e61 100644
 +    if (detect_language && token_ids.size() == 1) {
 +      result["detectedLanguageToken"] = best_token;
 +      token_ids.push_back(best_token);
-+      token_ids.push_back(kTranscribeToken);
++      token_ids.push_back(kTaskToken);
 +      token_ids.push_back(kNoTimestampsToken);
 +      UnityAsrLog("Whisper ASR auto language token=" +
 +                  std::to_string(best_token));
@@ -3367,7 +3390,7 @@ index 22251ba7..abff8e61 100644
  
  void ThrowLiteRtLmJniException(JNIEnv* env, const std::string& message) {
    jclass exClass =
-@@ -192,6 +3291,51 @@ jobject CreateBenchmarkInfoJni(
+@@ -192,6 +3314,51 @@ jobject CreateBenchmarkInfoJni(
        last_decode_tokens_per_second);
  }
  
@@ -3419,7 +3442,7 @@ index 22251ba7..abff8e61 100644
  // Converts a Java InputData array to a C++ vector of InputData.
  std::vector<InputData> GetNativeInputData(JNIEnv* env,
                                            jobjectArray input_data) {
-@@ -357,6 +3501,383 @@ std::optional<litert::lm::DataProcessorArguments> GetDataProcessorArguments(
+@@ -357,6 +3524,384 @@ std::optional<litert::lm::DataProcessorArguments> GetDataProcessorArguments(
  
  extern "C" {
  
@@ -3742,13 +3765,14 @@ index 22251ba7..abff8e61 100644
 +Java_com_google_ai_edge_litertlm_unity_UnityLiteRtLmBridge_nativeRunWhisperAsrSmoke(
 +    JNIEnv* env, jclass thiz, jstring model_path, jstring audio_path,
 +    jstring tokenizer_json_path, jstring backend, jstring language,
-+    jstring vad_mode, jstring silero_model_path) {
++    jstring task, jstring vad_mode, jstring silero_model_path) {
 +  const std::string model_path_str = JStringToStdString(env, model_path);
 +  const std::string audio_path_str = JStringToStdString(env, audio_path);
 +  const std::string tokenizer_json_path_str =
 +      JStringToStdString(env, tokenizer_json_path);
 +  const std::string backend_str = JStringToStdString(env, backend);
 +  const std::string language_str = JStringToStdString(env, language);
++  const std::string task_str = JStringToStdString(env, task);
 +  const std::string vad_mode_str = JStringToStdString(env, vad_mode);
 +  const std::string silero_model_path_str =
 +      JStringToStdString(env, silero_model_path);
@@ -3764,7 +3788,7 @@ index 22251ba7..abff8e61 100644
 +      env,
 +      RunWhisperAsrSmokeToJson(model_path_str, audio_path_str,
 +                               tokenizer_json_path_str, backend_str,
-+                               language_str, vad_mode_str,
++                               language_str, task_str, vad_mode_str,
 +                               silero_model_path_str)
 +          .dump(2));
 +}
@@ -3803,7 +3827,7 @@ index 22251ba7..abff8e61 100644
  LITERTLM_JNIEXPORT void JNICALL
  Java_com_google_ai_edge_litertlm_NativeLibraryLoader_nativeCheckLoaded(
      JNIEnv* env, jclass thiz) {}
-@@ -573,7 +4094,10 @@ LITERTLM_JNIEXPORT jlong JNICALL JNI_METHOD(nativeCreateBenchmark)(
+@@ -573,7 +4118,10 @@ LITERTLM_JNIEXPORT jlong JNICALL JNI_METHOD(nativeCreateBenchmark)(
      return 0;
    }
  
@@ -3815,7 +3839,7 @@ index 22251ba7..abff8e61 100644
    if (!settings.ok()) {
      ThrowLiteRtLmJniException(env, "Failed to create engine settings: " +
                                         settings.status().ToString());
-@@ -614,6 +4138,9 @@ LITERTLM_JNIEXPORT jlong JNICALL JNI_METHOD(nativeCreateBenchmark)(
+@@ -614,6 +4162,9 @@ LITERTLM_JNIEXPORT jlong JNICALL JNI_METHOD(nativeCreateBenchmark)(
    auto& benchmark_params = settings->GetMutableBenchmarkParams();
    benchmark_params.set_num_prefill_tokens(prefill_tokens);
    benchmark_params.set_num_decode_tokens(decode_tokens);
@@ -3836,10 +3860,10 @@ index 00000000..3a10407b
 +extern "C" void LiteRtLmUnityLoaderAnchor() {}
 diff --git a/kotlin/java/com/google/ai/edge/litertlm/unity/UnityLiteRtLmBridge.java b/kotlin/java/com/google/ai/edge/litertlm/unity/UnityLiteRtLmBridge.java
 new file mode 100644
-index 00000000..ccc0bea1
+index 00000000..8cf19f18
 --- /dev/null
 +++ b/kotlin/java/com/google/ai/edge/litertlm/unity/UnityLiteRtLmBridge.java
-@@ -0,0 +1,265 @@
+@@ -0,0 +1,291 @@
 +package com.google.ai.edge.litertlm.unity;
 +
 +public final class UnityLiteRtLmBridge implements AutoCloseable {
@@ -3962,7 +3986,7 @@ index 00000000..ccc0bea1
 +      String backend,
 +      String language) {
 +    return runWhisperAsrSmoke(
-+        modelPath, audioPath, tokenizerJsonPath, backend, language, "energy", "");
++        modelPath, audioPath, tokenizerJsonPath, backend, language, "transcribe", "energy", "");
 +  }
 +
 +  /**
@@ -3978,12 +4002,37 @@ index 00000000..ccc0bea1
 +      String language,
 +      String vadMode,
 +      String sileroModelPath) {
++    return runWhisperAsrSmoke(
++        modelPath,
++        audioPath,
++        tokenizerJsonPath,
++        backend,
++        language,
++        "transcribe",
++        vadMode,
++        sileroModelPath);
++  }
++
++  /**
++   * task: "transcribe" (default) | "translate". "translate" uses Whisper's
++   * native X->English translation task token in the decoder prompt.
++   */
++  public String runWhisperAsrSmoke(
++      String modelPath,
++      String audioPath,
++      String tokenizerJsonPath,
++      String backend,
++      String language,
++      String task,
++      String vadMode,
++      String sileroModelPath) {
 +    return nativeRunWhisperAsrSmoke(
 +        modelPath,
 +        audioPath,
 +        tokenizerJsonPath,
 +        backend,
 +        language,
++        task == null || task.isEmpty() ? "transcribe" : task,
 +        vadMode == null ? "energy" : vadMode,
 +        sileroModelPath == null ? "" : sileroModelPath);
 +  }
@@ -4093,6 +4142,7 @@ index 00000000..ccc0bea1
 +      String tokenizerJsonPath,
 +      String backend,
 +      String language,
++      String task,
 +      String vadMode,
 +      String sileroModelPath);
 +

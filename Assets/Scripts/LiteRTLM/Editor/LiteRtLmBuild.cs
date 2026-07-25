@@ -26,6 +26,7 @@ namespace LiteRTLM.Unity.Editor
         private const string MultimodalTestScenePath = LiteRtLmTestSceneGenerator.MultimodalTestScenePath;
         private const string AsrFunctionCallingTestScenePath = LiteRtLmTestSceneGenerator.AsrFunctionCallingTestScenePath;
         private const string MultimodalFunctionCallingTestScenePath = LiteRtLmTestSceneGenerator.MultimodalFunctionCallingTestScenePath;
+        private const string TranslateTestScenePath = LiteRtLmTestSceneGenerator.TranslateTestScenePath;
         private const string StreamingAssetsModelPath = "Assets/StreamingAssets/model.litertlm";
         private const string WindowsSelfTestModelFileName = "Multimodal/gemma-4-e2b/gemma-4-E2B-it.litertlm";
         private const string WindowsSelfTestExecutableRelativePath = "Tools/Windows/litert_lm_main.windows_x86_64.exe";
@@ -523,6 +524,48 @@ namespace LiteRTLM.Unity.Editor
                 "LiteRtLmMultimodalFunctionCallingTest.apk",
                 packagedFiles,
                 "multimodal function-calling test");
+        }
+
+        // Translate test scene (task #26): Whisper direct-translate (path A)
+        // needs a stock Whisper tier + tokenizer; ASR+LLM translate (path B)
+        // additionally needs the Qwen3-0.6B mixed int4 LLM. Keeps the APK
+        // minimal — other dropdown tiers resolve only if separately pushed.
+        [MenuItem("LiteRT-LM/Android/Build Translate Test APK")]
+        public static void BuildAndroidTranslateTestApk()
+        {
+            var packagedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "README.txt",
+                "README.txt.meta",
+            };
+            AddPackagedStreamingAssetIfPresent(packagedFiles, "ASR/whisper-base/whisper_base_30s_i8.tflite");
+            AddPackagedStreamingAssetIfPresent(packagedFiles, "ASR/whisper-base/tokenizer.json");
+            AddPackagedStreamingAssetIfPresent(packagedFiles, "LLM/qwen3-0.6b/qwen3_0_6b_mixed_int4.litertlm");
+            AddPackagedStreamingAssetIfPresent(packagedFiles, "TestAssets/Audio/2025년 3월 5일 전술평가 결과 보고.mp3");
+            AddPackagedStreamingAssetIfPresent(packagedFiles, "TestAssets/Audio/현재 서울의 날씨는 흐림 입니다.mp3");
+
+            BuildAndroidPersistentSceneApk(
+                TranslateTestScenePath,
+                "LiteRtLmTranslateTest.apk",
+                packagedFiles,
+                "translate test");
+        }
+
+        // Batchmode helper: regenerates the translate test scene, then builds
+        // the APK in a single Unity invocation.
+        public static void BuildAndroidTranslateTestApkBatchmode()
+        {
+            try
+            {
+                LiteRtLmTestSceneGenerator.GenerateTranslateTestScene();
+                LiteRtLmTestSceneGenerator.RegisterTestScenesInBuildSettings();
+                BuildAndroidTranslateTestApk();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogException(ex);
+                EditorApplication.Exit(1);
+            }
         }
 
         private static void AddPackagedStreamingAssetIfPresent(HashSet<string> packagedFiles, string fileName)

@@ -8,4 +8,7 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/LiteRtLmSampleScene.unity
     guid: ddc22dc752554914b3ce5991ba357640
+  - enabled: 0
+    path: Assets/Scenes/Tests/LiteRtLmTranslateTestScene.unity
+    guid: 3afe55144d96b664086b3e17a560425e
   m_configObjects: {}

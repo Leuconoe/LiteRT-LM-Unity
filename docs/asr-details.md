@@ -80,6 +80,33 @@ The whisper JNI path is now signature-driven instead of hardcoded:
   `decodeBindingStrategy`, and `featureMd5`/`featureSum` (mel-frontend
   diagnostics).
 
+### Whisper translate task (take8 AAR, task #26)
+
+`runWhisperAsrSmoke` accepts a `task` parameter (`"transcribe"` default /
+`"translate"`): translate swaps the decoder-prompt task token to Whisper's
+native X→English translation. Token ids per vocab family (verified against
+each `tokenizer.json` `added_tokens` — the 51866 family inserts `<|yue|>` at
+50358, shifting the task tokens up by one):
+
+| Token | 51865 family (tiny–medium) | 51866 family (large-v3/turbo) |
+| --- | ---: | ---: |
+| `<|startoftranscript|>` | 50258 | 50258 |
+| `<|ko|>` | 50264 | 50264 |
+| `<|translate|>` | **50358** | **50359** |
+| `<|transcribe|>` | 50359 | 50360 |
+| `<|notimestamps|>` | 50363 | 50364 |
+
+The result JSON reports `task` and `taskTokenId`. Output language is always
+English (that is all Whisper's translate task supports). Notes:
+
+- ACFT-KO distilled tiers were trained on the transcribe task only —
+  translate quality through them is unvalidated; use stock tiers for
+  direct translation.
+- The `LiteRtLmTranslateTestScene` exposes both this path (engine
+  "Whisper Direct") and an ASR→LLM pipeline (any ASR tier → Qwen3-0.6B
+  int4 with a translation prompt + `/no_think`, target
+  English/Japanese/Chinese).
+
 ### Windows ASR (gemma-4 audio path)
 
 `Tools/Windows/litert_lm_advanced_main.windows_x86_64.exe` supports
