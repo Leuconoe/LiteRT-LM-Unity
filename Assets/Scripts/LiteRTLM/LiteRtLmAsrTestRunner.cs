@@ -120,6 +120,31 @@ namespace LiteRTLM.Unity
         [SerializeField] private int selectedVadModeIndex = 1;
         [SerializeField] private string language = "ko";
         [SerializeField] private string backend = "CPU";
+        // Mic-mode "Continuous" toggle: one press starts an always-listening
+        // loop (VAD endpoints -> bounded queue -> async transcription ->
+        // resume listening immediately).
+        [SerializeField] private bool continuousMic;
+
+        // A mic utterance endpointed during a continuous session, waiting
+        // for the transcription worker. Queue and worker both run on the
+        // main thread (event handler + coroutine), so no locking is needed;
+        // only the blocking native ASR call itself runs on a Task thread.
+        private sealed class PendingUtterance
+        {
+            public int Index;
+            public string WavPath;
+            public float Seconds;
+            public float EndpointedAt;
+        }
+
+        private const int MaxQueuedUtterances = 4;
+        private readonly Queue<PendingUtterance> _utteranceQueue = new Queue<PendingUtterance>();
+        private bool _continuousActive;
+        private bool _continuousStopRequested;
+        private int _sessionUtteranceCount;
+        private int _sessionTranscribedCount;
+        private int _sessionDroppedCount;
+        private float _lastUtteranceLatencySeconds = -1f;
 
         private LiteRtLmUnityClient _client;
         private LiteRtLmMicVadCapture _micCapture;
@@ -148,7 +173,15 @@ namespace LiteRTLM.Unity
         // FLAG_SECURE displays) cannot be driven via adb taps/screencap, so
         // an optional config file in persistentDataPath auto-drives the
         // scene. Absent file = no behavior change.
-        //   { "micSmokeSeconds": 5, "fileTranscribe": true }
+        //   { "micSmokeSeconds": 5, "continuousSeconds": 30,
+        //     "continuousPlaybackAudioIndex": 0, "fileTranscribe": true }
+        // continuousSeconds > 0 runs the always-listening loop for that long
+        // (ambient audio above the VAD gate cycles utterances via the 8 s
+        // max-utterance cutoff on units where nobody can speak into the mic).
+        // continuousPlaybackAudioIndex >= 0 additionally loops that bundled
+        // AudioOptions clip through the device speaker during the continuous
+        // window, so the microphone hears deterministic speech even in a
+        // quiet room (speaker -> mic echo injection).
         private const string AutoTestConfigFileName = "LiteRtLmAsrTest.autotest.json";
 
         private void Start()
@@ -163,6 +196,8 @@ namespace LiteRTLM.Unity
         private IEnumerator AutoTestRoutine(string configPath)
         {
             var micSmokeSeconds = 0f;
+            var continuousSeconds = 0f;
+            var continuousPlaybackAudioIndex = -1;
             var fileTranscribe = false;
             try
             {
@@ -175,6 +210,22 @@ namespace LiteRTLM.Unity
                         System.Globalization.CultureInfo.InvariantCulture);
                 }
 
+                var continuousMatch = Regex.Match(json, "\"continuousSeconds\"\\s*:\\s*(?<value>[0-9.]+)");
+                if (continuousMatch.Success)
+                {
+                    continuousSeconds = float.Parse(
+                        continuousMatch.Groups["value"].Value,
+                        System.Globalization.CultureInfo.InvariantCulture);
+                }
+
+                var playbackMatch = Regex.Match(json, "\"continuousPlaybackAudioIndex\"\\s*:\\s*(?<value>-?[0-9]+)");
+                if (playbackMatch.Success)
+                {
+                    continuousPlaybackAudioIndex = int.Parse(
+                        playbackMatch.Groups["value"].Value,
+                        System.Globalization.CultureInfo.InvariantCulture);
+                }
+
                 fileTranscribe = Regex.IsMatch(json, "\"fileTranscribe\"\\s*:\\s*true");
             }
             catch (Exception ex)
@@ -183,7 +234,7 @@ namespace LiteRTLM.Unity
                 yield break;
             }
 
-            Debug.Log($"LiteRtLmAsrTestRunner autotest: micSmokeSeconds={micSmokeSeconds}, fileTranscribe={fileTranscribe}");
+            Debug.Log($"LiteRtLmAsrTestRunner autotest: micSmokeSeconds={micSmokeSeconds}, continuousSeconds={continuousSeconds}, continuousPlaybackAudioIndex={continuousPlaybackAudioIndex}, fileTranscribe={fileTranscribe}");
             yield return null;
 
             if (micSmokeSeconds > 0f)
@@ -206,6 +257,80 @@ namespace LiteRTLM.Unity
                 }
 
                 Debug.Log("LiteRtLmAsrTestRunner autotest: mic smoke complete");
+            }
+
+            if (continuousSeconds > 0f)
+            {
+                // A single-shot mic capture endpointed by the smoke phase may
+                // still be transcribing — let it settle first.
+                while (_isBusy)
+                {
+                    yield return null;
+                }
+
+                // Optional speaker->mic echo injection: loop a bundled clip
+                // through the device speaker so the VAD hears deterministic
+                // speech even in a quiet room (headless verification units).
+                AudioSource playbackSource = null;
+                if (continuousPlaybackAudioIndex >= 0 && continuousPlaybackAudioIndex < AudioOptions.Length)
+                {
+                    string playbackClipPath = null;
+                    Exception playbackError = null;
+                    yield return ResolveStreamingAssetPath(
+                        AudioOptions[continuousPlaybackAudioIndex],
+                        path => playbackClipPath = path,
+                        ex => playbackError = ex);
+                    if (playbackError == null)
+                    {
+                        using var clipRequest = UnityWebRequestMultimedia.GetAudioClip(
+                            "file://" + playbackClipPath, AudioType.MPEG);
+                        yield return clipRequest.SendWebRequest();
+                        if (clipRequest.result == UnityWebRequest.Result.Success)
+                        {
+                            var playbackClip = DownloadHandlerAudioClip.GetContent(clipRequest);
+                            playbackSource = gameObject.AddComponent<AudioSource>();
+                            playbackSource.clip = playbackClip;
+                            playbackSource.loop = true;
+                            playbackSource.volume = 1f;
+                            playbackSource.Play();
+                            Debug.Log($"LiteRtLmAsrTestRunner autotest: continuous playback started ({AudioOptions[continuousPlaybackAudioIndex]}, {playbackClip.length:0.0}s loop)");
+                        }
+                        else
+                        {
+                            Debug.LogWarning($"LiteRtLmAsrTestRunner autotest: playback clip decode failed ({clipRequest.error})");
+                        }
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"LiteRtLmAsrTestRunner autotest: playback clip resolve failed ({playbackError.Message})");
+                    }
+                }
+
+                selectedInputModeIndex = 1;
+                continuousMic = true;
+                StartContinuousSession(GetSelectedModelOption());
+                var continuousDeadline = Time.realtimeSinceStartup + continuousSeconds;
+                while (Time.realtimeSinceStartup < continuousDeadline)
+                {
+                    yield return null;
+                }
+
+                StopContinuousSession();
+                while (_continuousActive)
+                {
+                    yield return null;
+                }
+
+                if (playbackSource != null)
+                {
+                    playbackSource.Stop();
+                    Destroy(playbackSource);
+                    Debug.Log("LiteRtLmAsrTestRunner autotest: continuous playback stopped");
+                }
+
+                Debug.Log(
+                    "LiteRtLmAsrTestRunner autotest: continuous complete " +
+                    $"(captured={_sessionUtteranceCount}, transcribed={_sessionTranscribedCount}, dropped={_sessionDroppedCount})");
             }
 
             if (fileTranscribe)
@@ -304,7 +429,7 @@ namespace LiteRTLM.Unity
             }
             else
             {
-                var transcribeEnabled = _client.IsAvailable && !_isBusy && selectedOption != null && IsOptionEnabled(selectedOption);
+                var transcribeEnabled = _client.IsAvailable && !_isBusy && !_continuousActive && selectedOption != null && IsOptionEnabled(selectedOption);
                 GUI.enabled = transcribeEnabled;
                 if (GUILayout.Button("Transcribe", GUILayout.Height(40)))
                 {
@@ -464,14 +589,47 @@ namespace LiteRTLM.Unity
             GUILayout.Label(stateLine);
             DrawMicLevelMeter(levelDb);
 
-            if (!_micCapture.IsCapturing)
+            if (_continuousActive)
             {
-                GUI.enabled = !_isBusy;
-                if (GUILayout.Button("Listen (speak; VAD auto-stops and transcribes)", GUILayout.Height(40)))
+                GUILayout.Label(
+                    $"Continuous session: utterances={_sessionUtteranceCount}  " +
+                    $"transcribed={_sessionTranscribedCount}  queue={_utteranceQueue.Count}/{MaxQueuedUtterances}  " +
+                    $"dropped={_sessionDroppedCount}" +
+                    (_lastUtteranceLatencySeconds >= 0f
+                        ? $"  lastLatency={_lastUtteranceLatencySeconds:0.00}s"
+                        : string.Empty));
+
+                GUI.enabled = !_continuousStopRequested;
+                if (GUILayout.Button("Stop Continuous Listening", GUILayout.Height(40)))
                 {
-                    Debug.Log("LiteRtLmAsrTestRunner: Listen pressed");
-                    _status = "Listening...";
-                    _micCapture.StartListening();
+                    Debug.Log("LiteRtLmAsrTestRunner: Stop Continuous pressed");
+                    StopContinuousSession();
+                }
+
+                CaptureActionButtonRect();
+                GUI.enabled = true;
+            }
+            else if (!_micCapture.IsCapturing)
+            {
+                continuousMic = GUILayout.Toggle(continuousMic, "Continuous (always listening)");
+                GUI.enabled = !_isBusy;
+                var listenLabel = continuousMic
+                    ? "Start Continuous Listening"
+                    : "Listen (speak; VAD auto-stops and transcribes)";
+                if (GUILayout.Button(listenLabel, GUILayout.Height(40)))
+                {
+                    if (continuousMic)
+                    {
+                        Debug.Log("LiteRtLmAsrTestRunner: Start Continuous pressed");
+                        StartContinuousSession(selectedOption);
+                    }
+                    else
+                    {
+                        Debug.Log("LiteRtLmAsrTestRunner: Listen pressed");
+                        _status = "Listening...";
+                        _micCapture.Continuous = false;
+                        _micCapture.StartListening();
+                    }
                 }
 
                 CaptureActionButtonRect();
@@ -554,6 +712,12 @@ namespace LiteRTLM.Unity
 
         private void HandleMicUtteranceCaptured(float[] pcm16k)
         {
+            if (_continuousActive)
+            {
+                HandleContinuousUtteranceCaptured(pcm16k);
+                return;
+            }
+
             string wavPath;
             try
             {
@@ -590,6 +754,292 @@ namespace LiteRTLM.Unity
             }
 
             StartCoroutine(TranscribeRoutine(option, wavPath, MicAudioLabel));
+        }
+
+        // ------------------------------------------------------------------
+        // Continuous (always-listening) session
+        //
+        // Producer: LiteRtLmMicVadCapture in Continuous mode endpoints
+        // utterances and this handler writes each one to WAV and enqueues it
+        // (bounded queue, drop-oldest). Consumer: ContinuousWorkerRoutine
+        // dequeues and runs the blocking native ASR call on a Task thread so
+        // capture never blocks on ASR. Both queue ends run on the main
+        // thread, so no locking is needed.
+        // ------------------------------------------------------------------
+
+        private void StartContinuousSession(AsrModelOption option)
+        {
+            if (_continuousActive)
+            {
+                return;
+            }
+
+            _continuousActive = true;
+            _continuousStopRequested = false;
+            _utteranceQueue.Clear();
+            _sessionUtteranceCount = 0;
+            _sessionTranscribedCount = 0;
+            _sessionDroppedCount = 0;
+            _lastUtteranceLatencySeconds = -1f;
+            _status = "Continuous listening...";
+
+            // Create the Java bridge on the main thread now; the worker's
+            // Task thread only calls methods on the existing object.
+            _client.WarmUpBridge();
+
+            EnsureMicCapture();
+            _micCapture.Continuous = true;
+            _micCapture.StartListening();
+            StartCoroutine(ContinuousWorkerRoutine(option));
+            Debug.Log($"LiteRtLmAsrTestRunner continuous: session started (model={GetOptionLabel(option)}, queueCapacity={MaxQueuedUtterances})");
+        }
+
+        private void StopContinuousSession()
+        {
+            if (!_continuousActive || _continuousStopRequested)
+            {
+                return;
+            }
+
+            _continuousStopRequested = true;
+            _micCapture.Continuous = false;
+            _micCapture.StopListening();
+
+            // Stop policy: discard anything still queued (log the count); an
+            // in-flight transcription is allowed to finish and log.
+            var discarded = _utteranceQueue.Count;
+            _utteranceQueue.Clear();
+            if (discarded > 0)
+            {
+                _sessionDroppedCount += discarded;
+                Debug.Log($"LiteRtLmAsrTestRunner continuous: stop requested, discarded {discarded} queued utterance(s)");
+            }
+            else
+            {
+                Debug.Log("LiteRtLmAsrTestRunner continuous: stop requested");
+            }
+
+            _status = "Continuous session stopping...";
+        }
+
+        private void HandleContinuousUtteranceCaptured(float[] pcm16k)
+        {
+            string wavPath;
+            try
+            {
+                var captureDirectory = Path.Combine(Application.persistentDataPath, "LiteRTLM", "MicCaptures");
+                Directory.CreateDirectory(captureDirectory);
+                wavPath = Path.Combine(captureDirectory, $"mic_{DateTime.Now:yyyyMMdd_HHmmss_fff}.wav");
+                LiteRtLmMicVadCapture.WriteWav16BitMono(wavPath, pcm16k, LiteRtLmMicVadCapture.TargetSampleRate);
+            }
+            catch (Exception ex)
+            {
+                _status = $"Mic error: failed to write WAV ({ex.Message})";
+                Debug.LogException(ex);
+                return;
+            }
+
+            _lastMicWavPath = wavPath;
+            _sessionUtteranceCount++;
+            var index = _sessionUtteranceCount;
+            var utteranceSeconds = pcm16k.Length / (float)LiteRtLmMicVadCapture.TargetSampleRate;
+
+            if (_utteranceQueue.Count >= MaxQueuedUtterances)
+            {
+                var dropped = _utteranceQueue.Dequeue();
+                _sessionDroppedCount++;
+                var dropLine = $"[{DateTime.Now:HH:mm:ss}] #{dropped.Index} DROPPED (queue full at {MaxQueuedUtterances})";
+                Debug.LogWarning($"LiteRtLmAsrTestRunner continuous: queue full, dropping oldest utterance #{dropped.Index} ({dropped.WavPath})");
+                _transcriptLog.Add(dropLine);
+            }
+
+            _utteranceQueue.Enqueue(new PendingUtterance
+            {
+                Index = index,
+                WavPath = wavPath,
+                Seconds = utteranceSeconds,
+                EndpointedAt = Time.realtimeSinceStartup,
+            });
+
+            var captureLine = $"[{DateTime.Now:HH:mm:ss}] #{index} captured {utteranceSeconds:0.00}s (queue={_utteranceQueue.Count}/{MaxQueuedUtterances}) -> {wavPath}";
+            Debug.Log($"LiteRtLmAsrTestRunner continuous: {captureLine}");
+            _transcriptLog.Add(captureLine);
+            _logScroll = new Vector2(0f, float.MaxValue);
+        }
+
+        private IEnumerator ContinuousWorkerRoutine(AsrModelOption option)
+        {
+            // Model/tokenizer/VAD assets are resolved once per session and
+            // reused for every utterance; combined with the native
+            // compiled-model cache this keeps every run after the first warm
+            // (compileSeconds ~0 / compiledModelCache=hit in the result
+            // JSON, surfaced per entry below).
+            string resolvedModelPath = null;
+            string resolvedTokenizerPath = null;
+            var resolvedSileroPath = string.Empty;
+            Exception resolveError = null;
+            var vadMode = VadModeOptions[Mathf.Clamp(selectedVadModeIndex, 0, VadModeOptions.Length - 1)];
+
+            var canTranscribe = option != null && _client.IsAvailable;
+            if (!canTranscribe)
+            {
+                Debug.LogWarning("LiteRtLmAsrTestRunner continuous: captures will be saved but not transcribed (no model selected or client unavailable)");
+            }
+            else
+            {
+                yield return ResolveStreamingAssetPath(option.modelPath, path => resolvedModelPath = path, ex => resolveError = ex);
+                if (resolveError == null)
+                {
+                    yield return ResolveStreamingAssetPath(option.tokenizerJsonPath, path => resolvedTokenizerPath = path, ex => resolveError = ex);
+                }
+
+                if (resolveError == null && IsWhisperGpuRequested(option))
+                {
+                    var encoderCompanionPath = GetWhisperEncoderCompanionPath(option.modelPath);
+                    if (!string.IsNullOrWhiteSpace(encoderCompanionPath))
+                    {
+                        yield return ResolveStreamingAssetPath(encoderCompanionPath, _ => { }, ex => resolveError = ex);
+                    }
+                }
+
+                if (resolveError == null && vadMode == "ai")
+                {
+                    yield return ResolveStreamingAssetPath(SileroVadModelPath, path => resolvedSileroPath = path, ex => resolveError = ex);
+                }
+
+                if (resolveError != null)
+                {
+                    canTranscribe = false;
+                    _status = $"Error: {resolveError.Message}";
+                    Debug.LogException(resolveError);
+                    Debug.LogWarning("LiteRtLmAsrTestRunner continuous: asset resolution failed, captures will be saved but not transcribed");
+                }
+            }
+
+            while (!_continuousStopRequested)
+            {
+                if (_utteranceQueue.Count == 0)
+                {
+                    yield return null;
+                    continue;
+                }
+
+                var item = _utteranceQueue.Dequeue();
+                if (!canTranscribe)
+                {
+                    _transcriptLog.Add($"[{DateTime.Now:HH:mm:ss}] #{item.Index} saved without ASR: {item.WavPath}");
+                    _logScroll = new Vector2(0f, float.MaxValue);
+                    continue;
+                }
+
+                var asrStartedAt = Time.realtimeSinceStartup;
+                var task = System.Threading.Tasks.Task.Run(() =>
+                    RunAsrSmokeOnWorkerThread(option, resolvedModelPath, item.WavPath, resolvedTokenizerPath, vadMode, resolvedSileroPath));
+                while (!task.IsCompleted)
+                {
+                    yield return null;
+                }
+
+                var asrSeconds = Time.realtimeSinceStartup - asrStartedAt;
+                var latencySeconds = Time.realtimeSinceStartup - item.EndpointedAt;
+                if (task.IsFaulted || task.IsCanceled)
+                {
+                    var error = task.Exception?.GetBaseException();
+                    var errorLine = $"[{DateTime.Now:HH:mm:ss}] #{item.Index} ASR ERROR: {error?.Message ?? "canceled"}";
+                    Debug.LogWarning($"LiteRtLmAsrTestRunner continuous: {errorLine}");
+                    _transcriptLog.Add(errorLine);
+                    _logScroll = new Vector2(0f, float.MaxValue);
+                    continue;
+                }
+
+                var asrJson = task.Result;
+                var transcript = ExtractTranscript(asrJson);
+                var failed = string.IsNullOrWhiteSpace(asrJson) ||
+                             asrJson.Contains("\"success\": false", StringComparison.OrdinalIgnoreCase);
+                // Keep-warm check: the native compiled-model cache should
+                // report hit / compileSeconds ~0 for every run after the
+                // session's first.
+                var cacheState = ExtractJsonString(asrJson, "compiledModelCache");
+                var compileSeconds = ExtractJsonNumber(asrJson, "compileSeconds");
+                var cacheLabel = string.IsNullOrEmpty(cacheState)
+                    ? (float.IsNaN(compileSeconds) ? "n/a" : $"compile={compileSeconds:0.###}s")
+                    : $"{cacheState} (compile={(float.IsNaN(compileSeconds) ? 0f : compileSeconds):0.###}s)";
+
+                _sessionTranscribedCount++;
+                _lastUtteranceLatencySeconds = latencySeconds;
+                var resultLine =
+                    $"[{DateTime.Now:HH:mm:ss}] #{item.Index} ({item.Seconds:0.00}s) " +
+                    (failed ? $"FAILED raw={OneLine(Truncate(asrJson, 600))}" : $"transcript={transcript}") +
+                    $"\n  latency={latencySeconds:0.00}s (asr={asrSeconds:0.00}s, queueWait={Mathf.Max(0f, latencySeconds - asrSeconds):0.00}s) " +
+                    $"modelCache={cacheLabel} queue={_utteranceQueue.Count}/{MaxQueuedUtterances}";
+                _transcriptLog.Add(resultLine);
+                Debug.Log($"LiteRtLmAsrTestRunner continuous result: {OneLine(resultLine)}");
+                _logScroll = new Vector2(0f, float.MaxValue);
+                _status = $"Continuous listening... ({_sessionTranscribedCount} transcribed)";
+            }
+
+            _continuousActive = false;
+            _continuousStopRequested = false;
+            _status = "Continuous session ended";
+            Debug.Log(
+                "LiteRtLmAsrTestRunner continuous: session ended " +
+                $"(captured={_sessionUtteranceCount}, transcribed={_sessionTranscribedCount}, dropped={_sessionDroppedCount})");
+        }
+
+        // Runs the blocking native ASR call on a Task thread so the main
+        // thread (and with it the mic capture loop) never stalls. The JNI
+        // thread must be attached before any AndroidJavaObject call and
+        // detached afterwards; the bridge object itself was created on the
+        // main thread by WarmUpBridge().
+        private string RunAsrSmokeOnWorkerThread(
+            AsrModelOption option,
+            string modelPath,
+            string audioPath,
+            string tokenizerPath,
+            string vadMode,
+            string sileroPath)
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            AndroidJNI.AttachCurrentThread();
+            try
+            {
+#endif
+                return string.Equals(option.mode, QwenAsrMode, StringComparison.OrdinalIgnoreCase)
+                    ? _client.RunQwen3AsrSmoke(modelPath, audioPath, tokenizerPath, backend, language, vadMode, sileroPath)
+                    : _client.RunWhisperAsrSmoke(modelPath, audioPath, tokenizerPath, backend, language, vadMode, sileroPath);
+#if UNITY_ANDROID && !UNITY_EDITOR
+            }
+            finally
+            {
+                AndroidJNI.DetachCurrentThread();
+            }
+#endif
+        }
+
+        private static string ExtractJsonString(string json, string key)
+        {
+            var match = Regex.Match(
+                json ?? string.Empty,
+                "\"" + Regex.Escape(key) + "\"\\s*:\\s*\"(?<value>(?:\\\\.|[^\"\\\\])*)\"");
+            return match.Success ? Regex.Unescape(match.Groups["value"].Value) : string.Empty;
+        }
+
+        private static float ExtractJsonNumber(string json, string key)
+        {
+            var match = Regex.Match(
+                json ?? string.Empty,
+                "\"" + Regex.Escape(key) + "\"\\s*:\\s*(?<value>-?[0-9.eE+]+)");
+            if (match.Success &&
+                float.TryParse(
+                    match.Groups["value"].Value,
+                    System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out var value))
+            {
+                return value;
+            }
+
+            return float.NaN;
         }
 
         private AsrModelOption GetSelectedModelOption()

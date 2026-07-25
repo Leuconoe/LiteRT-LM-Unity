@@ -834,3 +834,54 @@ was driven by the optional `LiteRtLmAsrTest.autotest.json` hook in
 persistentDataPath (`{"micSmokeSeconds": N, "fileTranscribe": true}`) —
 absent file = normal interactive behavior. Real voice-accuracy testing is
 manual (speak Korean voice commands, check the transcript log).
+
+## Continuous ASR (always-listening) added to ASR test scene (task #25)
+
+Mic mode gained a **Continuous** toggle: one press starts an
+always-listening loop — `LiteRtLmMicVadCapture.Continuous = true` makes
+the VAD return to Listening after each endpoint (mic never stops, noise
+floor keeps adapting across utterances), the runner writes each utterance
+to WAV and enqueues it (bounded queue of 4, drop-oldest with a logged
+warning), and a worker coroutine runs the blocking native ASR call on a
+`Task` thread (`AndroidJNI.AttachCurrentThread`; the Java bridge is
+created on the main thread by `WarmUpBridge()` first) so **capture never
+blocks on ASR**. The rolling transcript log gets timestamped entries with
+per-utterance latency (endpoint→transcript, split into asr + queueWait),
+queue depth, and the native compiled-model cache state
+(`compiledModelCache`/`compileSeconds` from the result JSON — warm runs
+after the session's first). Stop discards queued items (count logged)
+and lets the in-flight transcription finish. The autotest hook gained
+`"continuousSeconds": N` plus `"continuousPlaybackAudioIndex": i`
+(loops a bundled clip through the device speaker during the continuous
+window — deterministic speech for the mic in a quiet room).
+
+Device verification (46a880a0, 2026-07-25, `LiteRtLmAsrTest-continuous.apk`,
+whisper-tiny i8 CPU):
+run 1 (quiet room, no playback injection): single-shot mic regression
+PASS (Idle→Calibrating→Listening→Speech→Idle, 5.97 s capture,
+transcribed 1.12 s, cold compile 0.09 s cache=miss); continuous PASS
+functionally — Speech→**Listening** endpoint (not Idle) with mic still
+recording, utterance #1 6.93 s → async transcription 0.90 s with
+`compiledModelCache=hit, compileSeconds=0` (keep-warm verified), stop
+clean (Listening→Idle, queue empty, captured=1/transcribed=1/dropped=0),
+file-mode regression PASS (`compiledModelCache=hit`), 0 crashes — but
+only 1 cycle: ambient fell below the (correctly re-adapting) noise gate
+for the remaining 22 s, motivating the playback-injection autotest key.
+
+Run 2 (40 s continuous window, speaker-echo injection of the 4.1 s
+Korean report clip at speaker volume 5/15): **7 utterances captured, 7
+transcribed asynchronously, 0 dropped, 0 crashes**. Every
+endpoint→re-trigger capture gap in logcat was 0.166–0.200 s (max
+0.200 s, requirement < 0.5 s over 7 cycles); every transcription ran
+with `compiledModelCache=hit, compileSeconds=0` (keep-warm); latency
+1.63–2.46 s per utterance (whisper-tiny CPU) with queueWait=0.00 s and
+queue depth never above 1/4 — capture and ASR fully decoupled (captures
+#2..#7 landed while earlier ASR calls were mid-flight or just finished;
+the mic state machine never left the Listening/Speech loop during ASR).
+Echo-transcript accuracy at tiny tier: `2025년 3월(에) 전술 평가 결과
+보고` on 5 of 7 clips (speaker→mic path). Single-shot mic and file-mode
+regressions re-ran PASS in the same session. Manual voice testing:
+enable the "Continuous (always listening)" toggle in Mic mode, press
+Start, speak commands with natural pauses (≥ ~0.2 s), watch the rolling
+timestamped transcript log; Stop discards queued-but-untranscribed
+utterances (count logged).

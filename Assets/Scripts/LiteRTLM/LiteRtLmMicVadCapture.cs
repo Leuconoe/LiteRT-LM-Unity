@@ -65,6 +65,21 @@ namespace LiteRTLM.Unity
         public event Action<string> OnCaptureError;
         public event Action<MicVadState> OnStateChanged;
 
+        // Continuous (always-listening) mode: after an utterance endpoints,
+        // return to Listening with the microphone still running instead of
+        // stopping (single-shot default). The adaptive noise floor is kept
+        // alive across utterances — it keeps re-estimating during non-speech
+        // frames (slow upward / fast downward adaptation in Listening), so
+        // the speech gate tracks ambient drift over a long session. This
+        // component only emits OnUtteranceCaptured events; queueing and
+        // ASR-busy backpressure are the consumer's job. Rapid-fire triggers
+        // are already damped by the 210 ms hangover + 200 ms min-speech
+        // gates. Battery note: continuous mode keeps the microphone stream
+        // and the per-frame VAD running indefinitely — consumers should stop
+        // the session when the app is backgrounded or listening is no longer
+        // needed (no max-session guard here by design; the user stops it).
+        public bool Continuous { get; set; }
+
         public MicVadState State { get; private set; } = MicVadState.Idle;
         public float CurrentLevelDb { get; private set; } = SilenceFloorDb;
         public float NoiseFloorDb { get; private set; } = MinNoiseFloorDb;
@@ -345,6 +360,25 @@ namespace LiteRTLM.Unity
             if (_captureRate != TargetSampleRate)
             {
                 pcm = ResampleLinear(pcm, _captureRate, TargetSampleRate);
+            }
+
+            if (Continuous)
+            {
+                // Always-listening: reset only the per-utterance state and
+                // resume Listening immediately (the mic loop buffer never
+                // stopped). NoiseFloorDb is intentionally NOT reset — the
+                // Listening-state adaptation keeps re-estimating it during
+                // non-speech frames. State is reset BEFORE the event fires
+                // so a handler observing State sees Listening, and a handler
+                // that calls StopListening still tears down cleanly.
+                _utterance.Clear();
+                _prerollFrames.Clear();
+                _utteranceMs = 0;
+                _speechMs = 0;
+                _silenceRunMs = 0;
+                SetState(MicVadState.Listening);
+                OnUtteranceCaptured?.Invoke(pcm);
+                return;
             }
 
             // Single-shot capture: stop the microphone before handing the

@@ -192,6 +192,11 @@ namespace LiteRTLM.Unity
         /// Absolute path to the Silero VAD tflite; only used when
         /// <paramref name="vadMode"/> is "ai". Empty disables AI mode.
         /// </param>
+        /// <param name="task">
+        /// Whisper decoder task: "transcribe" (default, same-language text)
+        /// or "translate" (Whisper's native X-to-English translation task
+        /// token; output is always English regardless of source language).
+        /// </param>
         public string RunWhisperAsrSmoke(
             string modelPath,
             string audioPath,
@@ -199,7 +204,8 @@ namespace LiteRTLM.Unity
             string backend = "CPU",
             string language = "auto",
             string vadMode = "energy",
-            string sileroModelPath = "")
+            string sileroModelPath = "",
+            string task = "transcribe")
         {
 #if UNITY_ANDROID && !UNITY_EDITOR
             if (string.IsNullOrWhiteSpace(modelPath))
@@ -226,11 +232,15 @@ namespace LiteRTLM.Unity
             {
                 vadMode = "energy";
             }
+            if (string.IsNullOrWhiteSpace(task))
+            {
+                task = "transcribe";
+            }
 
             EnsureBridge();
             return _bridge.Call<string>(
                 "runWhisperAsrSmoke", modelPath, audioPath, tokenizerJsonPath, backend, language,
-                vadMode, sileroModelPath ?? string.Empty);
+                task, vadMode, sileroModelPath ?? string.Empty);
 #else
             throw new PlatformNotSupportedException("Whisper ASR smoke test currently supports Android device builds only.");
 #endif
@@ -277,6 +287,19 @@ namespace LiteRTLM.Unity
                 vadMode, sileroModelPath ?? string.Empty);
 #else
             throw new PlatformNotSupportedException("Qwen3 ASR smoke test currently supports Android device builds only.");
+#endif
+        }
+
+        // Eagerly creates the Java bridge object on the calling thread.
+        // Call once from the Unity main thread before invoking bridge
+        // methods from a background thread (AndroidJNI.AttachCurrentThread):
+        // app classes resolve through the activity class loader on the main
+        // thread, whereas a freshly attached native thread's JNI FindClass
+        // may not see application classes.
+        public void WarmUpBridge()
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            EnsureBridge();
 #endif
         }
 
