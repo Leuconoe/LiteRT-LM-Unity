@@ -562,3 +562,173 @@ Controls re-measured in the same session for apples-to-apples.
   f32 sources deleted to stay under the disk budget — regenerable with
   `convert_whisper_turbo.py`). Raw bench JSON: scratchpad
   `bench_results/korean/*.json` (`ctl_*` = same-session controls).
+
+## Long-form audio (30–98 s), 2026-07-25
+
+**Caveat: synthetic audio.** The three long clips are edge-tts TTS
+(clean studio-quality synthesis, no noise/reverb) — fine for functional,
+segmentation, and latency testing, but CER on TTS audio is **optimistic**
+vs a real microphone. Do not compare these CER numbers against the
+mic-recorded short-clip matrix above.
+
+### Clips (`Assets/StreamingAssets/TestAssets/Audio/long/`)
+
+Generated per-sentence with edge-tts and concatenated with fixed silence
+gaps (`*.reference.txt` = exact ground truth; `*.manifest.json` = per-segment
+sample offsets). Generator: scratchpad `gen_long_tts.py`.
+
+| Clip | File | Dur | Content | Voice / gaps |
+| --- | --- | ---: | --- | --- |
+| a | `long_a_report_30s.wav` | 31.7 s | 군사 보고 6문장 (전술평가 확장판) | InJoon, 0.45 s |
+| b | `long_b_narration_60s.wav` | 59.5 s | 일반 내레이션 11문장 | SunHi, 0.45 s |
+| c | `long_c_commands_90s.wav` | 98.1 s | 31 utterances: 문장 + 짧은 명령(`볼륨 업` 등) 혼합 | SunHi, 1.0 s (VAD stress) |
+
+### Desktop matrix (CPU 8 threads, `bench_asr_long.py`, as-shipped pre: energy trim + boost norm, greedy)
+
+CER-full = vs full reference; CER-win = vs window-truncated reference
+(manifest segments fully inside the model's window — fair score for
+fixed-window tiers).
+
+| Model | Clip a (31.7 s) | Clip b (59.5 s) | Clip c (98.1 s) | Behavior |
+| --- | --- | --- | --- | --- |
+| **qwen3-asr i8, 5 s-chunk loop (full audio)** | CER-full **0.112**, 51 s (RTF 1.61) | **0.034**, 80 s (1.34) | **0.041**, 101 s (1.03) | transcribes the FULL clip; residual errors are chunk-boundary artifacts (mid-word cuts: `구간→기관`, `정지→정치`) + known spelled-out numbers |
+| whisper-base 30s i8 | CER-full 0.193 / CER-win 0.140 | 0.583 / 0.160 | 0.850 / 0.433 | 30 s hard truncation; **also hits the SEQ=128 decode-token cap** (124 steps on a & b — dense 30 s Korean overflows the token budget mid-window); on pause-heavy clip c it **EOTs early** (~15 s in, 48 steps) after the first 1 s-silence cluster |
+| acft-ko base 5s drq | CER-win 1.167 (hallucinated sentence repeat) | 0.115 | 0.000 | 5 s hard truncation; base tier can loop/hallucinate when speech is cut mid-sentence |
+| acft-ko turbo 5s drq | CER-win 0.000 | 0.077 | 0.150 | 5 s hard truncation; clean within the window |
+
+(ACFT-KO tier selection and the validity of the numbers that selected them:
+see **Addendum 3** below. `acft-ko tiny 5s` is deliberately absent from every
+table here — it is not recommended for Korean voice commands.)
+
+### VAD energy-v2 offline segmentation on clip c (scratchpad `vad_long_c.py`)
+
+32 detected segments vs 31 ground-truth utterances — **31/31 utterances
+covered, 0 merges, 1 split** (`floor`-adaptive threshold `t_on` 0.0119 /
+`t_off` 0.0060). The native (device) VAD returned **byte-identical segment
+boundaries** in the whisper-base device run below — desktop prototype ↔ JNI
+parity confirmed on a 98 s input.
+
+### Device runs (46a880a0, SM8250, CPU, generic ASR smoke APK, clip c = 98.1 s)
+
+| Model | Result | encode | decode | steps | elapsed | Notes |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| qwen3-asr i8, 5 s-chunk loop | **SUCCESS, full 98 s in 20 chunks** | 4.04 s | 244.9 s | 431 | **251.8 s (RTF 2.57)** | RAM PSS flat ≈ 1.97 GB for the entire run (samples every 30 s: 1969→1966→1955 MB — **no per-chunk growth/leak**); decode-step count 431 vs desktop 432, chunk transcripts identical to desktop where visible |
+| whisper-base 30s i8 | truncated + early EOT | 0.64 s | 6.14 s | 47 | 7.18 s | transcript = first 4 utterances only (identical to desktop): `지금부터 음성명령 인식 시험을 시작하겠습니다. 볼륨업 소리 키워줘 첫 번째 명령이 정상적으로 처리되었는지 확인해 주시기 바랍니다.` |
+| acft-ko turbo 5s drq | 5 s truncation | 1.05 s | 3.23 s | 21 | ~4.3 s | `지금부터 음성명령 인식시험을 시작하겠습니다. 볼륨업` — identical to desktop |
+
+Tooling note: `Run-LiteRtLmAndroidAsrSmokeTest.ps1` `-AsrMode` ValidateSet
+only allows `parakeet|whisper` while the runner already supports
+`qwen3`/`qwen3-asr` — the qwen3 device run required a manually pushed
+`LiteRtLmAsrSmokeTest.config.json`. Also both the status file and logcat
+truncate the result JSON (~4 kB), so long-clip transcripts/tokenIds are cut;
+full-transcript persistence to a device file is a small runner gap.
+
+### Long-form verdict
+
+- **>30 s audio today: qwen3-asr i8 chunk loop is the only deployed
+  full-coverage path.** It is production-viable on device for
+  **offline/batch** transcription (stable memory, no failure on 98 s), but
+  at RTF ~2.6 CPU (4.2 min for a 98 s clip) it is not interactive.
+- **whisper-base 30s must not be fed >30 s audio directly** — three
+  independent failure modes: window truncation, 128-token decode cap on
+  dense Korean, and early-EOT at internal silence clusters.
+- **acft-ko 5s tiers are per-utterance models only** (that is their design);
+  turbo 5s stays the FC-command pick, base 5s can hallucinate on cut speech.
+- **Enhancement candidate (no implementation yet): whisper 30 s
+  sliding-window JNI chunking.** Device whisper-base does a 30 s window in
+  ~7 s (≈ RTF 0.25) — a VAD-v2-aligned segmenter feeding 30 s (or smaller)
+  windows to base i8 would cover 98 s in roughly 25–30 s, ~8–10× faster than
+  the qwen3 loop, with per-window token budgets sidestepping the 128-token
+  cap. The energy-v2 VAD already segments pause-separated speech essentially
+  perfectly (31/31, 0 merges), so segment-driven chunking (each VAD segment →
+  one whisper window, mirroring the existing mic-VAD continuous pipeline) is
+  the natural first implementation.
+
+Reproduction: scratchpad `gen_long_tts.py` (TTS generation),
+`bench_asr_long.py` (desktop matrix), `vad_long_c.py` (VAD check), raw JSON
+in scratchpad `bench_results/long/*.json`; device logs
+`Builds/Logs/AndroidDeviceRuns/20260725-1453*,-1454*` + scratchpad
+`bench_results/long/device_qwen_{status,logcat}.txt`.
+
+---
+
+## Addendum 3 — ACFT-KO gate: metric validity & real-recording calibration, 2026-07-26
+
+Source of truth: `External/acft-training/runs/METHODOLOGY-AUDIT.md`
+(inference-only re-evaluation, 7 checkpoints × 7 eval buckets, run 2026-07-26,
+no training). This addendum exists because the ACFT-KO gate numbers published
+in `README.md`, `docs/handoffs/asr-training-program-handoff.md` and the
+[leuconoe/whisper-acft-ko](https://huggingface.co/leuconoe/whisper-acft-ko)
+model card come from a **TTS-synthesized** eval bucket and were being read as
+absolute Korean quality numbers.
+
+### Metric validity — what the `ko_short` gate number does and does not mean
+
+The `ko_short` gate that selected every ACFT-KO and kspon checkpoint is
+`data/acft_mix/eval_short`: **40 edge-tts synthesized short-command clips**
+(0.46–1.43 s, mean reference length 3.6 characters), scored with punctuation
+**kept**. The audit measured three properties of that metric:
+
+- **Ranking: VALID.** Across all 7 audited checkpoints, TTS-40 CER vs CER on
+  the 4 real human command recordings in
+  `Assets/StreamingAssets/TestAssets/Audio` gives **Spearman ρ = 1.000,
+  Pearson r = 0.992** (punctuation-stripped: ρ = 1.000, r = 0.980). The TTS
+  bucket orders models exactly the way real recordings do — it is a sound
+  A/B ranking gate and the model-to-model comparisons made with it stand.
+- **Absolute level: BADLY CALIBRATED — do not quote it as a quality number.**
+  For a strong un-finetuned base the TTS set is ~2.8× harsher than reality
+  (komixv2-base: TTS 0.313 vs real-recorded 0.113). For degraded checkpoints
+  the two converge (ratio 0.88–1.09), and for the stock-base ACFT tiny the
+  TTS number is *optimistic* (TTS 0.728 vs real-recorded 0.896). A TTS-bucket
+  CER is not an "is this shippable" threshold in either direction.
+- **Punctuation dominates on 2–4 character references.** kspon-style training
+  makes the model emit a terminal period; one period on `축소` is +0.50 CER,
+  on `전원 켜` +0.33. **33–79 % of the measured C-stage "regression" was
+  trailing punctuation alone** — and the shipped matcher explicitly ignores
+  punctuation and spacing
+  (`Assets/Scripts/LiteRTLM/LiteRtLmAsrTestRunner.cs:1267`). Any absolute CER
+  quoted from this bucket must be paired with the punctuation-stripped value;
+  otherwise it measures a penalty the product does not have.
+- **Variance.** The training gate ran `--eval-n 24` (24 of the 40 clips) →
+  per-bucket SEM ≈ 0.05. The 4 real recordings have SEM up to 0.20, so they
+  are an absolute-level *check*, never a gate on their own.
+
+Standing rule going forward: keep the TTS-40 bucket as the ranking gate
+(it is validated), always add a real-recording bucket as the absolute-level
+check, and report raw **and** punctuation-stripped CER on command buckets.
+
+### ACFT-KO tiers: gate number vs what real audio says
+
+"Gate CER" = the published training gate (TTS `eval_short`, 5 s ctx,
+`--eval-n 24`) — the numbers on the HF card and in the README.
+"Audit real-cmd CER" = the 2026-07-26 audit, PyTorch checkpoint at full
+1500-frame ctx on the 4 real human command recordings.
+"Device" = the 5 s tflite exports on Snapdragon 865, cycles 4–5 in
+`device-cycle1-baseline.md`.
+
+| ACFT-KO tier | Gate CER (TTS, ranking-valid) | Audit real-cmd CER | Device (5 s export) | Recommendation |
+| --- | ---: | ---: | --- | --- |
+| tiny | 0.457 | **0.896** | **1/4 exact** (cycle 4 REJECT) | **NOT recommended for Korean voice commands** |
+| base | 0.305 | not measured | 4/5 exact (cycles 4–5) | 1st pick, fast path (0.7–0.8 s E2E) |
+| medium | 0.208 | not measured | 4/5 exact (`음량`→`음향` flip, cycle 5) | no deployment role of its own |
+| large-v3-turbo | 0.182 | not measured | **5/5 exact** (cycle 5) | accuracy fallback / quiet capture |
+
+**Context caveat, stated so this table is not itself over-read**: 0.457 was
+measured at the 5 s deployment context on 24 clips; the audit re-measured the
+*same* checkpoint at full ctx (TTS-40 **0.728**, real-cmd **0.896**,
+real spontaneous short Korean from kspon **0.937**). 0.457 → 0.896 is
+therefore **not** a like-for-like delta — part of the gap is context/eval-n.
+What is unambiguous is the conclusion: every measurement of this checkpoint on
+**real** Korean audio — either context, desktop or device — puts it in the
+unusable range, while the published 0.457 reads as "workable small tier".
+Only the tiny tier was re-measured on real recordings by the audit; base /
+medium / turbo keep their device-cycle evidence and are unaffected.
+
+**Why tiny is different from the rest of the lineup**: `runs/ko-acft-tiny` was
+distilled from **stock `bases/tiny`**, not from `komixv2-tiny`
+(`config.json: "base": ".../bases/tiny"`). It is an English model with fragile
+Korean — audit REAL-en CER **0.031** (best in the whole matrix) against
+REAL-Korean-command **0.896**. The komixv2-based checkpoints are 2–3× better
+on Korean commands (komixv2-tiny real-cmd 0.342) and correspondingly worse on
+English (0.938). Any tiny-tier Korean claim must be checked against which base
+the tier was built from.

@@ -103,9 +103,19 @@ Unity 쪽 라이브 마이크 캡처(`LiteRtLmMicVadCapture`)도 동일 파라�
 **한국어 ACFT 5s 모델 학습 배경**: stock whisper를 5초 짧은 컨텍스트에
 그대로 넣으면 붕괴(반복 폭주, CER 1.1~24.9)하므로, futo ACFT 방법에 두
 가지 보정(ctx 하한 250, 한70:영30 zeroth+fleurs 증류)을 더해 자체
-학습했습니다. 게이트 결과(5s ctx 한국어 단문 CER): turbo 0.182 · medium
-0.208 · base 0.305 · tiny 0.457. 인코더는 30초 창 대비 ~12배 빠릅니다.
+학습했습니다. 게이트 결과(**TTS 합성** 짧은 명령 40클립 홀드아웃, 5s ctx
+한국어 단문 CER): turbo 0.182 · medium 0.208 · base 0.305 · tiny 0.457.
+인코더는 30초 창 대비 ~12배 빠릅니다.
 모델·카드: [leuconoe/whisper-acft-ko](https://huggingface.co/leuconoe/whisper-acft-ko).
+
+⚠️ **게이트 수치 해석 주의**: 이 게이트는 edge-tts로 합성한 40클립
+홀드아웃입니다. 모델 간 **순위 지표로는 검증**되었으나(실녹음 대비
+Spearman ρ = 1.00), **절대 품질 수치로는 보정되지 않았습니다**. 또한 참조
+문자열이 평균 3.6자라 마침표 1개가 CER +0.25~0.50이며, 실제 매처는 구두점을
+무시합니다. **tiny는 한국어 음성 명령에 권장하지 않습니다** — 실녹음 명령
+CER 0.896, 디바이스 1/4 exact(사이클 4 REJECT). 배포 티어는 base(1픽) /
+turbo(정확도 폴백)입니다. 상세: `External/acft-training/runs/METHODOLOGY-AUDIT.md`,
+[Addendum 3](docs/benchmarks/asr-model-matrix.md).
 
 모델 출처: whisper tiny/base는
 [litert-community](https://huggingface.co/litert-community/whisper-tiny)

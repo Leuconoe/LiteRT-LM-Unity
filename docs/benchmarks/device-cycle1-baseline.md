@@ -590,6 +590,14 @@ on this device (cycles 1–3) — tiny's failure is model capacity, unchanged by
 window length or Korean ACFT. The ~0.3 s saved over base-5s does not buy a
 usable command tier; **do not deploy tiny-5s**.
 
+**Cross-ref (added 2026-07-26)**: this 1/4 is independently explained and
+confirmed off-device by `External/acft-training/runs/METHODOLOGY-AUDIT.md` §5 —
+real-recorded-command CER **0.896** (vs the published TTS gate 0.457), because
+`runs/ko-acft-tiny` was distilled from stock `bases/tiny`, not `komixv2-tiny`;
+it is an English model (REAL-en CER 0.031) with fragile Korean. See
+`docs/benchmarks/asr-model-matrix.md` "Addendum 3" for the gate-metric
+validity analysis.
+
 ## 4. stock base-30s i8 regression on take6 — PASS
 
 `2025년 3월 5일 전술 평가 결과 보고` — character-identical to cycles 1–3.

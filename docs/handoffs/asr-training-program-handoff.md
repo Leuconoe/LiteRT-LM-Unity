@@ -33,8 +33,14 @@ VAD: 모든 ASR 경로가 `vadMode` off/energy(기본)/ai(Silero 1.25 MB) 지원
   ② 한70:영30 혼합(zeroth 51.6 h + FLEURS en_us) — 단일 언어 학습은 반대
   언어를 파괴
 - 짧은 발화: zeroth <3 s ×3 오버샘플 + 0.5–3 s 크롭 증강(p=0.15)
-- 게이트 결과(5 s ctx 한국어 단문 CER): turbo 0.182 · medium 0.208 ·
-  base 0.305 · tiny 0.457 (stock은 1.07–24.9로 붕괴)
+- 게이트 결과(**TTS 합성 40클립 홀드아웃**, 5 s ctx 한국어 단문 CER):
+  turbo 0.182 · medium 0.208 · base 0.305 · tiny 0.457 (stock은 1.07–24.9로 붕괴)
+  - ⚠️ 이 게이트는 **순위 지표로만 유효**(실녹음 대비 Spearman ρ = 1.00),
+    절대 품질 수치로는 미보정. 참조 평균 3.6자라 마침표 1개 = CER +0.25~0.50
+    (실제 매처는 구두점 무시). **tiny는 한국어 음성 명령 비권장** — 실녹음
+    명령 CER 0.896 / 디바이스 1/4 exact. 근거:
+    `External/acft-training/runs/METHODOLOGY-AUDIT.md`,
+    `docs/benchmarks/asr-model-matrix.md` Addendum 3
 - 스크립트: `External/acft-training/train_acft.py`, `run_queue.py`
   (**미공개 유지** — futo 노트북 이식본이라 공개 시 MIT 고지 의무 발생)
 
