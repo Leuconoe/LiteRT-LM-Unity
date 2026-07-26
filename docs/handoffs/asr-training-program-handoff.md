@@ -1,181 +1,222 @@
-# ASR 학습·배포 프로그램 핸드오프 (2026-07-23 ~ 07-26)
+# ASR training & deployment program handoff (2026-07-23 – 07-26)
 
-이 문서 하나로 ASR 관련 작업 전체를 이어받을 수 있게 정리했습니다.
-**모든 판단 기준은 Android 온디바이스 실행**(Snapdragon 865급, 기기 46a880a0)
-이며, 데스크톱 수치는 참고용입니다. 프레임워크(v0.14) 업그레이드 자체는
-`v0.14-upgrade-handoff.md` 참조.
+This single document should be enough to pick up all ASR-related work.
+**Every judgement here is against Android on-device execution** (Snapdragon 865
+class, device `46a880a0`); desktop numbers are reference only. For the
+framework (v0.14) upgrade itself see `v0.14-upgrade-handoff.md`.
 
-## 1. 최종 상태 한 줄 요약
+## 1. Final state in one line
 
-**배포·공개된 것은 "클린 ACFT" 계보뿐**입니다 — stock openai whisper에
-zeroth-korean(70%) + FLEURS en(30%)로 ACFT 자기증류한 4모델. KsponSpeech
-계보는 **사용자 지시로 폐기**(2026-07-26), 산출물은 기록용으로만 보존.
+**Only the "clean ACFT" lineage was deployed and published** — four models
+self-distilled from stock openai whisper on zeroth-korean (70 %) + FLEURS en
+(30 %). The KsponSpeech lineage was **abandoned on user instruction**
+(2026-07-26) and its artifacts were deleted; §4 is the only surviving record.
 
-## 2. 배포 중인 ASR 라인업 (StreamingAssets)
+## 2. Deployed ASR lineup (StreamingAssets)
 
-| 용도 | 파일 | 크기 | 근거 |
+| Use case | File | Size | Rationale |
 | --- | --- | ---: | --- |
-| 음성 명령 제1픽 | `ASR/whisper-base-acft-ko/acft_base_5s_drq.tflite` | 101 MB | 디바이스 정상음량 명령 전부 exact, E2E 0.7–0.8 s |
-| 명령 정확도 폴백 | `ASR/whisper-turbo-acft-ko/acft_turbo_5s_drq.tflite` | 883 MB | 디바이스 5/5 (조용한 구녹음 포함) — 유일 |
-| 장문(>30 s) | `ASR/qwen3-asr-0.6b/qwen3_asr_0.6b_5s_i8.tflite` | 794 MB | 5 s 청크 루프, 98 s 디바이스 완주(4.2분, RAM 평탄) |
-| 문장 균형 | `ASR/whisper-base/whisper_base_30s_i8.tflite` | 77 MB | 한국어 문장 CER 0.000 |
-| 기타 | tiny/medium/large-v3/turbo 30 s 티어(i8/i4) | — | 비교·레퍼런스 |
-| (참고) medium-acft | `ASR/whisper-medium-acft-ko/` | 826 MB | 배치돼 있으나 **비권장**(turbo보다 느리고 부정확) |
+| Voice commands, 1st pick | `ASR/whisper-base-acft-ko/acft_base_5s_drq.tflite` | 101 MB | Every normal-loudness command exact on device, 0.7–0.8 s E2E |
+| Command accuracy fallback | `ASR/whisper-turbo-acft-ko/acft_turbo_5s_drq.tflite` | 883 MB | Device 5/5 including the quiet legacy take — the only model that manages it |
+| Long-form (>30 s) | `ASR/qwen3-asr-0.6b/qwen3_asr_0.6b_5s_i8.tflite` | 794 MB | 5 s chunk loop; 98 s clip completed on device (4.2 min, flat RAM) |
+| Sentence balance | `ASR/whisper-base/whisper_base_30s_i8.tflite` | 77 MB | Korean sentence CER 0.000 |
+| Other | tiny/medium/large-v3/turbo 30 s tiers (i8/i4) | — | Comparison and reference |
+| (Note) medium-acft | `ASR/whisper-medium-acft-ko/` | 826 MB | Deployed but **not recommended** — slower and less accurate than turbo |
 
-VAD: 모든 ASR 경로가 `vadMode` off/energy(기본)/ai(Silero 1.25 MB) 지원.
+VAD: every ASR path supports `vadMode` off / energy (default) / ai
+(Silero, 1.25 MB).
 
-## 3. 클린 ACFT 학습 레시피 (재현용 — 이것이 성공한 방법)
+## 3. Clean ACFT training recipe (this is what worked)
 
-- 시작점: **stock openai/whisper-{tiny,base,medium,large-v3-turbo}** (komixv2
-  등 한국어 파인튜닝본에서 시작하지 말 것 — 영어가 파괴되어 있음)
-- 방법: futo-org/whisper-acft 자기증류(MSE on decoder hidden states, 동결
-  풀윈도우 교사), Adam lr 1e-6, batch 1, 최대 8 epoch + 조기종료
-- **핵심 보정 2가지**: ① `n_ctx` 하한 250(=5 s 고정 배포창과 일치 — 이전
-  komixv2-acft-ggml 실패의 근본 원인이 ctx 64까지 내려간 분포 밖 학습)
-  ② 한70:영30 혼합(zeroth 51.6 h + FLEURS en_us) — 단일 언어 학습은 반대
-  언어를 파괴
-- 짧은 발화: zeroth <3 s ×3 오버샘플 + 0.5–3 s 크롭 증강(p=0.15)
-- 게이트 결과(**TTS 합성 40클립 홀드아웃**, 5 s ctx 한국어 단문 CER):
-  turbo 0.182 · medium 0.208 · base 0.305 · tiny 0.457 (stock은 1.07–24.9로 붕괴)
-  - ⚠️ 이 게이트는 **순위 지표로만 유효**(실녹음 대비 Spearman ρ = 1.00),
-    절대 품질 수치로는 미보정. 참조 평균 3.6자라 마침표 1개 = CER +0.25~0.50
-    (실제 매처는 구두점 무시). **tiny는 한국어 음성 명령 비권장** — 실녹음
-    명령 CER 0.896 / 디바이스 1/4 exact. 근거: 아래 §5,
-    `docs/benchmarks/asr-model-matrix.md` Addendum 3
-- 스크립트: `External/acft-training/train_acft.py`, `run_queue.py`
-  (**미공개 유지** — futo 노트북 이식본이라 공개 시 MIT 고지 의무 발생)
+- Starting point: **stock openai/whisper-{tiny,base,medium,large-v3-turbo}**.
+  Do not start from a Korean fine-tune such as komixv2 — their English is
+  destroyed.
+- Method: futo-org/whisper-acft self-distillation (MSE on decoder hidden states
+  against a frozen full-window teacher), Adam lr 1e-6, batch 1, up to 8 epochs
+  with early stopping
+- **Two corrections that mattered**: (1) an `n_ctx` floor of 250, matching the
+  5 s fixed deployment window — the root cause of the earlier
+  komixv2-acft-ggml failure was training out-of-distribution down to ctx 64;
+  (2) a 70:30 Korean:English mix (zeroth 51.6 h + FLEURS en_us) — single-language
+  training destroys the other language
+- Short utterances: zeroth clips <3 s oversampled ×3, plus 0.5–3 s crop
+  augmentation (p = 0.15)
+- Gate results (**40-clip TTS-synthesized holdout**, Korean short-utterance CER
+  at 5 s ctx): turbo 0.182 · medium 0.208 · base 0.305 · tiny 0.457
+  (stock collapses at 1.07–24.9)
+  - ⚠️ This gate is **valid for ranking only** (Spearman ρ = 1.00 against real
+    recordings); it is not calibrated as an absolute quality number. References
+    average 3.6 characters, so one period is worth CER +0.25–0.50 while the
+    actual matcher ignores punctuation. **tiny is not recommended for Korean
+    voice commands** — real-recording command CER 0.896, device 1/4 exact.
+    Evidence: §5 below and `docs/benchmarks/asr-model-matrix.md` Addendum 3
+- Scripts: `External/acft-training/train_acft.py`, `run_queue.py`
+  (**kept private** — they are a port of the futo notebook, so publishing would
+  trigger MIT attribution obligations)
 
-## 4. KsponSpeech 프로그램 — 폐기 (음성 결과 전문)
+## 4. KsponSpeech program — abandoned (full negative result)
 
-사용자 지시로 2026-07-26 폐기. **산출물(런/익스포트/데이터셋/베이스/스크립트
-약 87 GB)은 2026-07-26 전량 삭제**했고, 이 문서가 유일한 기록입니다.
-배포·공개된 kspon 계보 모델은 없습니다.
+Cancelled by the user on 2026-07-26. **All artifacts (runs, exports, datasets,
+bases, scripts, venv — about 87 GB) were deleted on 2026-07-26**, so this
+document is the only record. No kspon-lineage model was ever deployed or
+published.
 
-- 구성: komixv2(한국어 FT) 체크포인트 + KsponSpeech 100 h(자유대화, 1–3 s
-  66.5%) CE 파인튜닝(C) → ACFT(D) → TTS 연속학습(E). 소요 **≈31.6 GPU-시간**
-- 실행분: tiny·base 체인 완주, turbo는 C에서 손상 확인 후 D를 원본
-  베이스로 재시작하던 중 폐기. small 미시작, medium은 C만 완료
+- Shape: komixv2 (Korean fine-tune) checkpoints + KsponSpeech 100 h
+  (spontaneous conversation, 66.5 % in the 1–3 s range) CE fine-tune (C) →
+  ACFT (D) → TTS continuation (E). Cost: **≈31.6 GPU-hours**
+- Executed: the tiny and base chains completed; turbo was cancelled while D was
+  being restarted from the original base after C damaged it. small never
+  started; medium completed C only.
 
-### 4.1 C 단계 측정치 (ko_short = 40클립 TTS 단문 홀드아웃, ctx 250)
+### 4.1 C-stage measurements (ko_short = 40-clip TTS short-utterance holdout, ctx 250)
 
-| base | ko_short | kspon | fleurs_ko | fleurs_en |
+| Base | ko_short | kspon | fleurs_ko | fleurs_en |
 | --- | --- | --- | --- | --- |
 | komixv2-tiny → C | 0.417 → **0.609** | 0.177 → 0.124 | 0.100 → 0.137 | 0.992 → 0.386 |
 | komixv2-base → C | 0.331 → **0.473** | 0.104 → 0.113 | 0.094 → 0.103 | 1.000 → 0.246 |
 | komixv2-medium → C | 0.306 → **0.365** | 0.091 → 0.080 | 0.069 → 0.084 | 0.854 → 0.142 |
 | turbo-komix-lora → C | 0.200 → **0.575** | 0.134 → **0.141** | 0.071 → 0.142 | 0.038 → 0.055 |
 
-D/E는 제 역할(짧은 창 반복붕괴 제거, base ko_short 6.46→0.48)을 했지만 이미
-손상된 C를 증류한 것이라 C 이전 시작점을 끝내 넘지 못했습니다.
+D and E did their job (short-window repetition collapse removed, base ko_short
+6.46 → 0.48) but they were distilling an already-damaged C, so the end product
+never beat its own pre-C starting point.
 
-### 4.2 결론 — 길이가 아니라 **레지스터(어투)** 문제
+### 4.2 Conclusion — it is **register**, not length
 
-무학습 감사(추론 전용 재평가 + 라벨 통계)로 확정된 내용:
+Established by a training-free audit (inference-only re-evaluation plus label
+statistics):
 
-- **"kspon은 짧은 명령에 도움 안 됨"은 옳은 결론이고, 실녹음에서 피해가 더
-  큼**: C 회귀폭이 TTS 게이트 +0.173/+0.104(tiny/base) vs 실녹음
-  **+0.292/+0.254**. 게이트가 오히려 피해를 1.7–2.4× 과소평가
-- **하지만 이유는 "대화체가 길어서"가 아님.** kspon 자체 eval의 **실제 2초
-  미만 자연발화**에서는 C가 오히려 개선(tiny 0.162→0.125, base 유지). 즉
-  C는 짧은 오디오 자체는 학습했고, **출력 어투를 망가뜨림**
-- 라벨 통계가 학습 전에 이미 경고하고 있었음:
+- **"kspon does not help short commands" is correct, and the damage is larger
+  on real recordings**: the C regression is +0.173/+0.104 (tiny/base) on the
+  TTS gate but **+0.292/+0.254** on real recordings. The gate *understated* the
+  harm by 1.7–2.4×.
+- **But the reason is not "conversation is too long."** On kspon's own eval
+  split, **real spontaneous speech under 2 s** actually improves after C
+  (tiny 0.162 → 0.125, base flat). C did learn short audio; what it broke was
+  **output register**.
+- The label statistics warned about this before any GPU time:
 
-  | 코퍼스 | 평균 글자 | 종결부호로 끝 | 명령형(-줘/-주세요) |
+  | Corpus | Mean chars | Ends with terminal punctuation | Imperative ending (-줘/-주세요) |
   | --- | ---: | ---: | ---: |
   | KsponSpeech train | 14.1 | **78.3 %** | 0.1 % |
-  | zeroth (기존 한국어 주력) | 41.6 | 0.0 % | 0.1 % |
-  | TTS 명령셋 (타깃) | **3.7** | 0.0 % | **19.8 %** |
+  | zeroth (prior Korean bulk) | 41.6 | 0.0 % | 0.1 % |
+  | TTS command set (target) | **3.7** | 0.0 % | **19.8 %** |
 
-  → C 이후 모델이 거의 모든 발화 끝에 마침표를 붙임(2글자 참조에 마침표 1개
-  = CER +0.50), `-줘`가 구어체 `-져`로 붕괴(`소리 키워줘`→`술이 키워져`),
-  도메인 어휘 손실(`호버링`→`후바링`)
-- **회귀의 33–79 %는 구두점뿐**이고 실제 매처는 구두점을 무시
-  (`LiteRtLmAsrTestRunner.cs`) — 즉 **제품에 없는 페널티를 최적화**했음
-- **지속 시간을 발화 기능의 대리 지표로 쓴 것이 설계 오류.** kspon의 짧은
-  클립은 명령이 아니라 맞장구(`맞아.` `어.` `진짜?`)
+  After C the model appends a period to almost everything (on a 2-character
+  reference that is CER +0.50), `-줘` collapses into the colloquial `-져`
+  (`소리 키워줘` → `술이 키워져`), and domain vocabulary is lost
+  (`호버링` → `후바링`).
+- **33–79 % of the regression is punctuation alone**, and the shipped matcher
+  ignores punctuation (`LiteRtLmAsrTestRunner.cs`) — we optimized against a
+  penalty the product does not have.
+- **Using duration as a proxy for utterance function was the design error.**
+  kspon's short clips are back-channels (`맞아.` `어.` `진짜?`), not commands.
 
-### 4.3 학습 레시피 자체의 결함 (데이터 선택과 무관하게 5건)
+### 4.3 Recipe defects independent of the data choice (five)
 
-1. **LR 디케이 없음** — 워밍업 후 1e-5 고정 16.8k 스텝(어투 드리프트를 끝까지 강화)
-2. **이전 분포 리플레이 0 %** — kspon+영어 15 %만. 자기 학습 도메인조차 악화한 파국적 망각의 전형
-3. **명령을 지켜야 할 단계에 명령 데이터가 0건**(`--extra-short-data` 경로 없음)
-4. **전면 파인튜닝**(LoRA/동결 없음) — 디코더 LM prior를 제약하는 장치 부재
-5. **선택 지표 ≠ 출하 지표** — `composite`에서 ko_short 가중치 1/3, C가 쉽게
-   버는 영어 회복이 명령 회귀를 표로 이겨버림. 에폭 경계에서만 평가(16.8k
-   스텝에 유효 평가점 2개)라 과학습 가설은 검증조차 불가
+1. **No LR decay** — flat 1e-5 for 16.8 k steps after warmup, reinforcing the
+   style drift all the way to the end
+2. **Zero replay of the prior distribution** — kspon plus 15 % English only.
+   The textbook catastrophic-forgetting setup; C-turbo even regressed on its
+   own training domain
+3. **Zero command data in the stage that had to preserve commands** (no
+   `--extra-short-data` path)
+4. **Full fine-tune** (no LoRA, no freezing) — nothing constrained the decoder
+   LM prior
+5. **Selection metric ≠ ship metric** — `composite` weighted ko_short at 1/3,
+   so the English recovery C bought cheaply outvoted the command regression.
+   Evaluation only at epoch boundaries (2 usable points over 16.8 k steps) meant
+   the over-training hypothesis could not even be tested
 
-## 5. 다시 한국어 명령 파인튜닝을 한다면 (교정된 레시피)
+## 5. If Korean command fine-tuning is ever attempted again
 
-kspon 감사에서 나온 규칙. 재학습 착수 전 이 절을 먼저 볼 것.
+Rules from the kspon audit. Read this section before starting any retraining.
 
-**데이터**
-1. 오디오 길이가 아니라 **라벨 어투를 타깃에 맞출 것**. 코퍼스 투입 전
-   종결부호 비율·평균 길이·종결어미 형태를 측정해 prep 단계 게이트로 삼기
-   (kspon 78 % 구두점 / 0.1 % 명령형 vs 명령셋 0 % / 19.8 %는 GPU 쓰기 전에
-   보였던 불일치)
-2. 어투가 안 맞는 코퍼스를 굳이 쓸 거면 **라벨을 타깃 스타일로 정규화**
-   (종결부호 제거 또는 스타일 태그 학습). 이것만으로 회귀의 33–79 % 제거
-3. **길이를 발화 기능의 대리 지표로 쓰지 말 것.** 기능(고립 명령 / 낭독 문장 /
-   대화 턴)으로 먼저 버킷팅한 뒤 길이로 나눌 것
-4. 진짜 병목은 **실녹음 짧은 "명령" 오디오**. 공개 데이터에 없음
-   (AIHub 차량 명령 dataSetSn=112 등록제 또는 타깃 마이크로 자체 녹음이
-   유일한 정공법)
+**Data**
 
-**리플레이 / 최적화**
+1. Match **label register** to the target output, not just audio length.
+   Measure terminal-punctuation rate, mean length and sentence-ending
+   morphology before adopting a corpus, and gate on it at prep time (kspon at
+   78 % punctuated / 0.1 % imperative vs the command set at 0 % / 19.8 % was
+   visible before any GPU time)
+2. If a mismatched corpus is used anyway, **normalize its labels to the target
+   style** (strip terminal punctuation, or train with a style tag). That alone
+   removes 33–79 % of the observed regression
+3. **Never use duration as a proxy for utterance function.** Bucket by function
+   (isolated command / read sentence / conversational turn) first, then by length
+4. The real blocker is **real recorded short command audio**. Open data has
+   none — AIHub in-vehicle commands (dataSetSn=112, registration required) or
+   an in-house recording session on the target mic are the only honest fixes
 
-5. **이전 분포 리플레이를 항상 섞을 것** — 최소 20–30 % 스텝
-6. 한 가지 능력만 복구할 목적이면 **최소 개입**을 쓸 것(영어 붕괴 복구에
-   100 h 한국어 대화 코퍼스는 과잉 — 짧은 영어 믹스인이면 충분했음)
-7. **LR을 0까지 디케이**(linear/cosine). 평탄 LR 장기 학습이 어투 드리프트의 주범
-8. 어투에 민감한 작업은 **LoRA / 디코더 동결**을 우선. 전 매트릭스에서 디코더
-   prior가 유지된 유일한 체크포인트(turbo-komix-lora)가 pre-C 최고점이었음
-9. 다일 큐 착수 전 **1–2시간 tiny 프로브**(500스텝 간격 평가)로 사전 검증
+**Replay and optimization**
 
-**평가 / 선택**
+5. **Always mix in replay of the prior distribution** — at least 20–30 % of steps
+6. To repair one capability, use the **smallest sufficient intervention**
+   (100 h of Korean conversation to fix an English collapse was massive
+   overkill; a short English mix-in would have done it)
+7. **Decay the LR to ~0** (linear or cosine after warmup). Flat LR over a long
+   run is the most likely driver of style drift
+8. Prefer **LoRA or a frozen decoder** for register-sensitive tasks. The one
+   checkpoint whose decoder prior stayed intact (turbo-komix-lora) had the best
+   pre-C score in the whole matrix
+9. Run a **1–2 hour tiny probe** (eval every 500 steps) before committing to a
+   multi-day queue
 
-10. **선택 지표 = 출하 지표.** ko_short 가중치 ≥ 0.5, 또는 *step 0보다 나쁜
-    체크포인트는 무조건 기각*. 이 규칙 하나로 C는 4개 크기 전부 첫 평가에서 탈락
-11. **제품이 비교하는 방식으로 채점**(종결부호 제거·공백 무시 후 CER). raw/정규화
-    둘 다 보고해 드리프트는 보이되 지배당하지 않게
-12. 에폭이 아니라 **500–1000 스텝마다 평가**, 저장한 체크포인트를 실제로 평가할 것
-13. **홀드아웃 전량 사용**(`--eval-n`을 줄이지 말 것) + 명령 홀드아웃을 40클립보다
-    크게. 3.6자 참조에서 CER 분산이 매우 큼
-14. **TTS-40은 순위 게이트로 유지**(ρ = 1.00 검증됨). 단 **절대 수치로 인용 금지**
-    (강한 베이스에서 오차를 ~2.8× 과대평가) — 실녹음 버킷을 절대 수준 확인용으로 병행
-15. **평가 split을 덮어쓸 때는 그 split을 만든 결정 노트를 먼저 다시 읽을 것**
+**Evaluation and selection**
 
-## 6. 공개된 모델 (HuggingFace)
+10. **Make the selection metric the ship metric.** Weight ko_short ≥ 0.5, or
+    hard-reject any checkpoint worse than step 0. That single rule would have
+    killed C at the first eval for all four sizes
+11. **Score the way the product matches** (strip terminal punctuation, compare
+    space-insensitively). Report both raw and normalized CER so drift stays
+    visible without dominating
+12. **Evaluate every 500–1000 steps**, not per epoch, and evaluate the
+    checkpoints you actually save
+13. **Use the whole holdout** (do not shrink `--eval-n`) and grow the command
+    holdout well past 40 clips — CER is extremely high-variance on 3.6-character
+    references
+14. **Keep the TTS-40 bucket as the ranking gate** (validated at ρ = 1.00), but
+    **never quote it as an absolute number** (it overstates error ~2.8× for a
+    strong base). Add a real-recording bucket as the absolute-level check
+15. **Never overwrite an eval split without re-reading the decision note that
+    created it**
 
-| 레포 | 내용 |
+## 6. Published models (HuggingFace)
+
+| Repo | Contents |
 | --- | --- |
-| [litert-community/whisper-acft](https://huggingface.co/litert-community/whisper-acft) | futo 원본 ACFT 6종(tiny/base/small ±.en) × 5s/10s/30s drq, 통합 카드 |
-| [leuconoe/whisper-acft-ko](https://huggingface.co/leuconoe/whisper-acft-ko) | 한국어 클린 ACFT 4모델 × 3윈도우(12파일) |
-| [leuconoe/litert-lm-unity-quantized](https://huggingface.co/leuconoe/litert-lm-unity-quantized) | 프로젝트 자체 양자화 whisper/Qwen2.5 모음 |
-| litert-community/whisper-{tiny,base,medium,large-v3,large-v3-turbo} | 자체 양자화 i8/i4 기여분(PR·직접 커밋) |
+| [litert-community/whisper-acft](https://huggingface.co/litert-community/whisper-acft) | The six original futo ACFT models (tiny/base/small ±.en) × 5s/10s/30s drq, one consolidated card |
+| [leuconoe/whisper-acft-ko](https://huggingface.co/leuconoe/whisper-acft-ko) | Four Korean clean-ACFT models × 3 windows (12 files) |
+| [leuconoe/litert-lm-unity-quantized](https://huggingface.co/leuconoe/litert-lm-unity-quantized) | This project's quantized whisper / Qwen2.5 collection |
+| litert-community/whisper-{tiny,base,medium,large-v3,large-v3-turbo} | Project i8/i4 contributions (PRs and direct commits) |
 
-## 7. 재개 시 유용한 사실 / 함정
+## 7. Useful facts and traps when resuming
 
-- JNI는 시그니처에서 **mel 빈·vocab·윈도우 프레임을 자동 감지**(take5/6):
-  80/128-mel, 51865/51866, 100–3000 프레임 모두 한 코드로 처리. 결과 JSON에
-  `melBins/vocabSize/windowFrames/featureMd5/vadMode` 보고
-- whisper decode 입력은 **형상 기반 바인딩**(모델별 순서 상이) — 위치 기반으로
-  되돌리지 말 것
-- AAR 빌드: `-SkipImageBuild`는 Docker 이미지에 구운 **낡은 소스**를 빌드함.
-  패치 변경 후에는 이미지 재빌드 필수 (take8에서 발견)
-- 양자화: i8=`dynamic_wi8_afp32`, i4=`dynamic_wi4b64_afp32`(+민감 스코프 i8
-  혼합). wi4c/wi4b32는 품질 붕괴. int2/Q5/1.58b는 LiteRT 커널 부재
-- 저음량 0.79 s 클립은 VAD·게인으로 해결 불가(16조합 실증) = **모델 용량
-  문제**. 해법은 티어 에스컬레이션(turbo-acft)
-- 디바이스 46a880a0은 **터치스크린 없음 + FLAG_SECURE** — adb 탭/스크린샷
-  불가. 검증은 `LiteRtLmAsrTest.autotest.json` 훅으로 수행(스피커 에코
-  주입으로 연속 ASR 사이클 유도 가능)
-- 학습 재개 시 큐 스크립트는 완료 마커를 보고 자동 스킵/채택(adoption)함 —
-  중단 후 재실행이 안전
+- The JNI **auto-detects mel bins, vocab size and window frames** from the
+  signature (take5/6): 80/128-mel, 51865/51866, and 100–3000 frames all go
+  through one code path. The result JSON reports
+  `melBins/vocabSize/windowFrames/featureMd5/vadMode`
+- whisper decode inputs are **bound by shape** (the order differs per model) —
+  do not revert to positional binding
+- AAR builds: `-SkipImageBuild` builds the **stale sources baked into the Docker
+  image**. After changing the patch you must rebuild the image (found at take8)
+- Quantization: i8 = `dynamic_wi8_afp32`, i4 = `dynamic_wi4b64_afp32` (+ i8 on
+  sensitive scopes). `wi4c` and `wi4b32` collapse quality; int2/Q5/1.58b have no
+  LiteRT kernels
+- The quiet 0.79 s clip **cannot be fixed by VAD or gain** (16 combinations
+  tested) — it is a model-capacity limit. The fix is tier escalation (turbo-acft)
+- Device `46a880a0` has **no touchscreen and sets FLAG_SECURE** — adb taps and
+  screenshots do not work. Validation runs through the
+  `LiteRtLmAsrTest.autotest.json` hook (speaker echo injection can drive
+  continuous-ASR cycles)
+- On resume, the queue scripts read completion markers and skip or adopt
+  automatically — stopping and re-running is safe
 
-## 8. 남은 작업
+## 8. Remaining work
 
-1. **#13 Linux/macOS 바이너리** — 미착수. 안드로이드 배포에는 영향 없고
-   데스크톱 검증 보조용. 업스트림 macos_arm64 릴리스에는 커스텀 FC 플래그가
-   없으므로 패치 적용 후 OS별 빌드 필요
-2. 선택 과제(문서에 후보로만 기록): VAD 세그먼트 기반 whisper 30 s 슬라이딩
-   윈도우 청킹(디바이스 장문 8–10배 가속 기대), 저음량 캡처용 AGC
+1. **#13 Linux/macOS binaries** — not started. No impact on Android deployment;
+   it is a desktop verification aid. The upstream macos_arm64 release lacks the
+   custom FC flags, so each OS needs a build from the patched tree
+2. Optional, recorded as candidates only: VAD-segment-based 30 s sliding-window
+   chunking for whisper (expected 8–10× on device long-form), and capture-side
+   AGC for quiet input

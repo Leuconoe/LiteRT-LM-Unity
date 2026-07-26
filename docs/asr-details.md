@@ -255,118 +255,135 @@ Qwen3-ASR uses `-AsrMode qwen3` (CPU only, language auto-detect):
   -TimeoutSeconds 300
 ```
 
+
 ---
 
-## 전체 배포 라인업 — Android 기준 (2026-07-26, README에서 이동)
+## Full deployed lineup — Android criteria (2026-07-26, moved out of the README)
 
-디바이스 46a880a0(Snapdragon 865 / 7.5 GB / Android 12) 실측 기준 순위입니다.
-각 폴더에 티어 전용 `tokenizer.json`을 함께 배치해야 합니다(medium과
-large-v3/turbo는 각자 전용). 전 티어 CER/WER/RTF 매트릭스는
+Ranked by measurements on device 46a880a0 (Snapdragon 865 / 7.5 GB /
+Android 12). Every folder needs its own tier-specific `tokenizer.json` (medium
+and large-v3/turbo each use a different one). Full CER/WER/RTF matrix:
 [`benchmarks/asr-model-matrix.md`](benchmarks/asr-model-matrix.md).
 
-### 먼저 — ASR은 보통 **한 개만** 얹으면 됩니다
+### First — you usually need only **one** ASR model
 
-발화 길이 분포로 고르세요. 두 개를 동시에 상주시킬 이유는 5 s 경계를 걸치는
-입력을 둘 다 최상으로 처리해야 할 때뿐입니다.
+Choose by the utterance lengths you handle. The only reason to keep two
+resident is when input straddles the 5 s boundary and both sides must be
+handled at their best.
 
-| 다루는 발화 | 모델 1종 | 근거 |
+| Utterances you handle | One model | Why |
 | --- | --- | --- |
-| **≤5 s** (음성 명령, 짧은 문장) | base-acft-ko 5s (101 MB) | 3.8 s 문장 클립도 exact. 5 s 안이면 문장도 이 모델로 충분 |
-| **5~30 s** (받아쓰기, 메모) | whisper-base 30s i8 (77 MB) | 문장 CER 0.000. 단 짧은 명령은 실패함(아래) |
-| **>30 s** (회의·강의) | qwen3-asr-0.6b (794 MB) | 청크 루프. 배치 처리 전용 |
+| **≤5 s** (voice commands, short sentences) | base-acft-ko 5s (101 MB) | Even a 3.8 s sentence clip comes out exact — inside 5 s this model covers sentences too |
+| **5–30 s** (dictation, notes) | whisper-base 30s i8 (77 MB) | Sentence CER 0.000, but it fails on short commands (below) |
+| **>30 s** (meetings, lectures) | qwen3-asr-0.6b (794 MB) | Chunk loop. Batch processing only |
 
-**서로 대체가 안 됩니다.** stock base-30s는 이 기기에서 `볼륨, 업`을 `뽈림`,
-`볼륨 업`을 `보여요.`로 읽어 명령용으로 못 씁니다(사이클 2). 반대로
-base-acft-ko 5s는 창이 500프레임이라 5 s를 넘는 오디오는 잘립니다.
-ACFT 모델의 10s/30s 익스포트도 있지만 **긴 창일수록 명령 정확도가 떨어져**
-(turbo 30s에서 `볼륨, 업`→`볼륨`, medium 10s/30s에서 `음량 증가`→`음향증가`)
-장문용으로 stock 30s를 대체하지 못합니다.
+**They do not substitute for each other.** On this device stock base-30s reads
+`볼륨, 업` as `뽈림` and `볼륨 업` as `보여요.`, so it cannot serve commands
+(cycle 2). Conversely base-acft-ko 5s has a 500-frame window, so anything past
+5 s is truncated. The ACFT models do ship 10s/30s exports, but **command
+accuracy degrades as the window grows** (turbo 30s turns `볼륨, 업` into
+`볼륨`; medium 10s/30s turns `음량 증가` into `음향증가`), so they do not
+replace stock 30s for long-form.
 
-### 전 티어 비교
+### All tiers compared
 
-`모바일` 판정: **상시** = 항상 상주 가능 · **온디맨드** = 필요 시 로드했다 해제
-· **배치** = 대화형 지연 불가, 백그라운드 전용 · **부적합** = 디바이스에서 쓸
-이유 없음. `적중률`은 디바이스 명령/게이트 클립 exact 일치 수입니다.
+`Mobile` verdicts: **resident** = fine to keep loaded · **on-demand** = load
+when needed, then release · **batch** = cannot meet interactive latency,
+background only · **unsuitable** = no reason to run it on a device.
+`Hit rate` is the number of exact matches on the device command/gate clips.
 
-| 용도 (device) | Model (`Assets/StreamingAssets/` 하위) | Size | 모바일 | 적중률 | E2E | Device 결과 |
+| Use case (device) | Model (under `Assets/StreamingAssets/`) | Size | Mobile | Hit rate | E2E | Device result |
 | --- | --- | ---: | --- | ---: | ---: | --- |
-| 음성 명령 제1픽 | `ASR/whisper-base-acft-ko/acft_base_5s_drq.tflite` | 101 MB | **상시** | **4/5** | 0.7–0.8 s | 정상 음량 명령·3.8 s 문장 전부 exact. 인코더가 stock base-30s의 ~12배(0.05 vs 0.62 s), 스텝당 디코드 1.8배 빠름. 미스는 조용한 0.79 s 구녹음 1건 |
-| 받아쓰기 / 문장 전사 | `ASR/whisper-base/whisper_base_30s_i8.tflite` | 77 MB | **상시** | 6/9 | 2.7 s | 문장 한국어 CER 0.000. 짧은 명령은 실패(`뽈림`/`보여요.`), 1.2 s 미만 초단클립 불안정(mel 수치 특성) |
-| 명령 정확도 폴백 | `ASR/whisper-turbo-acft-ko/acft_turbo_5s_drq.tflite` | 883 MB | **온디맨드** | **5/5** | 웜 1.9 s / 콜드 4.0 s | 조용한 `볼륨 업` 구녹음까지 읽은 **유일한 모델**. 디코더 4층이라 883 MB치고 가벼움(≈0.15 s/step) — 저신뢰도 재시도용으로만 로드 |
-| 장문 (>30 s) | `ASR/qwen3-asr-0.6b/qwen3_asr_0.6b_5s_i8.tflite` | 794 MB | **배치** | 4/9* | RTF ≈2.6 | 5 s 청크 루프로 길이 무제한 — 98 s 오디오 20청크 완전 전사(4.2분, RAM 평탄). *미스는 숫자를 한글로 적는 표기 차이뿐 |
-| 초소형(영어) | `ASR/whisper-tiny/whisper_tiny_30s_i8.tflite` | 41 MB | 상시(영어) | 3/9 | ~1 s | 영어 CER 0.000. 한국어 연도 오인 + 초단클립 불안정 |
-| 데스크톱 정확도 1위 | `ASR/whisper-large-v3-turbo/whisper_large_v3_turbo_30s_i4.tflite` | 755 MB | **배치** | **8/9** | **21–24 s** | 매트릭스 종합 1위(CER 0.000), 디바이스 게이트 3/3. 30 s 창을 매번 전부 인코딩해 대화형 불가 |
-| 정확도 레퍼런스 | `ASR/whisper-large-v3/whisper_large_v3_30s_i4.tflite` | 1148 MB | **부적합** | 7/9 | 60–170 s | 문자 단위 완벽하나 turbo-30s보다 3–7배 느림 — 데스크톱 비교용 |
-| 중간 티어 | `ASR/whisper-medium/whisper_medium_30s_i8.tflite` (i4: 664 MB) | 832 MB | **부적합** | 7/9 | — | 디코더 24층이라 decode ≈0.46 s/step. turbo(4층, ≈0.15)보다 크고 느리고 덜 정확 |
-| medium-acft-ko | `ASR/whisper-medium-acft-ko/` | 826 MB | **부적합** | 4/5 | 4.8–5.3 s | 테스트 씬용으로만 배치. turbo-acft(5/5, 1.9 s)에 전 항목 열세 |
-| tiny-acft-ko | `ASR/whisper-tiny-acft-ko/` | 46 MB | **부적합(한국어)** | **1/4** | ~0.5 s | 사이클 4 REJECT. 실녹음 명령 CER 0.896 — base-5s 대비 0.3 s 절약이 무의미 |
+| Voice commands, 1st pick | `ASR/whisper-base-acft-ko/acft_base_5s_drq.tflite` | 101 MB | **resident** | **4/5** | 0.7–0.8 s | Every normal-loudness command and the 3.8 s sentence exact. Encoder is ~12× faster than stock base-30s (0.05 vs 0.62 s) and decode is 1.8× faster per step. The one miss is a quiet 0.79 s legacy recording |
+| Dictation / sentence transcription | `ASR/whisper-base/whisper_base_30s_i8.tflite` | 77 MB | **resident** | 6/9 | 2.7 s | Korean sentence CER 0.000. Fails short commands (`뽈림` / `보여요.`); clips under 1.2 s are unstable (mel numerics) |
+| Command accuracy fallback | `ASR/whisper-turbo-acft-ko/acft_turbo_5s_drq.tflite` | 883 MB | **on-demand** | **5/5** | 1.9 s warm / 4.0 s cold | The **only** model that reads even the quiet `볼륨 업` legacy take. Its 4-layer decoder keeps it light for 883 MB (≈0.15 s/step) — load it only to retry low-confidence results |
+| Long-form (>30 s) | `ASR/qwen3-asr-0.6b/qwen3_asr_0.6b_5s_i8.tflite` | 794 MB | **batch** | 4/9* | RTF ≈2.6 | Unlimited length via a 5 s chunk loop — 98 s of audio transcribed in full across 20 chunks (4.2 min, flat RAM). *The misses are only digits spelled out in Hangul |
+| Tiny (English) | `ASR/whisper-tiny/whisper_tiny_30s_i8.tflite` | 41 MB | resident (English) | 3/9 | ~1 s | English CER 0.000. Misreads Korean years, unstable on very short clips |
+| Desktop accuracy leader | `ASR/whisper-large-v3-turbo/whisper_large_v3_turbo_30s_i4.tflite` | 755 MB | **batch** | **8/9** | **21–24 s** | Best in the matrix (CER 0.000), device gate 3/3. Encodes the full 30 s window every time, so interactive use is out |
+| Accuracy reference | `ASR/whisper-large-v3/whisper_large_v3_30s_i4.tflite` | 1148 MB | **unsuitable** | 7/9 | 60–170 s | Character-perfect but 3–7× slower than turbo-30s — desktop comparison only |
+| Mid tier | `ASR/whisper-medium/whisper_medium_30s_i8.tflite` (i4: 664 MB) | 832 MB | **unsuitable** | 7/9 | — | 24-layer decoder, ≈0.46 s/step on device. Bigger, slower and less accurate than turbo (4 layers, ≈0.15) |
+| medium-acft-ko | `ASR/whisper-medium-acft-ko/` | 826 MB | **unsuitable** | 4/5 | 4.8–5.3 s | Deployed for the test scene only. Loses to turbo-acft (5/5, 1.9 s) on every axis |
+| tiny-acft-ko | `ASR/whisper-tiny-acft-ko/` | 46 MB | **unsuitable (Korean)** | **1/4** | ~0.5 s | Cycle-4 REJECT. Real-recording command CER 0.896 — saving 0.3 s over base-5s buys nothing |
 
-### 왜 883 MB turbo-acft는 되고 755 MB turbo-30s는 안 되나
+### Why 883 MB turbo-acft works and 755 MB turbo-30s does not
 
-같은 large-v3-turbo 가중치인데 디바이스 지연이 **1.9 s vs 21–24 s**로 10배
-넘게 벌어집니다. 크기가 아니라 **인코딩하는 창 길이** 차이입니다.
+Same large-v3-turbo weights, yet device latency differs by more than 10×
+(**1.9 s vs 21–24 s**). The cause is not size but **how long a window gets
+encoded**.
 
-- turbo-**30s**: 입력이 항상 3000 프레임 고정 → 1초짜리 명령을 넣어도 30초
-  분량 인코더를 통과시킴
-- turbo-**acft 5s**: ACFT 자기증류로 500 프레임(5 s) 창에 맞춰 재학습 → 인코더
-  연산량 1/6, 디코더는 원래 4층이라 스텝당 ≈0.15 s
-- 즉 모바일 ASR의 병목은 파라미터 수보다 **고정 창 길이**입니다. 짧은 발화를
-  다루는 한 30 s 고정 창 모델은 티어를 낮춰도 이 손해를 못 이깁니다.
+- turbo-**30s**: input is always 3000 frames, so a one-second command still
+  pays for a 30-second encode
+- turbo-**acft 5s**: ACFT self-distillation retrained it for a 500-frame (5 s)
+  window — 1/6 the encoder work, and the decoder was already 4 layers at
+  ≈0.15 s/step
+- In other words, the mobile ASR bottleneck is **fixed window length**, not
+  parameter count. As long as you handle short utterances, dropping to a
+  smaller 30 s-window tier will not recover this loss.
 
-⚠️ **whisper 30 s 모델에 30 s 초과 오디오를 직접 넣지 말 것** — 절단 + 토큰 캡 +
-조기 종료 3중 실패. 장문은 qwen3 청크 경로 사용.
+⚠️ **Never feed audio longer than 30 s straight into a whisper 30 s model** —
+it fails three ways at once (truncation, token cap, early stop). Use the qwen3
+chunk path for long-form.
 
-**대안 경로**: gemma-4 오디오 입력(멀티모달 LLM)으로도 전사 가능 — LLM이 이미
-상주할 때 추가 모델 없이 **전사+펑션콜링을 한 턴에** 처리(디바이스 4.1 s).
+**Alternative path**: gemma-4's audio input (multimodal LLM) also transcribes —
+when the LLM is already resident it handles **transcription and function
+calling in a single turn** with no extra model (4.1 s on device).
 
-### 모델 출처
+### Model provenance
 
-whisper tiny/base는 [litert-community](https://huggingface.co/litert-community/whisper-tiny)
-([base](https://huggingface.co/litert-community/whisper-base)); medium /
-large-v3 / turbo 및 모든 i8/i4 티어는 **프로젝트 자체 양자화**(int4 최소 티어
-정책, `dynamic_wi4b64_afp32` + 민감 스코프 i8 혼합 —
-`External/community-release/`에 커뮤니티 공개용 사본과 매니페스트).
-토크나이저는 [openai/whisper-*](https://huggingface.co/openai/whisper-tiny)
-티어별. Qwen3-ASR은 공식 tflite + 프로젝트 JNI 포팅.
+whisper tiny/base come from
+[litert-community](https://huggingface.co/litert-community/whisper-tiny)
+([base](https://huggingface.co/litert-community/whisper-base)); medium,
+large-v3, turbo and every i8/i4 tier are **quantized by this project**
+(int4-minimum-tier policy: `dynamic_wi4b64_afp32` plus i8 on sensitive scopes —
+`External/community-release/` holds the community copies and manifest).
+Tokenizers are the per-tier
+[openai/whisper-*](https://huggingface.co/openai/whisper-tiny) files.
+Qwen3-ASR is the official tflite with a project JNI port.
 
-## VAD (음성 구간 검출) — Android 실행 기준
+## VAD (voice activity detection) — Android behavior
 
-모든 ASR 경로가 `vadMode`를 지원합니다.
+Every ASR path supports `vadMode`.
 
-| 모드 | 내용 | 비용 |
+| Mode | What it does | Cost |
 | --- | --- | --- |
-| `energy` (기본) | 적응 임계값 v2 — 300 ms 노이즈 캘리브레이션, 20th-pct 노이즈 플로어 +9 dB 온/6 dB 히스테리시스, 210 ms 행오버, 90 ms 프리롤, speech-only RMS 게인 | 0 (추가 모델 없음) |
-| `ai` | Silero VAD v5 tflite (`ASR/silero-vad/silero_vad_16k.tflite`, 1.25 MB, MIT). whisper 입력에는 0.2 s 헤드 패드 필요 | 모델 1.25 MB |
-| `off` | 전처리 없음 | — |
+| `energy` (default) | Adaptive-threshold v2 — 300 ms noise calibration, 20th-percentile noise floor +9 dB on / 6 dB hysteresis, 210 ms hangover, 90 ms preroll, speech-only RMS gain | 0 (no extra model) |
+| `ai` | Silero VAD v5 tflite (`ASR/silero-vad/silero_vad_16k.tflite`, 1.25 MB, MIT). Needs a 0.2 s head pad before whisper | 1.25 MB model |
+| `off` | No preprocessing | — |
 
-- 98 s / 31발화 스트레스 클립에서 **31/31 검출**, 디바이스↔데스크톱 경계 완전 일치
-- 결과 JSON: `vadMode / vadModeUsed / speechSegments / trimmedSeconds / vadGain /
-  speechRms (+vadError)`
-- Unity 라이브 마이크(`LiteRtLmMicVadCapture`)는 동일 파라미터를 C#으로 미러링해
-  자동 엔드포인팅 → 16 kHz WAV → 선택 모델 전사
-- **저음량 0.79 s 클립은 VAD·게인으로 해결 불가**(16조합 실증) = 모델 용량 문제.
-  해법은 티어 에스컬레이션(turbo-acft)
+- **31/31 detected** on a 98 s / 31-utterance stress clip, with device and
+  desktop boundaries matching exactly
+- Result JSON: `vadMode / vadModeUsed / speechSegments / trimmedSeconds /
+  vadGain / speechRms (+vadError)`
+- The Unity live microphone path (`LiteRtLmMicVadCapture`) mirrors the same
+  parameters in C# for automatic endpointing → 16 kHz WAV → transcription with
+  the selected model
+- **The quiet 0.79 s clip cannot be fixed by VAD or gain** (proven across 16
+  combinations) — it is a model-capacity limit. The fix is tier escalation
+  (turbo-acft)
 
-## 한국어 ACFT 5 s 모델 — 학습 배경과 수치 해석
+## Korean ACFT 5 s models — training background and how to read the numbers
 
-stock whisper를 5초 짧은 컨텍스트에 그대로 넣으면 붕괴합니다(반복 폭주,
-CER 1.1–24.9). futo ACFT 자기증류에 두 가지 보정(ctx 하한 250, 한70:영30
-zeroth+fleurs 혼합)을 더해 자체 학습했습니다. 인코더는 30초 창 대비 **~12배**
-빠릅니다. 모델 카드:
+Feeding stock whisper a 5-second context collapses it (runaway repetition,
+CER 1.1–24.9). These models were trained in-house with futo ACFT
+self-distillation plus two corrections: an `n_ctx` floor of 250 and a 70:30
+Korean:English mix (zeroth + FLEURS). The encoder is **~12× faster** than the
+30 s window. Model card:
 [leuconoe/whisper-acft-ko](https://huggingface.co/leuconoe/whisper-acft-ko).
 
-게이트 결과(TTS 합성 40클립 홀드아웃, 5 s ctx 한국어 단문 CER):
-turbo 0.182 · medium 0.208 · base 0.305 · tiny 0.457.
+Gate results (40-clip TTS-synthesized holdout, Korean short-utterance CER at
+5 s ctx): turbo 0.182 · medium 0.208 · base 0.305 · tiny 0.457.
 
-⚠️ **이 수치를 절대 품질로 인용하지 말 것.**
+⚠️ **Do not quote these as absolute quality numbers.**
 
-- edge-tts 합성 홀드아웃이라 **순위 지표로만 검증**됨(실녹음 대비
-  Spearman ρ = 1.00, Pearson 0.99)
-- 강한 베이스에서는 실제 오차를 **~2.8× 과대평가**
-- 참조 문자열 평균 3.6자 → 마침표 1개가 CER +0.25~0.50인데 실제 매처는
-  구두점을 무시(`LiteRtLmAsrTestRunner.cs`)
-- **tiny는 한국어 음성 명령 비권장** — 실녹음 명령 CER 0.896, 디바이스 1/4
-  exact(사이클 4 REJECT). 배포 티어는 base(1픽) / turbo(정확도 폴백)
+- The holdout is edge-tts synthesized, so it is **validated as a ranking metric
+  only** (Spearman ρ = 1.00, Pearson 0.99 against real recordings)
+- For a strong base it **overstates real error by ~2.8×**
+- References average 3.6 characters, so one period is worth CER +0.25–0.50 —
+  while the shipped matcher ignores punctuation
+  (`LiteRtLmAsrTestRunner.cs`)
+- **tiny is not recommended for Korean voice commands** — real-recording
+  command CER 0.896, device 1/4 exact (cycle-4 REJECT). The shipped tiers are
+  base (1st pick) and turbo (accuracy fallback)
 
-상세 분석: [`benchmarks/asr-model-matrix.md`](benchmarks/asr-model-matrix.md)
+Full analysis: [`benchmarks/asr-model-matrix.md`](benchmarks/asr-model-matrix.md)
 Addendum 3, [`handoffs/asr-training-program-handoff.md`](handoffs/asr-training-program-handoff.md) §3–5.
