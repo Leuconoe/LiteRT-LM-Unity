@@ -88,3 +88,7 @@ crashlytics-build.properties
 
 # Windows exe backups
 Tools/Windows/*.exe.backup-*
+
+# UPM sample import (restore with Tools/Windows/Restore-LiteRtLmSamples.ps1)
+/Assets/Samples/
+/Assets/Samples.meta

@@ -10,12 +10,13 @@ namespace LiteRTLM.Unity.Editor
 {
     public static class LiteRtLmTestSceneGenerator
     {
-        public const string LlmChatTestScenePath = "Assets/Scenes/Tests/LiteRtLmLlmChatTestScene.unity";
-        public const string AsrTestScenePath = "Assets/Scenes/Tests/LiteRtLmAsrTestScene.unity";
-        public const string MultimodalTestScenePath = "Assets/Scenes/Tests/LiteRtLmMultimodalTestScene.unity";
-        public const string AsrFunctionCallingTestScenePath = "Assets/Scenes/Tests/LiteRtLmAsrFunctionCallingTestScene.unity";
-        public const string MultimodalFunctionCallingTestScenePath = "Assets/Scenes/Tests/LiteRtLmMultimodalFunctionCallingTestScene.unity";
-        public const string TranslateTestScenePath = "Assets/Scenes/Tests/LiteRtLmTranslateTestScene.unity";
+        // Resolved from where the sample was imported; see LiteRtLmSamplePaths.
+        public static string LlmChatTestScenePath => LiteRtLmSamplePaths.Scene("LiteRtLmLlmChatTestScene");
+        public static string AsrTestScenePath => LiteRtLmSamplePaths.Scene("LiteRtLmAsrTestScene");
+        public static string MultimodalTestScenePath => LiteRtLmSamplePaths.Scene("LiteRtLmMultimodalTestScene");
+        public static string AsrFunctionCallingTestScenePath => LiteRtLmSamplePaths.Scene("LiteRtLmAsrFunctionCallingTestScene");
+        public static string MultimodalFunctionCallingTestScenePath => LiteRtLmSamplePaths.Scene("LiteRtLmMultimodalFunctionCallingTestScene");
+        public static string TranslateTestScenePath => LiteRtLmSamplePaths.Scene("LiteRtLmTranslateTestScene");
 
         private const string AsrFunctionCallingDefaultAsrModelPath = "ASR/whisper-tiny/whisper_tiny_30s_i8.tflite";
         private const string AsrFunctionCallingDefaultAudioPath = "TestAssets/Audio/2025년 3월 5일 전술평가 결과 보고.mp3";
@@ -23,7 +24,7 @@ namespace LiteRTLM.Unity.Editor
         private const string AsrFunctionCallingStatusFileName = "LiteRtLmAsrFunctionCallingDemo.status.txt";
         private const string MultimodalFunctionCallingStatusFileName = "LiteRtLmMultimodalFunctionCallingDemo.status.txt";
 
-        private static readonly string[] AllTestScenePaths =
+        private static string[] AllTestScenePaths => new[]
         {
             LlmChatTestScenePath,
             AsrTestScenePath,

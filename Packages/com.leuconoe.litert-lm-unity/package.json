@@ -1,0 +1,43 @@
+{
+  "name": "com.leuconoe.litert-lm-unity",
+  "version": "0.14.0",
+  "displayName": "LiteRT-LM for Unity",
+  "description": "On-device AI for Android in Unity: LLM chat, speech recognition, image understanding and function calling through a native LiteRT-LM v0.14.0 bridge. Includes a dual-mode VAD, live microphone capture with endpointing, and a Windows editor fallback for pre-device verification. No network required at runtime.",
+  "unity": "2022.3",
+  "dependencies": {
+    "com.unity.modules.androidjni": "1.0.0",
+    "com.unity.modules.audio": "1.0.0",
+    "com.unity.modules.imgui": "1.0.0",
+    "com.unity.modules.jsonserialize": "1.0.0"
+  },
+  "documentationUrl": "https://github.com/Leuconoe/LiteRT-LM-Unity#readme",
+  "changelogUrl": "https://github.com/Leuconoe/LiteRT-LM-Unity/blob/main/Packages/com.leuconoe.litert-lm-unity/CHANGELOG.md",
+  "licensesUrl": "https://github.com/Leuconoe/LiteRT-LM-Unity/blob/main/Packages/com.leuconoe.litert-lm-unity/THIRD-PARTY-NOTICES.md",
+  "keywords": [
+    "ai",
+    "llm",
+    "asr",
+    "speech-recognition",
+    "on-device",
+    "android",
+    "litert",
+    "multimodal",
+    "function-calling",
+    "vad"
+  ],
+  "author": {
+    "name": "Leuconoe",
+    "url": "https://github.com/Leuconoe"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Leuconoe/LiteRT-LM-Unity.git"
+  },
+  "samples": [
+    {
+      "displayName": "Test Scenes",
+      "description": "Six scenes covering LLM chat, ASR (file / microphone / always-listening), multimodal image+audio, voice and multimodal function calling, and translation — plus the Android APK build menu and the scene generator.",
+      "path": "Samples~/TestScenes"
+    }
+  ]
+}

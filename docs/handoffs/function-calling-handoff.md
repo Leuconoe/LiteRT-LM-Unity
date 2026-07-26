@@ -47,15 +47,15 @@ Implement and stabilize LiteRT-LM Unity function calling by exposing grammar-sty
   - Added CLI flags for system message, tools JSON, messages JSON, constrained decoding, and JSON message output.
 - `Tools/Windows/Run-LiteRtLmSample.ps1`
   - Added forwarding for the new CLI flags.
-- `Assets/Scripts/LiteRTLM/LiteRtLmWindowsCliClient.cs`
+- `Packages/com.leuconoe.litert-lm-unity/Runtime/LiteRtLmWindowsCliClient.cs`
   - Added optional system/tools/messages/constrained/json-output arguments.
-- `Assets/Scripts/LiteRTLM/LiteRtLmFunctionCallingBenchmarkRunner.cs`
+- `Packages/com.leuconoe.litert-lm-unity/Samples~/TestScenes/Runtime/LiteRtLmFunctionCallingBenchmarkRunner.cs`
   - Added 20-case benchmark runner.
   - Writes status to `Builds/Logs/LiteRtLmFunctionCallingBenchmark.status.txt`.
   - Fails early if the exe lacks constrained CLI flags.
 - `Assets/Scenes/LiteRtLmFunctionCallingBenchmarkScene.unity`
   - Added benchmark scene.
-- `Assets/Scripts/LiteRTLM/Editor/LiteRtLmBuild.cs`
+- `Packages/com.leuconoe.litert-lm-unity/Samples~/TestScenes/Editor/LiteRtLmBuild.cs`
   - Added batchmode entrypoint for the function-calling benchmark.
 
 ## Next PDCA Loop

@@ -14,19 +14,20 @@ namespace LiteRTLM.Unity.Editor
 {
     public static class LiteRtLmBuild
     {
-        private const string ScenePath = "Assets/Scenes/LiteRtLmSampleScene.unity";
-        private const string AndroidSmokeBuildScenePath = "Assets/Scenes/Tests/Generated/LiteRtLmAndroidSmokeTestBuildScene.generated.unity";
-        private const string AndroidAsrSmokeBuildScenePath = "Assets/Scenes/Tests/Generated/LiteRtLmAsrSmokeTestBuildScene.generated.unity";
-        private const string AndroidAsrFunctionCallingBuildScenePath = "Assets/Scenes/Tests/Generated/LiteRtLmAsrFunctionCallingDemoBuildScene.generated.unity";
-        private const string AndroidAsrFunctionCallingTestBuildScenePath = "Assets/Scenes/Tests/Generated/LiteRtLmAsrFunctionCallingTestBuildScene.generated.unity";
-        private const string ConversationTestScenePath = "Assets/Scenes/Tests/LiteRtLmConversationTestScene.unity";
-        private const string FunctionCallingBenchmarkScenePath = "Assets/Scenes/Tests/LiteRtLmFunctionCallingBenchmarkScene.unity";
-        private const string LlmChatTestScenePath = LiteRtLmTestSceneGenerator.LlmChatTestScenePath;
-        private const string AsrTestScenePath = LiteRtLmTestSceneGenerator.AsrTestScenePath;
-        private const string MultimodalTestScenePath = LiteRtLmTestSceneGenerator.MultimodalTestScenePath;
-        private const string AsrFunctionCallingTestScenePath = LiteRtLmTestSceneGenerator.AsrFunctionCallingTestScenePath;
-        private const string MultimodalFunctionCallingTestScenePath = LiteRtLmTestSceneGenerator.MultimodalFunctionCallingTestScenePath;
-        private const string TranslateTestScenePath = LiteRtLmTestSceneGenerator.TranslateTestScenePath;
+        // All scene paths are resolved from the imported sample location; see LiteRtLmSamplePaths.
+        private static string ScenePath => LiteRtLmSamplePaths.Scene("LiteRtLmSampleScene");
+        private static string AndroidSmokeBuildScenePath => LiteRtLmSamplePaths.GeneratedScene("LiteRtLmAndroidSmokeTestBuildScene.generated");
+        private static string AndroidAsrSmokeBuildScenePath => LiteRtLmSamplePaths.GeneratedScene("LiteRtLmAsrSmokeTestBuildScene.generated");
+        private static string AndroidAsrFunctionCallingBuildScenePath => LiteRtLmSamplePaths.GeneratedScene("LiteRtLmAsrFunctionCallingDemoBuildScene.generated");
+        private static string AndroidAsrFunctionCallingTestBuildScenePath => LiteRtLmSamplePaths.GeneratedScene("LiteRtLmAsrFunctionCallingTestBuildScene.generated");
+        private static string ConversationTestScenePath => LiteRtLmSamplePaths.Scene("LiteRtLmConversationTestScene");
+        private static string FunctionCallingBenchmarkScenePath => LiteRtLmSamplePaths.Scene("LiteRtLmFunctionCallingBenchmarkScene");
+        private static string LlmChatTestScenePath => LiteRtLmTestSceneGenerator.LlmChatTestScenePath;
+        private static string AsrTestScenePath => LiteRtLmTestSceneGenerator.AsrTestScenePath;
+        private static string MultimodalTestScenePath => LiteRtLmTestSceneGenerator.MultimodalTestScenePath;
+        private static string AsrFunctionCallingTestScenePath => LiteRtLmTestSceneGenerator.AsrFunctionCallingTestScenePath;
+        private static string MultimodalFunctionCallingTestScenePath => LiteRtLmTestSceneGenerator.MultimodalFunctionCallingTestScenePath;
+        private static string TranslateTestScenePath => LiteRtLmTestSceneGenerator.TranslateTestScenePath;
         private const string StreamingAssetsModelPath = "Assets/StreamingAssets/model.litertlm";
         private const string WindowsSelfTestModelFileName = "Multimodal/gemma-4-e2b/gemma-4-E2B-it.litertlm";
         private const string WindowsSelfTestExecutableRelativePath = "Tools/Windows/litert_lm_main.windows_x86_64.exe";

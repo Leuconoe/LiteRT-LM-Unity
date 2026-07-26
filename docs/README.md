@@ -4,6 +4,16 @@ The project README stays short; the detail lives here.
 **Every document is written against Android on-device execution** — desktop
 numbers are reference only.
 
+> **Code moved on 2026-07-27.** The integration is now a UPM package. Documents
+> written before that date refer to the old locations; map them like this:
+>
+> | Old path | Now |
+> | --- | --- |
+> | `Assets/Scripts/LiteRTLM/LiteRtLm{UnityClient,WindowsCliClient,MicVadCapture,StatusHudOverlay}.cs` | `Packages/com.leuconoe.litert-lm-unity/Runtime/` |
+> | `Assets/Scripts/LiteRTLM/*Runner.cs`, `Editor/` | `Packages/com.leuconoe.litert-lm-unity/Samples~/TestScenes/` |
+> | `Assets/Scenes/Tests/*.unity` | same `Samples~/TestScenes/Scenes/` |
+> | `Assets/Plugins/Android/litertlm-unity-bridge.aar` | `…/Runtime/Plugins/Android/` |
+
 ## Details
 
 - [LLM details](llm-details.md) — tiers, backend choice, device measurements

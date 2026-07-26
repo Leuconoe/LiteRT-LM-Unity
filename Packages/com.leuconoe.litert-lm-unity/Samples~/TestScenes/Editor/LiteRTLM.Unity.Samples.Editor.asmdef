@@ -1,0 +1,19 @@
+{
+  "name": "LiteRTLM.Unity.Samples.Editor",
+  "rootNamespace": "LiteRTLM.Unity.Editor",
+  "references": [
+    "LiteRTLM.Unity",
+    "LiteRTLM.Unity.Samples"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

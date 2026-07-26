@@ -25,18 +25,64 @@ device, with no network.
 
 ## Requirements
 
-Unity `6000.4.6f1` + Android Build Support · Android device (`adb`, Snapdragon
-865 class or better, 4 GB+ RAM) · Windows PowerShell (build scripts) · Docker
-(only to rebuild the AAR)
+Unity **2022.3 or newer** (developed and device-verified on `6000.4.6f1`) +
+Android Build Support · Android device (`adb`, Snapdragon 865 class or better,
+4 GB+ RAM) · Windows PowerShell (build scripts) · Docker (only to rebuild the AAR)
+
+## Install
+
+The runtime ships as a UPM package,
+`com.leuconoe.litert-lm-unity`. In Package Manager choose
+**Add package from git URL…** and paste:
+
+```
+https://github.com/Leuconoe/LiteRT-LM-Unity.git?path=/Packages/com.leuconoe.litert-lm-unity
+```
+
+Or add the line yourself to `Packages/manifest.json`:
+
+```json
+{
+  "dependencies": {
+    "com.leuconoe.litert-lm-unity": "https://github.com/Leuconoe/LiteRT-LM-Unity.git?path=/Packages/com.leuconoe.litert-lm-unity"
+  }
+}
+```
+
+Pin a release by appending a tag: `…litert-lm-unity#v0.14.0a-unity`.
+Git URL installs need [git](https://git-scm.com/) on `PATH`; the package carries
+a 31 MB Android AAR, so the first resolve takes a moment.
+
+**Samples** — in Package Manager select *LiteRT-LM for Unity* → **Samples** →
+*Test Scenes* → **Import**. That brings in six scenes, the Android build menu
+and the scene generator.
+
+Working in this repository instead of consuming the package? The samples live in
+`Samples~/`, which Unity does not compile. Import them once with:
+
+```powershell
+.\Tools\Windows\Restore-LiteRtLmSamples.ps1
+```
 
 ## Quick Start
 
-1. **Place models** — pick from the tables below and put them under
+1. **Install the package** and import the *Test Scenes* sample (above)
+2. **Place models** — pick from the tables below and put them under
    `Assets/StreamingAssets/` (model files are not in the repository)
-2. **Build the APK** — Unity menu `LiteRT-LM/Android/...` or
+3. **Build the APK** — Unity menu `LiteRT-LM/Android/...` or
    `Tools/Windows/Build-LiteRtLmAndroid*.ps1`
-3. **Smoke test** — `Run-LiteRtLmAndroidAsrSmokeTest.ps1 -DeviceSerial <serial>`;
+4. **Smoke test** — `Run-LiteRtLmAndroidAsrSmokeTest.ps1 -DeviceSerial <serial>`;
    results land in `Builds/Logs/AndroidDeviceRuns/`
+
+## Package layout
+
+| Path | Contents |
+| --- | --- |
+| `Packages/com.leuconoe.litert-lm-unity/Runtime/` | `LiteRtLmUnityClient` (Android bridge), `LiteRtLmMicVadCapture`, `LiteRtLmStatusHudOverlay`, `LiteRtLmWindowsCliClient`, and the native AAR |
+| `Packages/com.leuconoe.litert-lm-unity/Samples~/TestScenes/` | Scene runners, the six test scenes, the APK build menu and the scene generator |
+| `Assets/StreamingAssets/` | Where you place models (not in the repository) |
+| `Tools/Windows/` | Build, AAR and device scripts |
+| `docs/` | Benchmarks and handoffs |
 
 ## Recommended models
 
@@ -73,8 +119,10 @@ and images. [LLM details →](docs/llm-details.md)
 
 ## Test scenes
 
-`Assets/Scenes/Tests/` — generate with the menu
-`LiteRT-LM/Test Scenes/Generate All`.
+Shipped as the package's *Test Scenes* sample; after import they land under
+`Assets/Samples/LiteRT-LM for Unity/<version>/Test Scenes/Scenes/`. Regenerate
+them with the menu `LiteRT-LM/Test Scenes/Generate All` — scene paths resolve
+from the import location, so no path editing is needed.
 
 | Scene | Purpose |
 | --- | --- |
@@ -88,7 +136,8 @@ and images. [LLM details →](docs/llm-details.md)
 ## Rebuilding the AAR (after native changes)
 
 `Tools/Windows/Build-LiteRtLmUnityAarFromPatch.ps1 -SourceRoot <pristine v0.14.0>`
-applies the patch, builds in Docker and deploys to `Assets/Plugins/Android/`.
+applies the patch, builds in Docker and deploys to
+`Packages/com.leuconoe.litert-lm-unity/Runtime/Plugins/Android/`.
 
 ⚠️ `-SkipImageBuild` builds the sources baked into the Docker image, so the
 image must be rebuilt after any patch change.
