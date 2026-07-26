@@ -254,3 +254,83 @@ Qwen3-ASR uses `-AsrMode qwen3` (CPU only, language auto-detect):
   -Backend CPU `
   -TimeoutSeconds 300
 ```
+
+---
+
+## 전체 배포 라인업 — Android 기준 (2026-07-26, README에서 이동)
+
+디바이스 46a880a0(Snapdragon 865 / 7.5 GB / Android 12) 실측 기준 순위입니다.
+각 폴더에 티어 전용 `tokenizer.json`을 함께 배치해야 합니다(medium과
+large-v3/turbo는 각자 전용). 전 티어 CER/WER/RTF 매트릭스는
+[`benchmarks/asr-model-matrix.md`](benchmarks/asr-model-matrix.md).
+
+| 용도 (device) | Model (`Assets/StreamingAssets/` 하위) | Size | Device 결과 |
+| --- | --- | ---: | --- |
+| 음성 명령 제1픽 | `ASR/whisper-base-acft-ko/acft_base_5s_drq.tflite` | 101 MB | 한국어 ACFT 5 s 윈도우 학습 — 정상 음량 명령 전부 exact, E2E 0.7–0.8 s (stock base 대비 ~3.5×, turbo-30s 대비 ~30× 빠름). 조용한 녹음은 turbo-acft로 폴백 |
+| 음성 명령 정확도 폴백 | `ASR/whisper-turbo-acft-ko/acft_turbo_5s_drq.tflite` | 883 MB | **디바이스 5/5 유일 모델** (조용한 `볼륨 업` 구녹음 + `음량 증가` + 숫자 표기까지 전부 exact). 콜드 ~4 s / 웜 ~1.9 s |
+| 장문 (>30 s) 전체 전사 | `ASR/qwen3-asr-0.6b/qwen3_asr_0.6b_5s_i8.tflite` | 794 MB | 5 s 청크 루프로 길이 무제한 — 98 s 오디오 20청크 완전 전사(4.2분, RAM 평탄). **유일한 장문 경로** |
+| 문장 전사 최고 정확도 | `ASR/whisper-large-v3-turbo/whisper_large_v3_turbo_30s_i4.tflite` | 755 MB | 디바이스 게이트 3/3 — whisper 중 유일하게 볼륨 명령까지 인식. 매트릭스 종합 1위(8/9, CER 0.000). 단 클립당 ~21–24 s CPU (비실시간 배치용) |
+| 균형(크기·속도·정확도) | `ASR/whisper-base/whisper_base_30s_i8.tflite` | 77 MB | 문장 한국어 CER 0.000, 긴 클립 ~2.7 s. 1.2 s 미만 초단클립은 디바이스에서 불안정(mel 수치 특성) |
+| 초소형(영어 위주) | `ASR/whisper-tiny/whisper_tiny_30s_i8.tflite` | 41 MB | 영어 CER 0.000. 한국어 연도 오인 + 초단클립 불안정 |
+| 정확도 레퍼런스 | `ASR/whisper-large-v3/whisper_large_v3_30s_i4.tflite` | 1148 MB | 문자 단위 완벽하나 turbo보다 3–7배 느림 — 비교 기준용 |
+| 중간 티어 | `ASR/whisper-medium/whisper_medium_30s_i8.tflite` (i4: 664 MB) | 832 MB | 7/9 정확 — base와 turbo 사이 절충 |
+| medium-acft-ko | `ASR/whisper-medium-acft-ko/` | 826 MB | 배치돼 있으나 **비권장** — turbo-acft보다 느리고 부정확 |
+| tiny-acft-ko | `ASR/whisper-tiny-acft-ko/` | 46 MB | **한국어 명령 비권장** — 디바이스 1/4 exact(사이클 4 REJECT) |
+
+⚠️ **whisper 30 s 모델에 30 s 초과 오디오를 직접 넣지 말 것** — 절단 + 토큰 캡 +
+조기 종료 3중 실패. 장문은 qwen3 청크 경로 사용.
+
+**대안 경로**: gemma-4 오디오 입력(멀티모달 LLM)으로도 전사 가능 — LLM이 이미
+상주할 때 추가 모델 없이 **전사+펑션콜링을 한 턴에** 처리(디바이스 4.1 s).
+
+### 모델 출처
+
+whisper tiny/base는 [litert-community](https://huggingface.co/litert-community/whisper-tiny)
+([base](https://huggingface.co/litert-community/whisper-base)); medium /
+large-v3 / turbo 및 모든 i8/i4 티어는 **프로젝트 자체 양자화**(int4 최소 티어
+정책, `dynamic_wi4b64_afp32` + 민감 스코프 i8 혼합 —
+`External/community-release/`에 커뮤니티 공개용 사본과 매니페스트).
+토크나이저는 [openai/whisper-*](https://huggingface.co/openai/whisper-tiny)
+티어별. Qwen3-ASR은 공식 tflite + 프로젝트 JNI 포팅.
+
+## VAD (음성 구간 검출) — Android 실행 기준
+
+모든 ASR 경로가 `vadMode`를 지원합니다.
+
+| 모드 | 내용 | 비용 |
+| --- | --- | --- |
+| `energy` (기본) | 적응 임계값 v2 — 300 ms 노이즈 캘리브레이션, 20th-pct 노이즈 플로어 +9 dB 온/6 dB 히스테리시스, 210 ms 행오버, 90 ms 프리롤, speech-only RMS 게인 | 0 (추가 모델 없음) |
+| `ai` | Silero VAD v5 tflite (`ASR/silero-vad/silero_vad_16k.tflite`, 1.25 MB, MIT). whisper 입력에는 0.2 s 헤드 패드 필요 | 모델 1.25 MB |
+| `off` | 전처리 없음 | — |
+
+- 98 s / 31발화 스트레스 클립에서 **31/31 검출**, 디바이스↔데스크톱 경계 완전 일치
+- 결과 JSON: `vadMode / vadModeUsed / speechSegments / trimmedSeconds / vadGain /
+  speechRms (+vadError)`
+- Unity 라이브 마이크(`LiteRtLmMicVadCapture`)는 동일 파라미터를 C#으로 미러링해
+  자동 엔드포인팅 → 16 kHz WAV → 선택 모델 전사
+- **저음량 0.79 s 클립은 VAD·게인으로 해결 불가**(16조합 실증) = 모델 용량 문제.
+  해법은 티어 에스컬레이션(turbo-acft)
+
+## 한국어 ACFT 5 s 모델 — 학습 배경과 수치 해석
+
+stock whisper를 5초 짧은 컨텍스트에 그대로 넣으면 붕괴합니다(반복 폭주,
+CER 1.1–24.9). futo ACFT 자기증류에 두 가지 보정(ctx 하한 250, 한70:영30
+zeroth+fleurs 혼합)을 더해 자체 학습했습니다. 인코더는 30초 창 대비 **~12배**
+빠릅니다. 모델 카드:
+[leuconoe/whisper-acft-ko](https://huggingface.co/leuconoe/whisper-acft-ko).
+
+게이트 결과(TTS 합성 40클립 홀드아웃, 5 s ctx 한국어 단문 CER):
+turbo 0.182 · medium 0.208 · base 0.305 · tiny 0.457.
+
+⚠️ **이 수치를 절대 품질로 인용하지 말 것.**
+
+- edge-tts 합성 홀드아웃이라 **순위 지표로만 검증**됨(실녹음 대비
+  Spearman ρ = 1.00, Pearson 0.99)
+- 강한 베이스에서는 실제 오차를 **~2.8× 과대평가**
+- 참조 문자열 평균 3.6자 → 마침표 1개가 CER +0.25~0.50인데 실제 매처는
+  구두점을 무시(`LiteRtLmAsrTestRunner.cs`)
+- **tiny는 한국어 음성 명령 비권장** — 실녹음 명령 CER 0.896, 디바이스 1/4
+  exact(사이클 4 REJECT). 배포 티어는 base(1픽) / turbo(정확도 폴백)
+
+상세 분석: [`benchmarks/asr-model-matrix.md`](benchmarks/asr-model-matrix.md)
+Addendum 3, [`handoffs/asr-training-program-handoff.md`](handoffs/asr-training-program-handoff.md) §3–5.

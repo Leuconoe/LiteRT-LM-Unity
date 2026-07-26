@@ -591,8 +591,9 @@ window length or Korean ACFT. The ~0.3 s saved over base-5s does not buy a
 usable command tier; **do not deploy tiny-5s**.
 
 **Cross-ref (added 2026-07-26)**: this 1/4 is independently explained and
-confirmed off-device by `External/acft-training/runs/METHODOLOGY-AUDIT.md` §5 —
-real-recorded-command CER **0.896** (vs the published TTS gate 0.457), because
+confirmed off-device by the ACFT-KO methodology audit (see
+[`docs/handoffs/asr-training-program-handoff.md`](../handoffs/asr-training-program-handoff.md)
+§4–5) — real-recorded-command CER **0.896** (vs the published TTS gate 0.457), because
 `runs/ko-acft-tiny` was distilled from stock `bases/tiny`, not `komixv2-tiny`;
 it is an English model (REAL-en CER 0.031) with fragile Korean. See
 `docs/benchmarks/asr-model-matrix.md` "Addendum 3" for the gate-metric

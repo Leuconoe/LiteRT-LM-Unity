@@ -654,9 +654,11 @@ in scratchpad `bench_results/long/*.json`; device logs
 
 ## Addendum 3 — ACFT-KO gate: metric validity & real-recording calibration, 2026-07-26
 
-Source of truth: `External/acft-training/runs/METHODOLOGY-AUDIT.md`
-(inference-only re-evaluation, 7 checkpoints × 7 eval buckets, run 2026-07-26,
-no training). This addendum exists because the ACFT-KO gate numbers published
+Source: inference-only re-evaluation, 7 checkpoints × 7 eval buckets, run
+2026-07-26, no training. The raw audit artifacts were deleted with the kspon
+cleanup; the surviving narrative record is
+[`docs/handoffs/asr-training-program-handoff.md`](../handoffs/asr-training-program-handoff.md)
+§4–5. This addendum exists because the ACFT-KO gate numbers published
 in `README.md`, `docs/handoffs/asr-training-program-handoff.md` and the
 [leuconoe/whisper-acft-ko](https://huggingface.co/leuconoe/whisper-acft-ko)
 model card come from a **TTS-synthesized** eval bucket and were being read as
