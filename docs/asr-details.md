@@ -264,22 +264,42 @@ Qwen3-ASR uses `-AsrMode qwen3` (CPU only, language auto-detect):
 large-v3/turbo는 각자 전용). 전 티어 CER/WER/RTF 매트릭스는
 [`benchmarks/asr-model-matrix.md`](benchmarks/asr-model-matrix.md).
 
-`모바일` 열의 판정 기준: **상시** = 항상 상주시켜도 되는 크기·지연,
-**온디맨드** = 필요할 때만 로드했다 해제, **배치** = 대화형 지연을 못 맞춰
-백그라운드/오프라인 처리에만, **부적합** = 디바이스에서 쓸 이유 없음.
+### 먼저 — ASR은 보통 **한 개만** 얹으면 됩니다
 
-| 용도 (device) | Model (`Assets/StreamingAssets/` 하위) | Size | 모바일 | Device 결과 |
-| --- | --- | ---: | --- | --- |
-| 음성 명령 제1픽 | `ASR/whisper-base-acft-ko/acft_base_5s_drq.tflite` | 101 MB | **상시** | 한국어 ACFT 5 s 윈도우 학습 — 정상 음량 명령 전부 exact, E2E 0.7–0.8 s (stock base 대비 ~3.5×, turbo-30s 대비 ~30× 빠름). 조용한 녹음은 turbo-acft로 폴백 |
-| 받아쓰기 / 문장 전사 | `ASR/whisper-base/whisper_base_30s_i8.tflite` | 77 MB | **상시** | 문장 한국어 CER 0.000, 긴 클립 ~2.7 s. 1.2 s 미만 초단클립은 디바이스에서 불안정(mel 수치 특성) |
-| 음성 명령 정확도 폴백 | `ASR/whisper-turbo-acft-ko/acft_turbo_5s_drq.tflite` | 883 MB | **온디맨드** | **디바이스 5/5 유일 모델** (조용한 `볼륨 업` 구녹음 + `음량 증가` + 숫자 표기까지 전부 exact). 콜드 ~4 s / 웜 ~1.9 s. 디코더 4층이라 883 MB치고는 빠름 — 저신뢰도 재시도용으로만 로드 |
-| 장문 (>30 s) 전체 전사 | `ASR/qwen3-asr-0.6b/qwen3_asr_0.6b_5s_i8.tflite` | 794 MB | **배치** | 5 s 청크 루프로 길이 무제한 — 98 s 오디오 20청크 완전 전사(4.2분, RTF ≈2.6, RAM 평탄). **유일한 장문 경로** |
-| 초소형(영어 위주) | `ASR/whisper-tiny/whisper_tiny_30s_i8.tflite` | 41 MB | 상시(영어) | 영어 CER 0.000. 한국어 연도 오인 + 초단클립 불안정 |
-| 데스크톱 정확도 1위 | `ASR/whisper-large-v3-turbo/whisper_large_v3_turbo_30s_i4.tflite` | 755 MB | **배치** | 매트릭스 종합 1위(8/9, CER 0.000), 디바이스 게이트 3/3. 그러나 **클립당 21–24 s CPU** — 30 s 창을 매번 다 인코딩하므로 대화형 불가 |
-| 정확도 레퍼런스 | `ASR/whisper-large-v3/whisper_large_v3_30s_i4.tflite` | 1148 MB | **부적합** | 문자 단위 완벽하나 turbo-30s보다 3–7배 느림 — 데스크톱 비교 기준용 |
-| 중간 티어 | `ASR/whisper-medium/whisper_medium_30s_i8.tflite` (i4: 664 MB) | 832 MB | **부적합** | 7/9 정확. 디코더 24층이라 디바이스 decode ≈0.46 s/step — turbo(4층, ≈0.15 s/step)보다 크고 느리고 덜 정확 |
-| medium-acft-ko | `ASR/whisper-medium-acft-ko/` | 826 MB | **부적합** | 테스트 씬용으로만 배치. 명령 클립 4.8–5.3 s로 turbo-acft(1.9 s)에 전 항목 열세 |
-| tiny-acft-ko | `ASR/whisper-tiny-acft-ko/` | 46 MB | **부적합(한국어)** | 디바이스 1/4 exact(사이클 4 REJECT), 실녹음 명령 CER 0.896. base-5s 대비 0.3 s 절약이 쓸모없음 |
+발화 길이 분포로 고르세요. 두 개를 동시에 상주시킬 이유는 5 s 경계를 걸치는
+입력을 둘 다 최상으로 처리해야 할 때뿐입니다.
+
+| 다루는 발화 | 모델 1종 | 근거 |
+| --- | --- | --- |
+| **≤5 s** (음성 명령, 짧은 문장) | base-acft-ko 5s (101 MB) | 3.8 s 문장 클립도 exact. 5 s 안이면 문장도 이 모델로 충분 |
+| **5~30 s** (받아쓰기, 메모) | whisper-base 30s i8 (77 MB) | 문장 CER 0.000. 단 짧은 명령은 실패함(아래) |
+| **>30 s** (회의·강의) | qwen3-asr-0.6b (794 MB) | 청크 루프. 배치 처리 전용 |
+
+**서로 대체가 안 됩니다.** stock base-30s는 이 기기에서 `볼륨, 업`을 `뽈림`,
+`볼륨 업`을 `보여요.`로 읽어 명령용으로 못 씁니다(사이클 2). 반대로
+base-acft-ko 5s는 창이 500프레임이라 5 s를 넘는 오디오는 잘립니다.
+ACFT 모델의 10s/30s 익스포트도 있지만 **긴 창일수록 명령 정확도가 떨어져**
+(turbo 30s에서 `볼륨, 업`→`볼륨`, medium 10s/30s에서 `음량 증가`→`음향증가`)
+장문용으로 stock 30s를 대체하지 못합니다.
+
+### 전 티어 비교
+
+`모바일` 판정: **상시** = 항상 상주 가능 · **온디맨드** = 필요 시 로드했다 해제
+· **배치** = 대화형 지연 불가, 백그라운드 전용 · **부적합** = 디바이스에서 쓸
+이유 없음. `적중률`은 디바이스 명령/게이트 클립 exact 일치 수입니다.
+
+| 용도 (device) | Model (`Assets/StreamingAssets/` 하위) | Size | 모바일 | 적중률 | E2E | Device 결과 |
+| --- | --- | ---: | --- | ---: | ---: | --- |
+| 음성 명령 제1픽 | `ASR/whisper-base-acft-ko/acft_base_5s_drq.tflite` | 101 MB | **상시** | **4/5** | 0.7–0.8 s | 정상 음량 명령·3.8 s 문장 전부 exact. 인코더가 stock base-30s의 ~12배(0.05 vs 0.62 s), 스텝당 디코드 1.8배 빠름. 미스는 조용한 0.79 s 구녹음 1건 |
+| 받아쓰기 / 문장 전사 | `ASR/whisper-base/whisper_base_30s_i8.tflite` | 77 MB | **상시** | 6/9 | 2.7 s | 문장 한국어 CER 0.000. 짧은 명령은 실패(`뽈림`/`보여요.`), 1.2 s 미만 초단클립 불안정(mel 수치 특성) |
+| 명령 정확도 폴백 | `ASR/whisper-turbo-acft-ko/acft_turbo_5s_drq.tflite` | 883 MB | **온디맨드** | **5/5** | 웜 1.9 s / 콜드 4.0 s | 조용한 `볼륨 업` 구녹음까지 읽은 **유일한 모델**. 디코더 4층이라 883 MB치고 가벼움(≈0.15 s/step) — 저신뢰도 재시도용으로만 로드 |
+| 장문 (>30 s) | `ASR/qwen3-asr-0.6b/qwen3_asr_0.6b_5s_i8.tflite` | 794 MB | **배치** | 4/9* | RTF ≈2.6 | 5 s 청크 루프로 길이 무제한 — 98 s 오디오 20청크 완전 전사(4.2분, RAM 평탄). *미스는 숫자를 한글로 적는 표기 차이뿐 |
+| 초소형(영어) | `ASR/whisper-tiny/whisper_tiny_30s_i8.tflite` | 41 MB | 상시(영어) | 3/9 | ~1 s | 영어 CER 0.000. 한국어 연도 오인 + 초단클립 불안정 |
+| 데스크톱 정확도 1위 | `ASR/whisper-large-v3-turbo/whisper_large_v3_turbo_30s_i4.tflite` | 755 MB | **배치** | **8/9** | **21–24 s** | 매트릭스 종합 1위(CER 0.000), 디바이스 게이트 3/3. 30 s 창을 매번 전부 인코딩해 대화형 불가 |
+| 정확도 레퍼런스 | `ASR/whisper-large-v3/whisper_large_v3_30s_i4.tflite` | 1148 MB | **부적합** | 7/9 | 60–170 s | 문자 단위 완벽하나 turbo-30s보다 3–7배 느림 — 데스크톱 비교용 |
+| 중간 티어 | `ASR/whisper-medium/whisper_medium_30s_i8.tflite` (i4: 664 MB) | 832 MB | **부적합** | 7/9 | — | 디코더 24층이라 decode ≈0.46 s/step. turbo(4층, ≈0.15)보다 크고 느리고 덜 정확 |
+| medium-acft-ko | `ASR/whisper-medium-acft-ko/` | 826 MB | **부적합** | 4/5 | 4.8–5.3 s | 테스트 씬용으로만 배치. turbo-acft(5/5, 1.9 s)에 전 항목 열세 |
+| tiny-acft-ko | `ASR/whisper-tiny-acft-ko/` | 46 MB | **부적합(한국어)** | **1/4** | ~0.5 s | 사이클 4 REJECT. 실녹음 명령 CER 0.896 — base-5s 대비 0.3 s 절약이 무의미 |
 
 ### 왜 883 MB turbo-acft는 되고 755 MB turbo-30s는 안 되나
 
