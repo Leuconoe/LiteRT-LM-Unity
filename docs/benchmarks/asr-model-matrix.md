@@ -1,6 +1,6 @@
 # ASR Model Matrix — Re-validation on 2026-07-23 Re-recorded Audio
 
-Full re-validation ("벤치마크 재검수") of every deployed ASR model tier against the
+Full re-validation of every deployed ASR model tier against the
 **re-recorded** test clips in `Assets/StreamingAssets/TestAssets/Audio/`
 (all 9 files replaced/added 2026-07-23 13:33–13:37). All prior transcript
 validations used the old recordings and are superseded by this document.

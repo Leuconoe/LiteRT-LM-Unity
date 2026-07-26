@@ -360,8 +360,8 @@ Two config requirements discovered (both now documented in the runner):
 Turbo remains blocked by one precisely-located JNI defect (positional decode
 binding), with the take4 mel/vocab half of the fix verified working on device
 and regression-clean. Multimodal (image + audio) via `sendMessageWithMedia`
-is fully validated on device on CPU and GPU — the user requirement
-이미지 인식 is met with an accurate on-device description of the test image,
+is fully validated on device on CPU and GPU — the image-understanding
+requirement is met with an accurate on-device description of the test image,
 and gemma-4 audio transcription is content-exact on the Korean gate clip.
 
 # Device Cycle 3 — take5 AAR (turbo gate, mel A/B verdict, FC on device)
@@ -430,7 +430,7 @@ absorb the delta and pass both takes — model robustness, not a device bug.
 Chasing bit-exactness in the mel would be an optimization, not a correctness
 fix; short-utterance reliability is already solved by using turbo/qwen3-asr.
 
-## 4. ASR→LLM function calling on device — PASS (펑션콜링 디바이스 검증 1/2)
+## 4. ASR→LLM function calling on device — PASS (FC device verification 1/2)
 
 `LiteRtLmAndroidAsrFunctionCallingDemo-c3.apk` (19:12, temp-copy batchmode via
 `Tools/Windows/Build-LiteRtLmAndroidAsrFunctionCallingDemoApk.ps1`; whisper-tiny
@@ -448,7 +448,7 @@ Voice → transcript → tool call works fully on device: the runner's demo guar
 routes the 전술평가 utterance to the expected tool despite tiny's year slip.
 Run: `20260723-191240-c3-asrfc`.
 
-## 5. Multimodal function calling on device — PASS (펑션콜링 디바이스 검증 2/2)
+## 5. Multimodal function calling on device — PASS (FC device verification 2/2)
 
 `LiteRtLmMultimodalFunctionCallingRunner` Android stage-1 wired this cycle:
 `MediaApiAvailable=true`, runtime config
@@ -493,7 +493,8 @@ cycle-2 GPU image turn suggests ~3× faster).
 
 ## Cycle-3 verdict
 
-All four user requirements — LLM, ASR, 이미지 인식, 펑션콜링 — now PASS on
+All four user requirements — LLM, ASR, image understanding, function calling —
+now PASS on
 device 46a880a0. take5 closed the last JNI defect (whisper decode binding by
 shape), turbo became the on-device ASR accuracy king (only tier passing both
 볼륨 업 takes), the mel A/B question is definitively answered (frontend

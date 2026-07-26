@@ -6,8 +6,9 @@ Create separate Android builds per LiteRT-LM model and collect benchmark results
 
 The user explicitly asked:
 
-- "우선 그러면, 각 모델별로 별도의 빌드를 생성하세요. 그리고 지금 연결된 실 기기에서 벤치마크를 하여 테스트 결과를 수집 하세요."
-- "정리하고 handoff 생성하세요."
+- Create a separate build per model, then benchmark on the currently connected
+  physical device and collect the test results.
+- Write it up and produce a handoff.
 
 ## Environment
 
