@@ -29,21 +29,22 @@ VAD: every ASR path supports `vadMode` off / energy (default) / ai
 ## 3. Clean ACFT training recipe (this is what worked)
 
 - Starting point: **stock openai/whisper-{tiny,base,medium,large-v3-turbo}**.
-  Do not start from a Korean fine-tune such as komixv2 — their English is
-  destroyed.
+  Korean-only fine-tunes were not used as a base here: they are optimized for
+  Korean-only use, and on our bilingual test clips their English CER is high
+  (measured 0.32–0.97), which does not fit this project's bilingual target.
 - Method: futo-org/whisper-acft self-distillation (MSE on decoder hidden states
   against a frozen full-window teacher), Adam lr 1e-6, batch 1, up to 8 epochs
   with early stopping
 - **Two corrections that mattered**: (1) an `n_ctx` floor of 250, matching the
   5 s fixed deployment window — the root cause of the earlier
   komixv2-acft-ggml failure was training out-of-distribution down to ctx 64;
-  (2) a 70:30 Korean:English mix (zeroth 51.6 h + FLEURS en_us) — single-language
-  training destroys the other language
+  (2) a 70:30 Korean:English mix (zeroth 51.6 h + FLEURS en_us) — training on a
+  single language measurably degrades the other one
 - Short utterances: zeroth clips <3 s oversampled ×3, plus 0.5–3 s crop
   augmentation (p = 0.15)
 - Gate results (**40-clip TTS-synthesized holdout**, Korean short-utterance CER
   at 5 s ctx): turbo 0.182 · medium 0.208 · base 0.305 · tiny 0.457
-  (stock collapses at 1.07–24.9)
+  (stock models, which target a 30 s window, measure 1.07–24.9 at this context)
   - ⚠️ This gate is **valid for ranking only** (Spearman ρ = 1.00 against real
     recordings); it is not calibrated as an absolute quality number. References
     average 3.6 characters, so one period is worth CER +0.25–0.50 while the
@@ -201,7 +202,7 @@ Rules from the kspon audit. Read this section before starting any retraining.
 - AAR builds: `-SkipImageBuild` builds the **stale sources baked into the Docker
   image**. After changing the patch you must rebuild the image (found at take8)
 - Quantization: i8 = `dynamic_wi8_afp32`, i4 = `dynamic_wi4b64_afp32` (+ i8 on
-  sensitive scopes). `wi4c` and `wi4b32` collapse quality; int2/Q5/1.58b have no
+  sensitive scopes). `wi4c` and `wi4b32` degrade accuracy sharply in our tests; int2/Q5/1.58b have no
   LiteRT kernels
 - The quiet 0.79 s clip **cannot be fixed by VAD or gain** (16 combinations
   tested) — it is a model-capacity limit. The fix is tier escalation (turbo-acft)

@@ -30,7 +30,7 @@ physical device (46a880a0).
 | --- | --- | --- |
 | gemma-4-E2B QAT (mobile-transformers) | ✅ No conversion needed | The existing `gemma-4-E2B-it.litertlm` is already the official QAT wNa8o8 build (SHA matches). DIY conversion is impossible — the tooling rejects quantized checkpoints |
 | Qwen3-ASR-0.6B | ✅ Adopted | Official tflite plus an in-house JNI port. Korean verified, all device clips pass |
-| Qwen3.5-0.8B-MTP | ❌ Not feasible | MTP is llama.cpp-only, the architecture is unsupported, and the community port collapses on v0.14 |
+| Qwen3.5-0.8B-MTP | ❌ Not feasible | MTP is a llama.cpp feature, the architecture is unsupported here, and the community port did not produce coherent output on v0.14 |
 | VibeVoice-ASR | ❌ Not feasible | 8.7B — unsuitable on-device |
 | Qwen3-ASR-1.7B | ⏸ Deferred | No port exists (1–3 weeks of work). 0.6B quality is sufficient |
 | Bonsai-1.7B | ⏸ Skip recommended | The 1-bit advantage disappears during LiteRT conversion |

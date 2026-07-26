@@ -104,14 +104,14 @@ Builds/Logs/AndroidDeviceRuns/20260427-144540-results.csv
 | Model | Backend | Result | Init | Turn 1 | Turn 2 | Total | Notes |
 | --- | --- | --- | ---: | ---: | ---: | ---: | --- |
 | `gemma-4-E2B-it` | GPU | FAIL | N/A | N/A | N/A | N/A | Fails during LiteRT-LM engine creation on GPU/WebGPU path. |
-| `Qwen3-0.6B` | GPU | PASS | `2.64s` | `4.289s` | `1.183s` | `8.306s` | Runs, but response quality is invalid for smoke prompt: output was repeated `!`. |
+| `Qwen3-0.6B` | GPU | PASS | `2.64s` | `4.289s` | `1.183s` | `8.306s` | Runs, but the smoke prompt was not answered: output was a repeated `!`. |
 | `Qwen2.5-0.5B-Instruct` | GPU | FAIL | N/A | N/A | N/A | N/A | WebGPU max storage buffer binding size exceeded. |
 | `Qwen2.5-0.5B-Instruct` | CPU | PASS | `2.01s` | `0.848s` | `0.279s` | `3.163s` | Best verified path on this physical device. |
 | `Qwen2.5-1.5B-Instruct` | GPU | FAIL | N/A | N/A | N/A | N/A | WebGPU binding size exceeded, then Android lowmemorykiller killed the app. |
 
 ## Key Evidence
 
-### Qwen3-0.6B GPU PASS But Bad Output
+### Qwen3-0.6B GPU PASS but off-target output
 
 Log:
 
@@ -129,7 +129,7 @@ Important lines:
 [LiteRT-LM AndroidSmoke] SUCCESS: backend=GPU, turns=2, totalElapsedSeconds=8.306
 ```
 
-Interpretation: runtime smoke passes mechanically, but generated output is not semantically usable.
+Interpretation: the runtime path works, but this build/prompt combination did not produce an on-topic answer.
 
 ### Qwen2.5-0.5B CPU PASS
 
@@ -187,7 +187,7 @@ lowmemorykiller: Kill 'com.Leuconoe.LiteRTLMUnity' ... to free 386868kB rss
 ActivityManager: Process com.Leuconoe.LiteRTLMUnity ... has died
 ```
 
-Interpretation: this model is not viable on the current physical device GPU/WebGPU path and also causes memory pressure.
+Interpretation: this model does not fit the current device's GPU/WebGPU path at this size, and it also puts the process under memory pressure.
 
 ### Gemma4 GPU FAIL
 
@@ -205,7 +205,7 @@ OpenCL not supported on this platform. Using WebGPU instead.
 [LiteRT-LM AndroidSmoke] FAILURE: UnityEngine.AndroidJavaException: com.google.ai.edge.litertlm.LiteRtLmJniException: Failed to create engine
 ```
 
-Interpretation: Gemma4 is too large/heavy for the current device GPU/WebGPU path.
+Interpretation: gemma-4 exceeds what this device's GPU/WebGPU path can allocate.
 
 ## Current Technical Conclusion
 
@@ -217,7 +217,7 @@ On the tested physical Android device:
 - Qwen2.5 0.5B GPU requires at least `136134656` bytes for one binding, so it fails.
 - Qwen2.5 1.5B GPU requires at least `233373696` bytes for one binding, then gets killed by lowmemorykiller.
 - Gemma4 GPU also fails engine creation.
-- Qwen3 0.6B GPU starts, but generated text is unusable for the smoke prompt.
+- Qwen3 0.6B GPU starts, but the generated text does not answer the smoke prompt.
 - Qwen2.5 0.5B CPU is the best verified path right now.
 
 ## Files Changed In This Work Segment

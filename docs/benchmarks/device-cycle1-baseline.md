@@ -62,7 +62,7 @@ Pass/fail summary:
 - **whisper-base i8: PARTIAL** — long-clip exact; 소리 키워줘/음량 증가 exact;
   both 볼륨 업 takes fail on device even though desktop passes the re-recorded
   take with identical preprocessing (see investigation below).
-- **whisper-tiny i8: PARTIAL/WEAK** — English-lean tier confirmed; fails all
+- **whisper-tiny i8: PARTIAL** — English-leaning tier confirmed; misses all
   volume takes on device; clip1 year error (2015년) same as desktop.
 - **whisper-large-v3-turbo i8: FAIL (unsupported by take3 JNI)** — see below.
 
@@ -158,7 +158,7 @@ on kona/Adreno 650, not a fixable config issue.**
 
 | Item | Verdict |
 | --- | :-: |
-| ASR whisper-tiny i8 (3 clips) | PARTIAL — runs clean; 0/3 content-exact (clip1 year error = desktop; both 볼륨 업 takes garbage) |
+| ASR whisper-tiny i8 (3 clips) | PARTIAL — runs clean; 0/3 content-exact (clip1 year error = desktop; both 볼륨 업 takes produce noise decodes) |
 | ASR whisper-base i8 (5 clips) | PARTIAL — clip1/소리 키워줘/음량 증가 exact; both 볼륨 업 takes fail (desktop passes re-recorded take) |
 | ASR whisper-large-v3-turbo i8 | FAIL — take3 JNI 80-mel hardcode + positional decode binding |
 | ASR qwen3-asr-0.6b i8 (3 clips) | PASS — all clips incl. both 볼륨 업 takes; no crash/OOM (prior SIGSEGV was stale-APK parakeet mis-dispatch, fixed) |
@@ -238,7 +238,7 @@ binding does not.
 
 - Fixed by take4 (verified on device): mel bins 128 detected, vocab 51866
   detected, encoder ran to completion (12.6 s, 1500×1280 output).
-- Still broken: the decode loop in the JNI writes inputs **positionally** —
+- Still outstanding: the decode loop in the JNI writes inputs **positionally** —
   `decode_inputs[0].Write(encoder_output)`, `[1].Write(tokens)`,
   `[2].Write(causal_mask)` (see the whisper decode loop in
   `Tools/UnityAar/litert-lm-unity-aar.patch`). Turbo's `decode` signature

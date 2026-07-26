@@ -289,7 +289,7 @@ replace stock 30s for long-form.
 
 `Mobile` verdicts: **resident** = fine to keep loaded · **on-demand** = load
 when needed, then release · **batch** = cannot meet interactive latency,
-background only · **unsuitable** = no reason to run it on a device.
+background only · **not deployed** = does not fit our on-device targets.
 `Hit rate` is the number of exact matches on the device command/gate clips.
 
 | Use case (device) | Model (under `Assets/StreamingAssets/`) | Size | Mobile | Hit rate | E2E | Device result |
@@ -300,10 +300,10 @@ background only · **unsuitable** = no reason to run it on a device.
 | Long-form (>30 s) | `ASR/qwen3-asr-0.6b/qwen3_asr_0.6b_5s_i8.tflite` | 794 MB | **batch** | 4/9* | RTF ≈2.6 | Unlimited length via a 5 s chunk loop — 98 s of audio transcribed in full across 20 chunks (4.2 min, flat RAM). *The misses are only digits spelled out in Hangul |
 | Tiny (English) | `ASR/whisper-tiny/whisper_tiny_30s_i8.tflite` | 41 MB | resident (English) | 3/9 | ~1 s | English CER 0.000. Misreads Korean years, unstable on very short clips |
 | Desktop accuracy leader | `ASR/whisper-large-v3-turbo/whisper_large_v3_turbo_30s_i4.tflite` | 755 MB | **batch** | **8/9** | **21–24 s** | Best in the matrix (CER 0.000), device gate 3/3. Encodes the full 30 s window every time, so interactive use is out |
-| Accuracy reference | `ASR/whisper-large-v3/whisper_large_v3_30s_i4.tflite` | 1148 MB | **unsuitable** | 7/9 | 60–170 s | Character-perfect but 3–7× slower than turbo-30s — desktop comparison only |
-| Mid tier | `ASR/whisper-medium/whisper_medium_30s_i8.tflite` (i4: 664 MB) | 832 MB | **unsuitable** | 7/9 | — | 24-layer decoder, ≈0.46 s/step on device. Bigger, slower and less accurate than turbo (4 layers, ≈0.15) |
-| medium-acft-ko | `ASR/whisper-medium-acft-ko/` | 826 MB | **unsuitable** | 4/5 | 4.8–5.3 s | Deployed for the test scene only. Loses to turbo-acft (5/5, 1.9 s) on every axis |
-| tiny-acft-ko | `ASR/whisper-tiny-acft-ko/` | 46 MB | **unsuitable (Korean)** | **1/4** | ~0.5 s | Cycle-4 REJECT. Real-recording command CER 0.896 — saving 0.3 s over base-5s buys nothing |
+| Accuracy reference | `ASR/whisper-large-v3/whisper_large_v3_30s_i4.tflite` | 1148 MB | **not deployed** | 7/9 | 60–170 s | Character-perfect but 3–7× slower than turbo-30s — desktop comparison only |
+| Mid tier | `ASR/whisper-medium/whisper_medium_30s_i8.tflite` (i4: 664 MB) | 832 MB | **not deployed** | 7/9 | — | 24-layer decoder, ≈0.46 s/step on device — larger and slower than turbo (4 layers, ≈0.15) at a lower score on our set |
+| medium-acft-ko | `ASR/whisper-medium-acft-ko/` | 826 MB | **not deployed** | 4/5 | 4.8–5.3 s | Kept for the test scene only — turbo-acft scores higher and runs faster on this device |
+| tiny-acft-ko | `ASR/whisper-tiny-acft-ko/` | 46 MB | **not deployed (Korean)** | **1/4** | ~0.5 s | Cycle-4 reject. Real-recording command CER 0.896 — the 0.3 s saved over base-5s does not pay for the accuracy loss |
 
 ### Why 883 MB turbo-acft works and 755 MB turbo-30s does not
 
@@ -363,8 +363,9 @@ Every ASR path supports `vadMode`.
 
 ## Korean ACFT 5 s models — training background and how to read the numbers
 
-Feeding stock whisper a 5-second context collapses it (runaway repetition,
-CER 1.1–24.9). These models were trained in-house with futo ACFT
+Stock whisper is trained for a 30 s window, so feeding it a 5-second context
+directly produces runaway repetition (CER 1.1–24.9) — this is an
+out-of-distribution effect, not a defect in the upstream models. These models were trained in-house with futo ACFT
 self-distillation plus two corrections: an `n_ctx` floor of 250 and a 70:30
 Korean:English mix (zeroth + FLEURS). The encoder is **~12× faster** than the
 30 s window. Model card:

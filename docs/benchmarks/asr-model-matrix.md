@@ -5,6 +5,13 @@ Full re-validation of every deployed ASR model tier against the
 (all 9 files replaced/added 2026-07-23 13:33–13:37). All prior transcript
 validations used the old recordings and are superseded by this document.
 
+> **Scope of these results.** Every number here is measured on this project's
+> own clip set — bilingual Korean/English audio dominated by short voice
+> commands — and read against our on-device latency and size budget. A model
+> scoring low here may be a good fit for a different task, language mix or
+> hardware target. Nothing in this document is a general quality ranking of
+> the upstream models or of the work behind them.
+
 **Second pass (same day)**: clip 2 was re-recorded at **13:57** (mislabel fix,
 see clip 2 notes) and the clip-7 command was re-recorded as a **new** file
 `volume-볼륨, 업.mp3` at **14:00** (louder/longer; the old file remains).
@@ -212,8 +219,8 @@ Expected: `볼륨 업`
 
 **Hardest clip in the set** (0.79 s, RMS 0.071 — quietest and shortest).
 Only turbo (both tiers) and qwen3 i8 hear `볼륨업` (character-perfect).
-tiny/base fail completely. qwen3 **i4** hallucinates Chinese
-(`播放音乐` = "play music") — a language-detection collapse on the quantized
+tiny/base miss on every tier. qwen3 **i4** emits Chinese
+(`播放音乐` = "play music") — a language-detection failure introduced by the quantized
 tier. For FC keyword matching, `볼륨업` (no space) should be accepted.
 
 #### Re-recorded take — `volume-볼륨, 업.mp3` (1.10 s, 14:00, louder/longer; new file, old file kept)
@@ -231,7 +238,7 @@ Deployed tiers re-run on the re-recorded command:
 | turbo i8 | 볼륨 억 | ✗ | 0.333 | 0.500 | 2.44 | 0.58 | 82 | 3.02 | 2.73 |
 | qwen3 i8 | 볼륨 업 | ✓ | 0.000 | 0.000 | 0.10 | 1.85 | 231 | 1.95 | 1.76 |
 
-**Re-recording largely fixes the clip**: tiny f32/i8 go from garbage
+**Re-recording largely fixes the clip**: tiny f32/i8 go from noise decodes
 (`보일해봐`) to `볼륨업` (CER 0, space-insensitive match); **all three base
 tiers** and qwen3 i8 are now exact `볼륨 업`. tiny **i4** still fails (`별념`).
 One surprise: **turbo i8 regresses** on this take — `볼륨 억` (업→억,
@@ -258,7 +265,7 @@ Expected: `소리 키워줘`
 | qwen3 i8 | 소리 키워줘. | ✓ | 0.000 | 0.000 | 0.11 | 5.32 | 484 | 5.43 | 4.12 |
 | qwen3 i4 | *(empty)* | ✗ empty output | 1.000 | 1.000 | 0.11 | 0.22 | 225 | 0.33 | 0.25 |
 
-qwen3 **i4** emits EOS immediately (empty transcript) — unusable on this clip.
+qwen3 **i4** emits EOS immediately (empty transcript) on this clip.
 tiny i4 degrades 줘→죠. Everything else exact.
 
 ### Clip 9 — `volume-음량 증가.mp3` (ko FC command, 1.15 s) — NEW
@@ -394,7 +401,7 @@ Recipes (per the int4-minimum-tier policy):
   whisper-base).
 - **i4** = **mixed "mixD" recipe**: `dynamic_wi4b64_afp32` default with the
   token-embedding/logits scopes kept at wi8 channelwise (pure `wi4b64`
-  corrupts Korean output on the large family; `wi4c` is never used).
+  degrades Korean output on the large family; `wi4c` is never used).
   medium i4 = the same emb/logits-at-i8 mix ("L1"); the encoder-also-at-i8
   variant ("L2", 798 MB) produced identical transcripts and was discarded
   for size.
@@ -480,8 +487,11 @@ tokenizer, large-v3 and turbo use their own 128-mel/51866-vocab tokenizers
 ## Addendum 2 — Korean fine-tunes (seastar105 Korean-Whisper collection), 2026-07-23 (desktop, evening)
 
 Evaluation of the [seastar105 Korean-Whisper collection](https://huggingface.co/collections/seastar105/korean-whisper)
-against the deployed lineup. **Verdict: nothing deployed** — every candidate
-tier loses to its deployed counterpart (details below).
+against the deployed lineup. **Verdict: none adopted for this project** — on
+our bilingual clip set each candidate scored below its deployed counterpart
+(details below). These are Korean-focused fine-tunes and the measurements here
+say only how they fit *our* bilingual, short-command target; they are not a
+judgement of the models outside that scope.
 
 ### Candidates
 
@@ -491,9 +501,10 @@ same-author candidates also evaluated: `whisper-turbo-komix-lora`
 (128-mel / 51866; repo `model.safetensors` verified to be the **merged**
 LoRA — decoder `q_proj/k_proj` differ from `openai/whisper-large-v3-turbo`,
 non-target modules bit-identical). Skipped: `whisper-tiny-komixv2` and
-`whisper-turbo-komixv2` (flax-msgpack-only weights; tiny is the weakest
-tier and turbo-komixv2 is a Korean-only full FT — disqualified by the same
-English collapse measured on its base/small/medium siblings),
+`whisper-turbo-komixv2` (flax-msgpack-only weights; tiny is the
+lowest-scoring tier on our set, and turbo-komixv2 is a Korean-only full FT —
+not evaluated further given the English CER measured on its base/small/medium
+siblings),
 `whisper-{small,medium}-ko-zeroth` and `whisper-base-{kspon,komix(v1)}`
 (older, superseded by komixv2 from the same author).
 
@@ -520,13 +531,13 @@ Controls re-measured in the same session for apples-to-apples.
 
 | Model | Tier | Size MB | Exact /10 | CER ko | WER ko | CER en | WER en | Avg RTF | ms/step | Verdict |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| base-komixv2 | f32 | 289.9 | 3 | 0.036 | 0.297 | 0.969 | 1.143 | 0.42 | 58 | lose (en destroyed) |
-| base-komixv2 | i8 | 183.1 | 3 | 0.036 | 0.297 | 0.969 | 1.143 | 0.31 | 43 | lose (en destroyed, 2.4× base i8 size) |
-| base-komixv2 | i4 | 164.4 | 2 | 0.157 | 0.440 | 0.865 | 1.143 | 0.31 | 43 | lose (ko also degrades) |
-| small-komixv2 | f32 | 966.3 | 3 | 0.083 | 0.297 | 0.950 | 1.217 | 1.18 | 156 | lose (en destroyed) |
-| small-komixv2 | i8 | 408.8 | 3 | 0.083 | 0.297 | 0.950 | 1.074 | 0.78 | 101 | lose (en destroyed) |
-| small-komixv2 | i4 | 319.4 | 3 | 0.083 | 0.297 | 0.950 | 1.170 | 0.79 | 98 | lose (en destroyed) |
-| medium-komixv2 | i8 | 990.9 | 4 | **0.000** | 0.226 | 0.320 | 0.625 | 1.94 | 260 | lose (en broken; ko ties turbo i4 at 3.8× step time) |
+| base-komixv2 | f32 | 289.9 | 3 | 0.036 | 0.297 | 0.969 | 1.143 | 0.42 | 58 | not selected (high en CER on our set) |
+| base-komixv2 | i8 | 183.1 | 3 | 0.036 | 0.297 | 0.969 | 1.143 | 0.31 | 43 | not selected (high en CER on our set; 2.4× base i8 size) |
+| base-komixv2 | i4 | 164.4 | 2 | 0.157 | 0.440 | 0.865 | 1.143 | 0.31 | 43 | not selected (ko CER also rises at i4) |
+| small-komixv2 | f32 | 966.3 | 3 | 0.083 | 0.297 | 0.950 | 1.217 | 1.18 | 156 | not selected (high en CER on our set) |
+| small-komixv2 | i8 | 408.8 | 3 | 0.083 | 0.297 | 0.950 | 1.074 | 0.78 | 101 | not selected (high en CER on our set) |
+| small-komixv2 | i4 | 319.4 | 3 | 0.083 | 0.297 | 0.950 | 1.170 | 0.79 | 98 | not selected (high en CER on our set) |
+| medium-komixv2 | i8 | 990.9 | 4 | **0.000** | 0.226 | 0.320 | 0.625 | 1.94 | 260 | not selected (high en CER; ko ties turbo i4 at 3.8× step time) |
 | medium-komixv2 | i4 | 664.3 | 3 | 0.381 | 0.369 | 0.552 | 0.747 | 1.92 | 257 | lose (i4 breaks ko too) |
 | turbo-komix-lora | f32 | 3234.3 | 4 | 0.083 | 0.369 | 0.016 | 0.048 | 2.60 | 134 | lose (ko regression vs stock turbo) |
 | turbo-komix-lora | i8 | 1088.3 | 4 | 0.083 | 0.369 | 0.016 | 0.048 | 1.56 | 77 | lose (ko regression) |
@@ -536,11 +547,11 @@ Controls re-measured in the same session for apples-to-apples.
 
 ### Observations
 
-- **English collapse in the komixv2 full fine-tunes**: base/small/medium
+- **English CER on the komixv2 full fine-tunes is high for our bilingual target**: base/small/medium
   komixv2 transcribe English audio as *Hangul phonetic transliteration*
   even with the `<|en|>` language token (e.g. clip 2 → `텍트 글베리 웨이션
-  리서트 리폴트…`). CER en 0.32–0.97. This alone disqualifies the whole
-  collection for the bilingual deployment target.
+  리서트 리폴트…`). CER en 0.32–0.97. For a Korean-only deployment this
+  would be irrelevant, but it rules the collection out for our bilingual target.
 - **medium-komixv2 i8 is the only tier with a real Korean win**: CER ko
   0.000 including `음량 증가` exact (deployed medium i8/i4 mishear it as
   `음향 증가`, their only content error). If a **Korean-only** deployment
@@ -721,8 +732,9 @@ measured at the 5 s deployment context on 24 clips; the audit re-measured the
 real spontaneous short Korean from kspon **0.937**). 0.457 → 0.896 is
 therefore **not** a like-for-like delta — part of the gap is context/eval-n.
 What is unambiguous is the conclusion: every measurement of this checkpoint on
-**real** Korean audio — either context, desktop or device — puts it in the
-unusable range, while the published 0.457 reads as "workable small tier".
+**real** Korean audio — either context, desktop or device — puts it well
+outside our deployment bar, while the published 0.457 reads as "workable
+small tier".
 Only the tiny tier was re-measured on real recordings by the audit; base /
 medium / turbo keep their device-cycle evidence and are unaffected.
 

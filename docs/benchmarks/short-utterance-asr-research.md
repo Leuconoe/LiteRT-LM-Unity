@@ -4,7 +4,7 @@ Research date: 2026-07-23. Companion to `asr-model-matrix.md` (same-day
 re-validation), which established the empirical problem:
 
 - Short Korean function-calling commands (0.8–1.5 s: `볼륨 업`, `소리 키워줘`,
-  `음량 증가`) are the weakest clips in the set.
+  `음량 증가`) are the lowest-scoring clips in the set.
 - Clip 7 (`볼륨 업`, **0.79 s, RMS 0.071** — shortest *and* quietest) is failed
   outright by whisper-tiny/base (all tiers); only whisper-large-v3-turbo i8/f32
   and qwen3-asr i8 transcribe it (`볼륨업`, spacing aside).
@@ -33,7 +33,7 @@ lands the whole feature map in a low-value region the model saw less of during
 training. Whisper was trained on loudness-diverse but broadly normalized data;
 very low-RMS input measurably degrades small models first (largest models have
 enough capacity to stay robust — matching our observation that turbo survives
-clip 7 while tiny/base collapse into `보일해봐`-style noise decodes.)
+clip 7 while tiny/base produce `보일해봐`-style noise decodes.)
 
 **2. The 30 s zero-pad on sub-second audio.** Whisper is trained on 30 s
 windows; 0.8 s of speech followed by 29 s of digital-zero padding is
@@ -50,7 +50,7 @@ control what sits between speech and padding (trim noise, leave a short
 silence gap) and fix loudness *before* the mel.
 
 Qwen3-ASR's 5 s window is inherently better matched to command-length audio —
-its failures on our set are decode-side (i4 quantization collapse), not
+its misses on our set are decode-side (accuracy loss from our i4 recipe), not
 window-mismatch.
 
 ---
@@ -65,7 +65,7 @@ LOC / new component · **L** = training or new model asset.
 | # | Technique | Expected impact | Effort (our stack) | Helps |
 | - | --- | --- | --- | --- |
 | 1a | **Peak/RMS loudness normalization** — compute clip RMS, scale PCM to a target (≈ −20 dBFS RMS, clamp gain so peak ≤ −1 dBFS) | High on quiet clips. Clip 7 RMS 0.071 is the direct failure driver for tiny/base; the mel affine is gain-sensitive (see above). Deterministic, no quality risk on already-loud audio (gain ≈ 1) | **XS–S** (~15–25 LOC C++, one helper shared by the Whisper-80, Whisper-30s and Qwen3-128 paths) | **Both** |
-| 1b | **Energy-based VAD trim + controlled re-pad** — trim leading/trailing sub-threshold frames (simple RMS gate over 20–30 ms windows, hysteresis), then re-insert a fixed ~0.2–0.4 s of silence before/after the speech | Medium. Removes low-level noise tails that greedy decode turns into garbage tokens; the retained short silence gap matches Whisper's trained expectation better than speech butted against digital zero. NPUsper's "hush" result (~0.5 s buffer best) supports keeping a small gap rather than trimming to the sample | **S** (~40–70 LOC C++; no new model). Full Silero VAD (1.2 MB, sub-ms/chunk) is better but is ONNX — pulling onnxruntime into the AAR for this is not worth it when an energy gate suffices for push-to-talk clips | **Both** |
+| 1b | **Energy-based VAD trim + controlled re-pad** — trim leading/trailing sub-threshold frames (simple RMS gate over 20–30 ms windows, hysteresis), then re-insert a fixed ~0.2–0.4 s of silence before/after the speech | Medium. Removes low-level noise tails that greedy decode turns into spurious tokens; the retained short silence gap matches Whisper's trained expectation better than speech butted against digital zero. NPUsper's "hush" result (~0.5 s buffer best) supports keeping a small gap rather than trimming to the sample | **S** (~40–70 LOC C++; no new model). Full Silero VAD (1.2 MB, sub-ms/chunk) is better but is ONNX — pulling onnxruntime into the AAR for this is not worth it when an energy gate suffices for push-to-talk clips | **Both** |
 | 1c | Noise gate / noise suppression | Low for our data (clips are clean TTS/close-mic). AOSP explicitly recommends **against** enabling NoiseSuppressor for the VOICE_RECOGNITION source — ASR frontends prefer unprocessed spectra ([AOSP pre-processing docs](https://source.android.com/docs/core/audio/implement-pre-processing)) | S, but skip | — |
 
 What production stacks do: whisper.cpp integrated **Silero-VAD-based
@@ -145,7 +145,7 @@ so these apply to the upcoming mic-capture feature:
 1. **RMS loudness normalization (1a)** — one ~20-line helper in the JNI audio
    path shared by all three feature builders. Directly attacks the measured
    failure (clip 7 RMS 0.071). Re-run the matrix afterwards; expect tiny/base
-   to move from garbage to at least near-miss on clip 7, and no regression on
+   to move from noise decodes to at least a near-miss on clip 7, with no regression on
    loud clips.
 2. **Energy-gate trim + controlled re-pad (1b), bundled with the min-length
    EOS guard (2c) and space-insensitive FC matching (5d)** — all S/XS, all in

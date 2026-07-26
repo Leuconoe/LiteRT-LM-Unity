@@ -8,8 +8,8 @@ only. The README keeps a summary; the evidence is here.
 ## 1. Recommended combinations by device RAM
 
 `Mobile` verdicts: **resident** = fine to keep loaded at all times ·
-**on-demand** = load when needed, then release · **unsuitable** = no reason to
-run it on a device.
+**on-demand** = load when needed, then release · **not deployed** = does not
+fit this project's on-device targets.
 
 | Model | Size | Idle PSS | Peak PSS | Mobile | Role |
 | --- | ---: | ---: | ---: | --- | --- |
@@ -18,8 +18,8 @@ run it on a device.
 | `LLM/gemma3-1b/gemma3-1b-it-int4.litertlm` | 557 MB | 0.40 GB | — | **resident** | Chat fallback 16.0 tok/s. 3/20 as a router — do not use for FC |
 | `LLM/lfm2.5-1.2b/LFM2.5-1.2B-Instruct_int4.litertlm` | 702 MB | — | — | resident (6 GB+) | Mid-tier FC 17/20, 16.8 tok/s. Requires the v0.14 runtime |
 | `Multimodal/gemma-4-e2b/gemma-4-E2B-it.litertlm` | 2.6 GB | 0.48 GB | **3.6 GB** | **on-demand (8 GB+)** | Chat, image, audio and FC in one model. See the warning below |
-| `LLM/qwen2.5-1.5b/…_q8_ekv4096.litertlm` | 1.5 GB | 0.35 GB | — | **unsuitable** | 8.5 tok/s CPU, 3.6–3.8 s per turn — no gain for the size |
-| `LLM/gemma3-270m/gemma3-270m-it-q8.litertlm` | 290 MB | 0.35 GB | — | **unsuitable** | Fast at 27.7 tok/s but output quality is below usable. Cannot be i4'd (no f32 source) |
+| `LLM/qwen2.5-1.5b/…_q8_ekv4096.litertlm` | 1.5 GB | 0.35 GB | — | **not deployed** | 8.5 tok/s CPU, 3.6–3.8 s per turn — the size does not pay off for our targets |
+| `LLM/gemma3-270m/gemma3-270m-it-q8.litertlm` | 290 MB | 0.35 GB | — | **not deployed** | Fast at 27.7 tok/s, but its answers did not meet our smoke-test bar. Cannot be i4'd (no f32 source) |
 
 Recommended stacks (same as the README). Add **one** ASR model sized to the
 utterance lengths you handle — see [`asr-details.md`](asr-details.md).
@@ -63,7 +63,7 @@ All configurations PASS (coherent Korean/English output, zero crashes or OOM
 across the cycle).
 
 **Speed does not predict FC accuracy** — the fastest model (35.5 tok/s) is the
-worst router, and the small FC pick (20.9 tok/s) is within one point of the
+lowest-scoring router on our set, and the small FC pick (20.9 tok/s) is within one point of the
 flagship.
 
 ### Multimodal turns (gemma-4-E2B, cycles 2–3)
@@ -115,7 +115,7 @@ unpack → quantize (`ai_edge_quantizer`) → repack (`litert-lm-builder`).
 
 - Recipe: `dynamic_wi4b64_afp32` (4-bit weights, fp16 scale per 64-value block,
   fp32 activations) with sensitive scopes (embeddings/logits, encoders) kept at i8
-- Channelwise `wi4c` is **never used** (quality collapse)
+- Channelwise `wi4c` is **never used** — accuracy degrades sharply in our tests
 - Products: qwen2.5-0.5b i4 (265 MB, device-validated at +38 % decode) and
   qwen2.5-1.5b i4 (790 MB)
 - gemma3-270m / FunctionGemma cannot be i4'd (no f32 source; i8→i4 is a no-op)
@@ -128,12 +128,13 @@ impossible — LiteRT has no kernels for them.
 
 ## 6. Evaluated and rejected (2026-07-23)
 
-- **Qwen3.5-0.8B-MTP** — not feasible. MTP is llama.cpp-only, litert-torch does
-  not support the architecture, and the community litertlm port produces
-  collapsed output on v0.14
-- **Bonsai-1.7B** — not recommended. Its 1-bit size advantage is destroyed by
-  int4/8 requantization during LiteRT conversion
-- **VibeVoice-ASR** — 8.7B, not viable on-device
+- **Qwen3.5-0.8B-MTP** — not feasible here. MTP is a llama.cpp feature,
+  litert-torch does not support the architecture, and the community litertlm
+  port did not produce coherent output on v0.14
+- **Bonsai-1.7B** — not adopted. Its 1-bit size advantage does not survive the
+  int4/8 requantization that LiteRT conversion applies, so the benefit that
+  motivates the format is lost on this runtime
+- **VibeVoice-ASR** — 8.7B, outside the on-device size budget for this project
 - **GGUF / llama.cpp** — Windows CUDA decode ~243 tok/s (~16× litertlm CPU) but
   **no Android path**. llama.cpp is the desktop experimentation stack; litertlm
   is the product runtime.

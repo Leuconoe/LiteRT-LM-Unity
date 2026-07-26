@@ -1,5 +1,11 @@
 # Function-Calling Model Benchmark — Windows v0.14 CLI (2026-07-23)
 
+> **Scope.** Scores come from this project's own 20-case Korean tool-routing set
+> with our prompt templates and parser, and describe fit for that specific task.
+> A low score here frequently means the output format did not match our parser
+> rather than that the model misunderstood the request; it is not a general
+> capability ranking of the models involved.
+
 20-case Korean Unity command-routing benchmark (+ 7-case English mobile-actions set)
 run against the **v0.14 fork Windows binaries** deployed 2026-07-23 13:53
 (`Tools/Windows/litert_lm_main.windows_x86_64.exe`). Cases, prompt profiles, tools
@@ -83,12 +89,12 @@ instead of calling tools.
 B12/B19). Notably better than the FP base under QwenNoThink too (9/20 vs 2/20).
 475 MB, int4-mixed — consistent with the int4-minimum-tier policy.
 
-### gemma3-1b-it-int4 (3/20) — not usable as FC router
+### gemma3-1b-it-int4 (3/20) — below our FC routing bar
 Constrained or unconstrained, it answers the literal text `DefaultResponse` for
 nearly every request (3/20 both ways; unconstrained retry confirmed no change).
 Fine as a chat model (fluent Korean), wrong tool for routing.
 
-### Qwen2.5 wi4b64 prototypes — runtime validated, FC weak
+### Qwen2.5 wi4b64 prototypes — runtime validated, low FC score
 Both `External/ModelWork` wi4b64 bundles **load and infer correctly** on the v0.14
 Windows CLI (inference validation goal met; recipe confirmed at runtime).
 FC accuracy is low with CurrentTuned: 0.5B = 2/20 (fast: 56.7 tok/s), 1.5B = 8/20
