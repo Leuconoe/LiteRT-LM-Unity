@@ -39,26 +39,32 @@ Unity `6000.4.6f1` + Android Build Support · Android 기기(`adb`, Snapdragon 8
 
 ### LLM — 기기 RAM으로 선택
 
-| 기기 RAM | 모델 | Size | 디바이스 실측 |
-| --- | --- | ---: | --- |
-| 4~6 GB | `LLM/qwen2.5-0.5b/…_wi4b64_ekv1280.litertlm` | 265 MB | 35.5 tok/s — 채팅 전용(FC 불가) |
-| 6~8 GB | `LLM/qwen3-0.6b/qwen3_0_6b_mixed_int4.litertlm` | 475 MB | 20.9 tok/s, FC 18/20 |
-| 8 GB+ | `Multimodal/gemma-4-e2b/gemma-4-E2B-it.litertlm` | 2.6 GB | FC 19/20, 이미지 7.6 s, 오디오 4.1 s. 이미지 턴 PSS 3.6 GB |
+| 기기 RAM | 모델 | Size | 디바이스 실측 | 다운로드 |
+| --- | --- | ---: | --- | --- |
+| 4~6 GB | `LLM/qwen2.5-0.5b/…_wi4b64_ekv1280.litertlm` | 265 MB | 35.5 tok/s — 채팅 전용(FC 불가) | [자체 int4](https://huggingface.co/leuconoe/litert-lm-unity-quantized) (원본 [f32](https://huggingface.co/litert-community/Qwen2.5-0.5B-Instruct)) |
+| 6~8 GB | `LLM/qwen3-0.6b/qwen3_0_6b_mixed_int4.litertlm` | 475 MB | 20.9 tok/s, FC 18/20 | [litert-community/Qwen3-0.6B](https://huggingface.co/litert-community/Qwen3-0.6B) |
+| 8 GB+ | `Multimodal/gemma-4-e2b/gemma-4-E2B-it.litertlm` | 2.6 GB | FC 19/20, 이미지 7.6 s, 오디오 4.1 s. 이미지 턴 PSS 3.6 GB | [litert-community/gemma-4-E2B-it-litert-lm](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm) |
 
+중형 FC가 필요하면 `LFM2.5-1.2B int4`(702 MB, 16.8 tok/s, FC 17/20)도 사용 가능.
 채팅(디코드)은 **CPU**, 긴 프롬프트·이미지는 **GPU**.
 [모델별 상세 →](docs/llm-details.md)
 
 ### ASR — 발화 길이로 선택 (보통 1종이면 충분)
 
-| 발화 길이 | 모델 | Size | 디바이스 실측 |
-| --- | --- | ---: | --- |
-| ≤5 s (명령·짧은 문장) | `ASR/whisper-base-acft-ko/acft_base_5s_drq.tflite` | 101 MB | 0.7–0.8 s, 4/5 exact |
-| 5~30 s (받아쓰기) | `ASR/whisper-base/whisper_base_30s_i8.tflite` | 77 MB | 2.7 s, 문장 CER 0.000 |
-| >30 s (배치) | `ASR/qwen3-asr-0.6b/qwen3_asr_0.6b_5s_i8.tflite` | 794 MB | 청크 루프, RTF ≈2.6 |
+| 발화 길이 | 모델 | Size | 디바이스 실측 | 다운로드 |
+| --- | --- | ---: | --- | --- |
+| ≤5 s (명령·짧은 문장) | `ASR/whisper-base-acft-ko/acft_base_5s_drq.tflite` | 101 MB | 0.7–0.8 s, 4/5 exact | [leuconoe/whisper-acft-ko](https://huggingface.co/leuconoe/whisper-acft-ko) |
+| 5~30 s (받아쓰기) | `ASR/whisper-base/whisper_base_30s_i8.tflite` | 77 MB | 2.7 s, 문장 CER 0.000 | [자체 i8](https://huggingface.co/leuconoe/litert-lm-unity-quantized) (원본 [f32](https://huggingface.co/litert-community/whisper-base)) |
+| >30 s (배치) | `ASR/qwen3-asr-0.6b/qwen3_asr_0.6b_5s_i8.tflite` | 794 MB | 청크 루프, RTF ≈2.6 | [Qwen/Qwen3-ASR-0.6B](https://huggingface.co/Qwen/Qwen3-ASR-0.6B) |
 
 - 티어별 `tokenizer.json`을 같은 폴더에 함께 배치
-- **VAD** 기본 활성 — `energy`(비용 0) / `ai`(Silero 1.25 MB) / `off`
-- 조용한 녹음까지 필요하면 turbo-acft-ko 5s(883 MB, 5/5)를 온디맨드로 로드
+  ([openai/whisper-*](https://huggingface.co/openai/whisper-base) 티어별)
+- **VAD** 기본 활성 — `energy`(비용 0) / `ai`([Silero](https://huggingface.co/pat229988/silero-vad-16k-tflite)
+  1.25 MB) / `off`
+- 조용한 녹음까지 필요하면 turbo-acft-ko 5s(883 MB, **5/5**)를 온디맨드로 로드
+  ([leuconoe/whisper-acft-ko](https://huggingface.co/leuconoe/whisper-acft-ko))
+- 영어 전용 짧은 발화는 futo 원본 ACFT도 사용 가능
+  ([litert-community/whisper-acft](https://huggingface.co/litert-community/whisper-acft))
 
 [전체 10티어 비교·선택 근거·ACFT 학습 배경 →](docs/asr-details.md)
 
