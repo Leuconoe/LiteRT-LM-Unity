@@ -45,35 +45,58 @@
 인자·주의사항은 [`docs/llm-details.md`](docs/llm-details.md) ·
 [`docs/asr-details.md`](docs/asr-details.md).
 
-## Recommended Models (Android 실측 순위)
+## Recommended Models — 기기 RAM 예산 기준
 
-### LLM — `Assets/StreamingAssets/LLM/<model>/`
+**모바일에서 쓸 수 있는지**를 1차 기준으로 골랐습니다. 아래 표의 조합은 전부
+Snapdragon 865 / 7.7 GiB 기기에서 크래시·OOM 없이 실측된 것입니다.
+데스크톱 정확도 1위 티어라도 디바이스 지연이 실사용 범위를 벗어나면 제외했고,
+그 근거는 [`docs/asr-details.md`](docs/asr-details.md) ·
+[`docs/llm-details.md`](docs/llm-details.md)에 있습니다.
 
-| Rank | Model | Size | Device |
-| ---: | --- | ---: | --- |
-| 1 | `Multimodal/gemma-4-e2b/gemma-4-E2B-it.litertlm` | 2.6 GB | 메모리 여유 시 제1픽. 공식 QAT. 이미지 7.6 s / 오디오 4.1 s / FC 19-20 |
-| 2 | `LLM/qwen2.5-0.5b/…_wi4b64_ekv1280.litertlm` | 265 MB | **최속 채팅 35.5 tok/s** (자체 int4, 공식 q8 대비 절반 크기 +38 % 속도). FC 부적합 |
-| 3 | `LLM/qwen3-0.6b/qwen3_0_6b_mixed_int4.litertlm` | 475 MB | 소형 FC 픽 20.9 tok/s, FC 18/20. think/no_think 지원 |
-| 4 | `LLM/lfm2.5-1.2b/LFM2.5-1.2B-Instruct_int4.litertlm` | 702 MB | 중형 FC 픽 16.8 tok/s, FC 17/20 |
-| 5 | `LLM/gemma3-1b/gemma3-1b-it-int4.litertlm` | 557 MB | 채팅 폴백 16.0 tok/s. FC 부적합 |
+| 기기 RAM | 권장 조합 | 상주 합계 |
+| --- | --- | ---: |
+| **4~6 GB** | Qwen2.5-0.5B i4 (채팅) + whisper-base-acft-ko 5s (명령) | ~370 MB |
+| **6~8 GB** | Qwen3-0.6B i4 (채팅+FC) + base-acft-ko + whisper-base 30s (받아쓰기) | ~650 MB |
+| **8 GB+** | gemma-4-E2B QAT (채팅·이미지·오디오·FC 단일 모델) | ~3.6 GB PSS |
 
-**백엔드 지침**: 채팅(디코드)은 **CPU**, 긴 프롬프트·이미지 인코딩은 **GPU**.
-Adreno GPU 디코드가 CPU보다 느린 것은 스텝당 OpenCL 왕복 오버헤드로 인한
-구조적 특성입니다(회귀 아님). 모델별 상세: [`docs/llm-details.md`](docs/llm-details.md).
+ASR 정확도 폴백(turbo-acft 883 MB)이나 장문 전사(qwen3-asr 794 MB)는 **필요할
+때만 로드하고 즉시 해제**하는 전제입니다. LLM과 동시 상주시키지 마세요.
+
+### LLM — `Assets/StreamingAssets/`
+
+| Model | Size | Device 실측 | 적합 |
+| --- | ---: | --- | --- |
+| `LLM/qwen2.5-0.5b/…_wi4b64_ekv1280.litertlm` | 265 MB | **35.5 tok/s** (최속), init 1.4 s | 저사양 채팅 제1픽. FC는 부적합 |
+| `LLM/qwen3-0.6b/qwen3_0_6b_mixed_int4.litertlm` | 475 MB | 20.9 tok/s, FC 18/20 | 소형 FC 제1픽. think/no_think |
+| `LLM/gemma3-1b/gemma3-1b-it-int4.litertlm` | 557 MB | 16.0 tok/s, PSS 399 MB | 채팅 폴백. FC 부적합 |
+| `LLM/lfm2.5-1.2b/LFM2.5-1.2B-Instruct_int4.litertlm` | 702 MB | 16.8 tok/s, FC 17/20 | 중형 FC |
+| `Multimodal/gemma-4-e2b/gemma-4-E2B-it.litertlm` | 2.6 GB | 이미지 7.6 s / 오디오 4.1 s / FC 19-20, **PSS ~3.6 GB** | 8 GB+ 전용. 멀티모달이 필요할 때만 |
+
+**백엔드**: 채팅(디코드)은 **CPU**, 긴 프롬프트·이미지 인코딩은 **GPU**.
+Adreno에서 GPU 디코드가 CPU보다 느린 것은 스텝당 OpenCL 왕복 오버헤드로 인한
+구조적 특성입니다(회귀 아님).
 
 ### ASR — `Assets/StreamingAssets/ASR/<model>/` (티어별 `tokenizer.json` 필수)
 
-| 용도 | Model | Size | Device |
+| 용도 | Model | Size | Device 실측 |
 | --- | --- | ---: | --- |
-| 음성 명령 제1픽 | `whisper-base-acft-ko/acft_base_5s_drq.tflite` | 101 MB | 정상 음량 명령 전부 exact, E2E 0.7–0.8 s |
-| 명령 정확도 폴백 | `whisper-turbo-acft-ko/acft_turbo_5s_drq.tflite` | 883 MB | **5/5 유일** (조용한 녹음 포함). 웜 ~1.9 s |
-| 장문 (>30 s) | `qwen3-asr-0.6b/qwen3_asr_0.6b_5s_i8.tflite` | 794 MB | 5 s 청크 루프, 길이 무제한. **유일한 장문 경로** |
-| 문장 최고 정확도 | `whisper-large-v3-turbo/…_30s_i4.tflite` | 755 MB | 종합 1위 8/9, CER 0.000. 클립당 ~21–24 s (비실시간) |
-| 균형 | `whisper-base/whisper_base_30s_i8.tflite` | 77 MB | 문장 CER 0.000, ~2.7 s |
+| **음성 명령 제1픽** | `whisper-base-acft-ko/acft_base_5s_drq.tflite` | 101 MB | E2E **0.7–0.8 s**, 정상 음량 명령 전부 exact |
+| 받아쓰기 / 문장 전사 | `whisper-base/whisper_base_30s_i8.tflite` | 77 MB | 한국어 CER 0.000, 긴 클립 ~2.7 s |
+| 정확도 폴백 (온디맨드) | `whisper-turbo-acft-ko/acft_turbo_5s_drq.tflite` | 883 MB | 웜 **1.9 s** / 콜드 4.0 s. 조용한 녹음까지 **5/5 유일** |
+| 장문 전사 (배치) | `qwen3-asr-0.6b/qwen3_asr_0.6b_5s_i8.tflite` | 794 MB | 5 s 청크 루프로 길이 무제한. 98 s 오디오 → 4.2분(RTF ≈2.6) |
 
+**실시간 대화형은 앞의 두 줄로 충분합니다** (합계 178 MB). 뒤의 두 줄은 무겁고
+느려서 상시 상주용이 아니라 *필요 시 로드 → 해제* 패턴 전용입니다.
+
+⚠️ **모바일 부적합 — README에서 제외한 티어**: whisper 30 s의 large-v3-turbo
+i4(755 MB, **클립당 21–24 s**) · large-v3 i4(1.1 GB, 그보다 3–7배 느림) ·
+medium i8(832 MB) · medium-acft-ko(826 MB, turbo-acft보다 느리고 부정확).
+데스크톱 정확도 매트릭스 1위는 turbo-30s지만 **디바이스 지연이 20초를 넘어
+대화형으로 못 씁니다** — 비실시간 배치·정확도 레퍼런스 용도로만 쓰세요
+([근거·전체 10티어 표](docs/asr-details.md)).
+⚠️ **tiny 티어는 한국어 명령 비권장** (디바이스 1/4 exact).
 ⚠️ **whisper 30 s 모델에 30 s 초과 오디오 직접 입력 금지** (절단+토큰 캡+조기
 종료). 장문은 qwen3 청크 경로 사용.
-⚠️ **tiny 티어는 한국어 명령 비권장** (디바이스 1/4 exact).
 
 **VAD**: 모든 ASR 경로가 `vadMode` 지원 — `energy`(기본, 비용 0) /
 `ai`(Silero 1.25 MB) / `off`. Unity 라이브 마이크도 동일 파라미터로 자동
@@ -108,7 +131,9 @@ Adreno GPU 디코드가 CPU보다 느린 것은 스텝당 OpenCL 왕복 오버�
 핵심 결과:
 
 - **LLM 최속** Qwen2.5-0.5B 자체 int4 265 MB / 35.5 tok/s — 공식 q8 대비 +38 %
-- **ASR 최고** whisper-turbo i4 755 MB / 8-9 exact / CER 0.000
+- **ASR 실사용 최적** base-acft-ko 5s 101 MB / 0.7–0.8 s — 정확도만 보면
+  whisper-turbo 30s i4가 8-9 exact로 1위지만 디바이스에서 클립당 21–24 s라
+  대화형 불가. **정확도 1위 ≠ 모바일 1픽**
 - **FC 최고** gemma-4-E2B QAT 19/20, 소형은 Qwen3-0.6B 18/20 (475 MB)
 - **양자화**: i8 = 속도, i4 = 크기 — 민감 스코프만 i8로 혼합해 품질 유지.
   전 티어 한국어 클립 검증 후 배포. int2/Q5/1.58-bit는 LiteRT 커널 부재로 불가

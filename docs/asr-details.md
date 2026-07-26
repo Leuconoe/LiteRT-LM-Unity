@@ -264,18 +264,34 @@ Qwen3-ASR uses `-AsrMode qwen3` (CPU only, language auto-detect):
 large-v3/turbo는 각자 전용). 전 티어 CER/WER/RTF 매트릭스는
 [`benchmarks/asr-model-matrix.md`](benchmarks/asr-model-matrix.md).
 
-| 용도 (device) | Model (`Assets/StreamingAssets/` 하위) | Size | Device 결과 |
-| --- | --- | ---: | --- |
-| 음성 명령 제1픽 | `ASR/whisper-base-acft-ko/acft_base_5s_drq.tflite` | 101 MB | 한국어 ACFT 5 s 윈도우 학습 — 정상 음량 명령 전부 exact, E2E 0.7–0.8 s (stock base 대비 ~3.5×, turbo-30s 대비 ~30× 빠름). 조용한 녹음은 turbo-acft로 폴백 |
-| 음성 명령 정확도 폴백 | `ASR/whisper-turbo-acft-ko/acft_turbo_5s_drq.tflite` | 883 MB | **디바이스 5/5 유일 모델** (조용한 `볼륨 업` 구녹음 + `음량 증가` + 숫자 표기까지 전부 exact). 콜드 ~4 s / 웜 ~1.9 s |
-| 장문 (>30 s) 전체 전사 | `ASR/qwen3-asr-0.6b/qwen3_asr_0.6b_5s_i8.tflite` | 794 MB | 5 s 청크 루프로 길이 무제한 — 98 s 오디오 20청크 완전 전사(4.2분, RAM 평탄). **유일한 장문 경로** |
-| 문장 전사 최고 정확도 | `ASR/whisper-large-v3-turbo/whisper_large_v3_turbo_30s_i4.tflite` | 755 MB | 디바이스 게이트 3/3 — whisper 중 유일하게 볼륨 명령까지 인식. 매트릭스 종합 1위(8/9, CER 0.000). 단 클립당 ~21–24 s CPU (비실시간 배치용) |
-| 균형(크기·속도·정확도) | `ASR/whisper-base/whisper_base_30s_i8.tflite` | 77 MB | 문장 한국어 CER 0.000, 긴 클립 ~2.7 s. 1.2 s 미만 초단클립은 디바이스에서 불안정(mel 수치 특성) |
-| 초소형(영어 위주) | `ASR/whisper-tiny/whisper_tiny_30s_i8.tflite` | 41 MB | 영어 CER 0.000. 한국어 연도 오인 + 초단클립 불안정 |
-| 정확도 레퍼런스 | `ASR/whisper-large-v3/whisper_large_v3_30s_i4.tflite` | 1148 MB | 문자 단위 완벽하나 turbo보다 3–7배 느림 — 비교 기준용 |
-| 중간 티어 | `ASR/whisper-medium/whisper_medium_30s_i8.tflite` (i4: 664 MB) | 832 MB | 7/9 정확 — base와 turbo 사이 절충 |
-| medium-acft-ko | `ASR/whisper-medium-acft-ko/` | 826 MB | 배치돼 있으나 **비권장** — turbo-acft보다 느리고 부정확 |
-| tiny-acft-ko | `ASR/whisper-tiny-acft-ko/` | 46 MB | **한국어 명령 비권장** — 디바이스 1/4 exact(사이클 4 REJECT) |
+`모바일` 열의 판정 기준: **상시** = 항상 상주시켜도 되는 크기·지연,
+**온디맨드** = 필요할 때만 로드했다 해제, **배치** = 대화형 지연을 못 맞춰
+백그라운드/오프라인 처리에만, **부적합** = 디바이스에서 쓸 이유 없음.
+
+| 용도 (device) | Model (`Assets/StreamingAssets/` 하위) | Size | 모바일 | Device 결과 |
+| --- | --- | ---: | --- | --- |
+| 음성 명령 제1픽 | `ASR/whisper-base-acft-ko/acft_base_5s_drq.tflite` | 101 MB | **상시** | 한국어 ACFT 5 s 윈도우 학습 — 정상 음량 명령 전부 exact, E2E 0.7–0.8 s (stock base 대비 ~3.5×, turbo-30s 대비 ~30× 빠름). 조용한 녹음은 turbo-acft로 폴백 |
+| 받아쓰기 / 문장 전사 | `ASR/whisper-base/whisper_base_30s_i8.tflite` | 77 MB | **상시** | 문장 한국어 CER 0.000, 긴 클립 ~2.7 s. 1.2 s 미만 초단클립은 디바이스에서 불안정(mel 수치 특성) |
+| 음성 명령 정확도 폴백 | `ASR/whisper-turbo-acft-ko/acft_turbo_5s_drq.tflite` | 883 MB | **온디맨드** | **디바이스 5/5 유일 모델** (조용한 `볼륨 업` 구녹음 + `음량 증가` + 숫자 표기까지 전부 exact). 콜드 ~4 s / 웜 ~1.9 s. 디코더 4층이라 883 MB치고는 빠름 — 저신뢰도 재시도용으로만 로드 |
+| 장문 (>30 s) 전체 전사 | `ASR/qwen3-asr-0.6b/qwen3_asr_0.6b_5s_i8.tflite` | 794 MB | **배치** | 5 s 청크 루프로 길이 무제한 — 98 s 오디오 20청크 완전 전사(4.2분, RTF ≈2.6, RAM 평탄). **유일한 장문 경로** |
+| 초소형(영어 위주) | `ASR/whisper-tiny/whisper_tiny_30s_i8.tflite` | 41 MB | 상시(영어) | 영어 CER 0.000. 한국어 연도 오인 + 초단클립 불안정 |
+| 데스크톱 정확도 1위 | `ASR/whisper-large-v3-turbo/whisper_large_v3_turbo_30s_i4.tflite` | 755 MB | **배치** | 매트릭스 종합 1위(8/9, CER 0.000), 디바이스 게이트 3/3. 그러나 **클립당 21–24 s CPU** — 30 s 창을 매번 다 인코딩하므로 대화형 불가 |
+| 정확도 레퍼런스 | `ASR/whisper-large-v3/whisper_large_v3_30s_i4.tflite` | 1148 MB | **부적합** | 문자 단위 완벽하나 turbo-30s보다 3–7배 느림 — 데스크톱 비교 기준용 |
+| 중간 티어 | `ASR/whisper-medium/whisper_medium_30s_i8.tflite` (i4: 664 MB) | 832 MB | **부적합** | 7/9 정확. 디코더 24층이라 디바이스 decode ≈0.46 s/step — turbo(4층, ≈0.15 s/step)보다 크고 느리고 덜 정확 |
+| medium-acft-ko | `ASR/whisper-medium-acft-ko/` | 826 MB | **부적합** | 테스트 씬용으로만 배치. 명령 클립 4.8–5.3 s로 turbo-acft(1.9 s)에 전 항목 열세 |
+| tiny-acft-ko | `ASR/whisper-tiny-acft-ko/` | 46 MB | **부적합(한국어)** | 디바이스 1/4 exact(사이클 4 REJECT), 실녹음 명령 CER 0.896. base-5s 대비 0.3 s 절약이 쓸모없음 |
+
+### 왜 883 MB turbo-acft는 되고 755 MB turbo-30s는 안 되나
+
+같은 large-v3-turbo 가중치인데 디바이스 지연이 **1.9 s vs 21–24 s**로 10배
+넘게 벌어집니다. 크기가 아니라 **인코딩하는 창 길이** 차이입니다.
+
+- turbo-**30s**: 입력이 항상 3000 프레임 고정 → 1초짜리 명령을 넣어도 30초
+  분량 인코더를 통과시킴
+- turbo-**acft 5s**: ACFT 자기증류로 500 프레임(5 s) 창에 맞춰 재학습 → 인코더
+  연산량 1/6, 디코더는 원래 4층이라 스텝당 ≈0.15 s
+- 즉 모바일 ASR의 병목은 파라미터 수보다 **고정 창 길이**입니다. 짧은 발화를
+  다루는 한 30 s 고정 창 모델은 티어를 낮춰도 이 손해를 못 이깁니다.
 
 ⚠️ **whisper 30 s 모델에 30 s 초과 오디오를 직접 넣지 말 것** — 절단 + 토큰 캡 +
 조기 종료 3중 실패. 장문은 qwen3 청크 경로 사용.
