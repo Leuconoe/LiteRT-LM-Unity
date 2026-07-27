@@ -8,7 +8,7 @@ using UnityEngine.Networking;
 
 namespace LiteRTLM.Unity
 {
-    public sealed class LiteRtLmAsrSmokeTestRunner : MonoBehaviour
+    public sealed class LiteRtLmAsrSmokeTestRunner : MonoBehaviour, ILiteRtLmModelHost
     {
         private const string LogPrefix = "[LiteRT-LM ASRSmoke]";
         private const string StatusFileName = "LiteRtLmAsrSmokeTest.status.txt";
@@ -42,6 +42,12 @@ namespace LiteRTLM.Unity
         }
 
         private void OnDestroy()
+        {
+            ReleaseModels();
+        }
+
+        /// <inheritdoc />
+        public void ReleaseModels()
         {
             client?.Dispose();
             client = null;

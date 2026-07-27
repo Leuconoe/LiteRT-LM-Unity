@@ -9,7 +9,7 @@ using UnityEngine.Networking;
 
 namespace LiteRTLM.Unity
 {
-    public sealed class LiteRtLmLlmChatTestRunner : MonoBehaviour
+    public sealed class LiteRtLmLlmChatTestRunner : MonoBehaviour, ILiteRtLmModelHost
     {
         private static readonly string[] ModelOptions =
         {
@@ -53,11 +53,18 @@ namespace LiteRTLM.Unity
 
         private void OnDestroy()
         {
+            ReleaseModels();
+        }
+
+        /// <inheritdoc />
+        public void ReleaseModels()
+        {
             _windowsRequestCancellationTokenSource?.Cancel();
             _windowsRequestCancellationTokenSource?.Dispose();
             _windowsRequestCancellationTokenSource = null;
             _client?.Dispose();
             _client = null;
+            _windowsCliClient = null;
         }
 
         private void OnGUI()

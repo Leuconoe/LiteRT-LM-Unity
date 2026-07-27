@@ -8,7 +8,7 @@ using UnityEngine.Networking;
 
 namespace LiteRTLM.Unity
 {
-    public sealed class LiteRtLmAsrTestRunner : MonoBehaviour
+    public sealed class LiteRtLmAsrTestRunner : MonoBehaviour, ILiteRtLmModelHost
     {
         private const string QwenAsrMode = "qwen3-asr";
 
@@ -139,6 +139,9 @@ namespace LiteRTLM.Unity
 
         private const int MaxQueuedUtterances = 4;
         private readonly Queue<PendingUtterance> _utteranceQueue = new Queue<PendingUtterance>();
+        // Held so teardown can wait for it: the worker calls into _client, so disposing
+        // the engine while a transcription is in flight would be a use-after-free.
+        private System.Threading.Tasks.Task<string> _inFlightAsrTask;
         private bool _continuousActive;
         private bool _continuousStopRequested;
         private int _sessionUtteranceCount;
@@ -359,10 +362,52 @@ namespace LiteRTLM.Unity
 
         private void OnDestroy()
         {
+            ReleaseModels();
+        }
+
+        /// <inheritdoc />
+        public void ReleaseModels()
+        {
+            // Order matters: the continuous worker thread calls into the engine,
+            // so it has to be stopped before the engine is disposed.
+            if (_continuousActive)
+            {
+                StopContinuousSession();
+            }
+
+            _utteranceQueue?.Clear();
+
+            // A transcription started before teardown is still using _client.
+            // Give it a bounded wait rather than disposing underneath it; a 5 s
+            // chunk decodes in ~0.7-2 s on the reference device.
+            var inFlight = _inFlightAsrTask;
+            _inFlightAsrTask = null;
+            if (inFlight != null && !inFlight.IsCompleted)
+            {
+                try
+                {
+                    if (!inFlight.Wait(TimeSpan.FromSeconds(10)))
+                    {
+                        Debug.LogWarning(
+                            "LiteRtLmAsrTestRunner: transcription still running after 10 s; " +
+                            "releasing the engine anyway.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning($"LiteRtLmAsrTestRunner: in-flight transcription faulted during teardown: {ex.Message}");
+                }
+            }
+
             if (_micCapture != null)
             {
                 _micCapture.OnUtteranceCaptured -= HandleMicUtteranceCaptured;
                 _micCapture.OnCaptureError -= HandleMicCaptureError;
+                _micCapture.Continuous = false;
+                if (_micCapture.IsCapturing)
+                {
+                    _micCapture.StopListening();
+                }
             }
 
             _client?.Dispose();
@@ -935,10 +980,13 @@ namespace LiteRTLM.Unity
                 var asrStartedAt = Time.realtimeSinceStartup;
                 var task = System.Threading.Tasks.Task.Run(() =>
                     RunAsrSmokeOnWorkerThread(option, resolvedModelPath, item.WavPath, resolvedTokenizerPath, vadMode, resolvedSileroPath));
+                _inFlightAsrTask = task;
                 while (!task.IsCompleted)
                 {
                     yield return null;
                 }
+
+                _inFlightAsrTask = null;
 
                 var asrSeconds = Time.realtimeSinceStartup - asrStartedAt;
                 var latencySeconds = Time.realtimeSinceStartup - item.EndpointedAt;

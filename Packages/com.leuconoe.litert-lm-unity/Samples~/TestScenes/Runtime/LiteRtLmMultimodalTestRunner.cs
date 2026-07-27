@@ -6,7 +6,7 @@ using UnityEngine.Networking;
 
 namespace LiteRTLM.Unity
 {
-    public sealed class LiteRtLmMultimodalTestRunner : MonoBehaviour
+    public sealed class LiteRtLmMultimodalTestRunner : MonoBehaviour, ILiteRtLmModelHost
     {
         // UnityLiteRtLmBridge exposes sendMessageWithMedia since the take3 AAR
         // (text, byte[] imageBytes, imagePath, audioPath, extraContextJson).
@@ -49,6 +49,12 @@ namespace LiteRTLM.Unity
         }
 
         private void OnDestroy()
+        {
+            ReleaseModels();
+        }
+
+        /// <inheritdoc />
+        public void ReleaseModels()
         {
             _client?.Dispose();
             _client = null;

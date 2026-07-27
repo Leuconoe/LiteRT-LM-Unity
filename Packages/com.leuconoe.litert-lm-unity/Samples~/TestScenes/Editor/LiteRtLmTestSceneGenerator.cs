@@ -179,6 +179,7 @@ namespace LiteRTLM.Unity.Editor
             try
             {
                 CreateMainCamera(scene);
+                CreateSceneNavigator(scene);
                 populate(scene);
 
                 var sceneDirectory = Path.GetDirectoryName(Path.Combine(GetProjectRoot(), scenePath));
@@ -217,6 +218,17 @@ namespace LiteRTLM.Unity.Editor
             camera.backgroundColor = new Color(0.12f, 0.12f, 0.14f, 1f);
             cameraObject.AddComponent<AudioListener>();
             cameraObject.transform.position = new Vector3(0f, 1f, -10f);
+        }
+
+        /// <summary>
+        /// Adds the shared prev/next bar so the generated scenes can be walked
+        /// through on a device. It releases every loaded model before each load.
+        /// </summary>
+        private static void CreateSceneNavigator(Scene scene)
+        {
+            var navigatorObject = new GameObject("LiteRtLmSceneNavigator");
+            SceneManager.MoveGameObjectToScene(navigatorObject, scene);
+            navigatorObject.AddComponent<LiteRtLmSceneNavigator>();
         }
 
         private static TRunner CreateRunnerObject<TRunner>(Scene scene, string objectName)

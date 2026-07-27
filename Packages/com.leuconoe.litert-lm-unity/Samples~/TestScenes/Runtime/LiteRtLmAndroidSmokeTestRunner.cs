@@ -7,7 +7,7 @@ using UnityEngine.Networking;
 
 namespace LiteRTLM.Unity
 {
-    public sealed class LiteRtLmAndroidSmokeTestRunner : MonoBehaviour
+    public sealed class LiteRtLmAndroidSmokeTestRunner : MonoBehaviour, ILiteRtLmModelHost
     {
         private const string LogPrefix = "[LiteRT-LM AndroidSmoke]";
         private const string StatusFileName = "LiteRtLmAndroidSmokeTest.status.txt";
@@ -53,6 +53,12 @@ namespace LiteRTLM.Unity
         }
 
         private void OnDestroy()
+        {
+            ReleaseModels();
+        }
+
+        /// <inheritdoc />
+        public void ReleaseModels()
         {
             client?.Dispose();
             client = null;

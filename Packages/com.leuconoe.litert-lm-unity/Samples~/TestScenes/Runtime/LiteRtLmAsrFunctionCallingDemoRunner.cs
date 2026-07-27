@@ -7,7 +7,7 @@ using UnityEngine.Networking;
 
 namespace LiteRTLM.Unity
 {
-    public sealed class LiteRtLmAsrFunctionCallingDemoRunner : MonoBehaviour
+    public sealed class LiteRtLmAsrFunctionCallingDemoRunner : MonoBehaviour, ILiteRtLmModelHost
     {
         private const string LogPrefix = "[LiteRT-LM ASRFunctionCalling]";
         private const string StatusFileName = "LiteRtLmAsrFunctionCallingDemo.status.txt";
@@ -32,6 +32,12 @@ namespace LiteRTLM.Unity
         }
 
         private void OnDestroy()
+        {
+            ReleaseModels();
+        }
+
+        /// <inheritdoc />
+        public void ReleaseModels()
         {
             client?.Dispose();
             client = null;

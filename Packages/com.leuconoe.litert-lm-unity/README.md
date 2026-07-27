@@ -40,6 +40,13 @@ generator (`LiteRT-LM/Test Scenes/Generate All`).
 Scene paths are resolved from wherever the sample was imported, so the version
 folder in `Assets/Samples/...` does not need patching.
 
+Each sample scene shows a **◀ Prev / Next ▶** bar in the top-right, so the whole
+set can be walked through on a device. Switching scenes calls
+`LiteRtLmModelMemory.ReleaseAll()` first: a LiteRT-LM engine holds native memory
+the garbage collector does not track, so the outgoing model is disposed before
+the next one loads instead of both being resident. Your own components can join
+that by implementing `ILiteRtLmModelHost`.
+
 ## API
 
 ```csharp

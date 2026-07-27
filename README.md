@@ -124,6 +124,11 @@ Shipped as the package's *Test Scenes* sample; after import they land under
 them with the menu `LiteRT-LM/Test Scenes/Generate All` — scene paths resolve
 from the import location, so no path editing is needed.
 
+Every scene shows a **◀ Prev / Next ▶** bar so the set can be walked through on
+a device. Each switch releases the loaded model first — engines hold native
+memory the GC does not track, so the outgoing one is disposed before the next
+loads rather than both being resident.
+
 | Scene | Purpose |
 | --- | --- |
 | `LiteRtLmLlmChatTestScene` | Multi-turn chat, think/no_think toggle |

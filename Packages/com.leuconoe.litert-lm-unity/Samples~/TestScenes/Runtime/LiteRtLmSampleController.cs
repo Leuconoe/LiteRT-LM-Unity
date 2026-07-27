@@ -8,7 +8,7 @@ using UnityEngine.Networking;
 
 namespace LiteRTLM.Unity
 {
-    public class LiteRtLmSampleController : MonoBehaviour
+    public class LiteRtLmSampleController : MonoBehaviour, ILiteRtLmModelHost
     {
         private enum WindowsCliState
         {
@@ -60,11 +60,18 @@ namespace LiteRTLM.Unity
 
         private void OnDestroy()
         {
+            ReleaseModels();
+        }
+
+        /// <inheritdoc />
+        public void ReleaseModels()
+        {
             CancelWindowsRequest();
             _windowsRequestCancellationTokenSource?.Dispose();
             _windowsRequestCancellationTokenSource = null;
             _client?.Dispose();
             _client = null;
+            _windowsCliClient = null;
         }
 
         private void OnGUI()

@@ -31,6 +31,20 @@ under `Assets/` in the sample project.
   multimodal image+audio, voice and multimodal function calling, translation,
   plus the Android APK build menu and the scene generator.
 
+- `LiteRtLmSceneNavigator` — a prev/next bar on the sample scenes so the whole
+  set can be walked through on a device without rebuilding. It appears
+  automatically on the six sample scenes (set `AutoSpawnEnabled = false` to
+  suppress it) and skips scenes missing from Build Settings.
+- `ILiteRtLmModelHost` / `LiteRtLmModelMemory.ReleaseAll()` — explicit model
+  release. A LiteRT-LM engine holds native memory the GC does not track, so
+  every sample component now releases its engine in `OnDestroy`, and the
+  navigator releases all of them *before* loading the next scene rather than
+  letting two models be resident at once.
+  - `LiteRtLmAsrTestRunner` additionally stops the continuous session, the
+    microphone and any in-flight transcription (bounded 10 s wait) before
+    disposing — the worker thread calls into the engine, so disposing under it
+    would be a use-after-free.
+
 ### Notes
 
 - Minimum Unity 2022.3. Developed and device-verified on 6000.4.6f1.

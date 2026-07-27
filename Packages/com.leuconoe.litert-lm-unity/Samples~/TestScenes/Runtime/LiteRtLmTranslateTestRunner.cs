@@ -17,7 +17,7 @@ namespace LiteRTLM.Unity
     /// Audio source is either a bundled test clip or a single-shot mic
     /// capture (LiteRtLmMicVadCapture).
     /// </summary>
-    public sealed class LiteRtLmTranslateTestRunner : MonoBehaviour
+    public sealed class LiteRtLmTranslateTestRunner : MonoBehaviour, ILiteRtLmModelHost
     {
         private const string LogPrefix = "[LiteRT-LM Translate]";
         private const string StatusFileName = "LiteRtLmTranslateTest.status.txt";
@@ -147,10 +147,21 @@ namespace LiteRTLM.Unity
 
         private void OnDestroy()
         {
+            ReleaseModels();
+        }
+
+        /// <inheritdoc />
+        public void ReleaseModels()
+        {
             if (_micCapture != null)
             {
                 _micCapture.OnUtteranceCaptured -= HandleMicUtteranceCaptured;
                 _micCapture.OnCaptureError -= HandleMicCaptureError;
+                _micCapture.Continuous = false;
+                if (_micCapture.IsCapturing)
+                {
+                    _micCapture.StopListening();
+                }
             }
 
             _client?.Dispose();
