@@ -17,12 +17,8 @@ namespace LiteRTLM.Unity.Editor
         public static string AsrFunctionCallingTestScenePath => LiteRtLmSamplePaths.Scene("LiteRtLmAsrFunctionCallingTestScene");
         public static string MultimodalFunctionCallingTestScenePath => LiteRtLmSamplePaths.Scene("LiteRtLmMultimodalFunctionCallingTestScene");
         public static string TranslateTestScenePath => LiteRtLmSamplePaths.Scene("LiteRtLmTranslateTestScene");
+        public static string TtsTestScenePath => LiteRtLmSamplePaths.Scene("LiteRtLmTtsTestScene");
 
-        private const string AsrFunctionCallingDefaultAsrModelPath = "ASR/whisper-tiny/whisper_tiny_30s_i8.tflite";
-        private const string AsrFunctionCallingDefaultAudioPath = "TestAssets/Audio/2025년 3월 5일 전술평가 결과 보고.mp3";
-        private const string AsrFunctionCallingDefaultTokenizerJsonPath = "ASR/whisper-tiny/tokenizer.json";
-        private const string AsrFunctionCallingStatusFileName = "LiteRtLmAsrFunctionCallingDemo.status.txt";
-        private const string MultimodalFunctionCallingStatusFileName = "LiteRtLmMultimodalFunctionCallingDemo.status.txt";
 
         private static string[] AllTestScenePaths => new[]
         {
@@ -32,9 +28,10 @@ namespace LiteRTLM.Unity.Editor
             AsrFunctionCallingTestScenePath,
             MultimodalFunctionCallingTestScenePath,
             TranslateTestScenePath,
+            TtsTestScenePath,
         };
 
-        [MenuItem("LiteRT-LM/Test Scenes/Generate All")]
+        [MenuItem("LiteRT-LM/Scenes/Generate/All Test Scenes")]
         public static void GenerateAllTestScenes()
         {
             GenerateLlmChatTestScene();
@@ -43,6 +40,7 @@ namespace LiteRTLM.Unity.Editor
             GenerateAsrFunctionCallingTestScene();
             GenerateMultimodalFunctionCallingTestScene();
             GenerateTranslateTestScene();
+            GenerateTtsTestScene();
             RegisterTestScenesInBuildSettings();
             Debug.Log($"LiteRT-LM test scene generation completed. Scenes={AllTestScenePaths.Length}");
         }
@@ -61,7 +59,7 @@ namespace LiteRTLM.Unity.Editor
             }
         }
 
-        [MenuItem("LiteRT-LM/Test Scenes/Generate LLM Chat Test Scene")]
+        [MenuItem("LiteRT-LM/Scenes/Generate/LLM Chat Test Scene")]
         public static void GenerateLlmChatTestScene()
         {
             CreateTestScene(LlmChatTestScenePath, scene =>
@@ -70,7 +68,7 @@ namespace LiteRTLM.Unity.Editor
             });
         }
 
-        [MenuItem("LiteRT-LM/Test Scenes/Generate ASR Test Scene")]
+        [MenuItem("LiteRT-LM/Scenes/Generate/ASR Test Scene")]
         public static void GenerateAsrTestScene()
         {
             CreateTestScene(AsrTestScenePath, scene =>
@@ -79,7 +77,7 @@ namespace LiteRTLM.Unity.Editor
             });
         }
 
-        [MenuItem("LiteRT-LM/Test Scenes/Generate Multimodal Test Scene")]
+        [MenuItem("LiteRT-LM/Scenes/Generate/Multimodal Test Scene")]
         public static void GenerateMultimodalTestScene()
         {
             CreateTestScene(MultimodalTestScenePath, scene =>
@@ -88,38 +86,29 @@ namespace LiteRTLM.Unity.Editor
             });
         }
 
-        [MenuItem("LiteRT-LM/Test Scenes/Generate ASR Function Calling Test Scene")]
+        [MenuItem("LiteRT-LM/Scenes/Generate/ASR Function Calling Test Scene")]
         public static void GenerateAsrFunctionCallingTestScene()
         {
             CreateTestScene(AsrFunctionCallingTestScenePath, scene =>
             {
-                var runner = CreateRunnerObject<LiteRtLmAsrFunctionCallingDemoRunner>(scene, "LiteRtLmAsrFunctionCallingDemoRunner");
-                var serializedRunner = new SerializedObject(runner);
-                FindRequiredProperty(serializedRunner, "asrModelPath").stringValue = AsrFunctionCallingDefaultAsrModelPath;
-                FindRequiredProperty(serializedRunner, "audioPath").stringValue = AsrFunctionCallingDefaultAudioPath;
-                FindRequiredProperty(serializedRunner, "tokenizerJsonPath").stringValue = AsrFunctionCallingDefaultTokenizerJsonPath;
-                FindRequiredProperty(serializedRunner, "asrBackend").stringValue = "CPU";
-                FindRequiredProperty(serializedRunner, "asrLanguage").stringValue = "ko";
-                FindRequiredProperty(serializedRunner, "llmModelPath").stringValue = "LLM/gemma3-1b/gemma3-1b-it-int4.litertlm";
-                FindRequiredProperty(serializedRunner, "llmBackend").stringValue = "GPU";
-                FindRequiredProperty(serializedRunner, "llmMaxNumTokens").intValue = 512;
-                serializedRunner.ApplyModifiedPropertiesWithoutUndo();
-
-                AddStatusHudOverlay(runner.gameObject, AsrFunctionCallingStatusFileName);
+                // Interactive runner: the batch demo runner lives in the Automated
+                // Tests sample and is used by the generated device build scenes.
+                CreateRunnerObject<LiteRtLmAsrFunctionCallingTestRunner>(scene, "LiteRtLmAsrFunctionCallingTestRunner");
             });
         }
 
-        [MenuItem("LiteRT-LM/Test Scenes/Generate Multimodal Function Calling Test Scene")]
+        [MenuItem("LiteRT-LM/Scenes/Generate/Multimodal Function Calling Test Scene")]
         public static void GenerateMultimodalFunctionCallingTestScene()
         {
             CreateTestScene(MultimodalFunctionCallingTestScenePath, scene =>
             {
-                var runner = CreateRunnerObject<LiteRtLmMultimodalFunctionCallingRunner>(scene, "LiteRtLmMultimodalFunctionCallingRunner");
-                AddStatusHudOverlay(runner.gameObject, MultimodalFunctionCallingStatusFileName);
+                // Interactive runner; the batch demo lives in the Automated Tests sample.
+                CreateRunnerObject<LiteRtLmMultimodalFunctionCallingTestRunner>(
+                    scene, "LiteRtLmMultimodalFunctionCallingTestRunner");
             });
         }
 
-        [MenuItem("LiteRT-LM/Test Scenes/Generate Translate Test Scene")]
+        [MenuItem("LiteRT-LM/Scenes/Generate/Translate Test Scene")]
         public static void GenerateTranslateTestScene()
         {
             CreateTestScene(TranslateTestScenePath, scene =>
@@ -128,7 +117,16 @@ namespace LiteRTLM.Unity.Editor
             });
         }
 
-        [MenuItem("LiteRT-LM/Test Scenes/Register Test Scenes In Build Settings")]
+        [MenuItem("LiteRT-LM/Scenes/Generate/TTS Test Scene")]
+        public static void GenerateTtsTestScene()
+        {
+            CreateTestScene(TtsTestScenePath, scene =>
+            {
+                CreateRunnerObject<LiteRtLmTtsTestRunner>(scene, "LiteRtLmTtsTestRunner");
+            });
+        }
+
+        [MenuItem("LiteRT-LM/Scenes/Generate/Register Test Scenes In Build Settings")]
         public static void RegisterTestScenesInBuildSettings()
         {
             var projectRoot = GetProjectRoot();
@@ -166,7 +164,9 @@ namespace LiteRTLM.Unity.Editor
                 }
 
                 knownPaths.Add(testScenePath);
-                scenes.Add(new EditorBuildSettingsScene(testScenePath, false));
+                // Enabled: these are the scenes the navigator walks through on a
+                // device build. Added disabled they registered but never appeared.
+                scenes.Add(new EditorBuildSettingsScene(testScenePath, true));
             }
 
             EditorBuildSettings.scenes = scenes.ToArray();

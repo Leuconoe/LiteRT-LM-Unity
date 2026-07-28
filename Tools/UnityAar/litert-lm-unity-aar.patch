@@ -164,10 +164,10 @@ index 3264d52f..c0b04ae9 100644
          "//runtime/conversation",
          "//runtime/conversation:io_types",
 diff --git a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
-index 22251ba7..ed8094db 100644
+index 22251ba7..2135da13 100644
 --- a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
 +++ b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
-@@ -13,11 +13,26 @@
+@@ -13,11 +13,28 @@
  // limitations under the License.
  
  #include <jni.h>
@@ -184,17 +184,19 @@ index 22251ba7..ed8094db 100644
 +#include <cstdint>
 +#include <cstring>
 +#include <fstream>
++#include <functional>
 +#include <limits>
  #include <memory>
 +#include <mutex>
  #include <optional>
++#include <random>
 +#include <sstream>
  #include <string>
 +#include <unordered_map>
  #include <utility>
  #include <variant>
  #include <vector>
-@@ -26,10 +41,21 @@
+@@ -26,10 +43,25 @@
  #include "absl/log/absl_log.h"  // from @com_google_absl
  #include "absl/status/status.h"  // from @com_google_absl
  #include "absl/status/statusor.h"  // from @com_google_absl
@@ -209,14 +211,18 @@ index 22251ba7..ed8094db 100644
 +#include "litert/cc/litert_environment.h"  // from @litert
 +#include "litert/cc/litert_macros.h"  // from @litert
 +#include "litert/cc/litert_options.h"  // from @litert
++#include "litert/cc/litert_element_type.h"  // from @litert
++#include "litert/cc/litert_layout.h"  // from @litert
++#include "litert/cc/litert_ranked_tensor_type.h"  // from @litert
 +#include "litert/cc/litert_tensor_buffer.h"  // from @litert
++#include "litert/c/options/litert_cpu_options.h"  // from @litert
 +#include "litert/cc/options/litert_cpu_options.h"  // from @litert
 +#include "litert/cc/options/litert_gpu_options.h"  // from @litert
 +#include "runtime/components/preprocessor/audio_preprocessor_miniaudio.h"
  #include "runtime/components/prompt_template.h"
  #include "runtime/conversation/conversation.h"
  #include "runtime/conversation/io_types.h"
-@@ -45,43 +71,3139 @@
+@@ -45,43 +77,3895 @@
  #include "runtime/util/file_util.h"
  #include "runtime/util/logging.h"
  #include "schema/capabilities/capabilities_c.h"
@@ -3183,6 +3189,762 @@ index 22251ba7..ed8094db 100644
 +  return result;
 +}
 +
++
++
++constexpr char kSupertonicSignature[] = "serving_default";
++
++// Matches the reference implementation (supertone-inc/supertonic, py/helper.py).
++struct SupertonicConfig {
++  int sample_rate = 44100;
++  int base_chunk_size = 0;
++  int chunk_compress_factor = 0;
++  int latent_dim_base = 0;
++
++  int latent_dim() const { return latent_dim_base * chunk_compress_factor; }
++  int chunk() const { return base_chunk_size * chunk_compress_factor; }
++};
++
++absl::StatusOr<SupertonicConfig> LoadSupertonicConfig(const std::string& path) {
++  ASSIGN_OR_RETURN(const std::string text, ReadBinaryFile(path));
++  SupertonicConfig config;
++  try {
++    const auto parsed = nlohmann::json::parse(text);
++    const auto& ae = parsed.at("ae");
++    const auto& ttl = parsed.at("ttl");
++    config.sample_rate = ae.at("sample_rate").get<int>();
++    config.base_chunk_size = ae.at("base_chunk_size").get<int>();
++    config.chunk_compress_factor = ttl.at("chunk_compress_factor").get<int>();
++    config.latent_dim_base = ttl.at("latent_dim").get<int>();
++  } catch (const std::exception& exception) {
++    return absl::InvalidArgumentError(std::string("tts.json: ") + exception.what());
++  }
++  if (config.chunk() <= 0 || config.latent_dim() <= 0 || config.sample_rate <= 0) {
++    return absl::InvalidArgumentError("tts.json produced non-positive sizes.");
++  }
++  return config;
++}
++
++// Voice style JSON holds the two style tensors flattened: style_ttl [1,50,256]
++// and style_dp [1,8,16].
++struct SupertonicVoice {
++  std::vector<float> ttl;
++  std::vector<float> dp;
++};
++
++absl::StatusOr<SupertonicVoice> LoadSupertonicVoice(const std::string& path) {
++  ASSIGN_OR_RETURN(const std::string text, ReadBinaryFile(path));
++  SupertonicVoice voice;
++  try {
++    const auto parsed = nlohmann::json::parse(text);
++
++    // Each style entry is {"data": [...], "dims": [...], "type": "..."}. Two
++    // traps, both of which cost a device cycle:
++    //
++    //   * Only `data` may be read. Flattening the whole entry also picks up the
++    //     three numbers in `dims` ("512 vs 524").
++    //   * **Do not use nlohmann::json::flatten().** It returns an *object* keyed
++    //     by JSON pointer, and iterating an nlohmann object walks the keys in
++    //     string order — so "/0/0/10" comes before "/0/0/2" and the tensor is
++    //     silently permuted. Sizes still match, so nothing complains; the model
++    //     just says something else. Recursing over the arrays keeps the order.
++    std::function<void(const nlohmann::json&, std::vector<float>*)> collect =
++        [&collect](const nlohmann::json& node, std::vector<float>* out) {
++          if (node.is_array()) {
++            for (const auto& child : node) {
++              collect(child, out);
++            }
++          } else if (node.is_number()) {
++            out->push_back(node.get<float>());
++          }
++        };
++
++    auto read = [&parsed, &collect](const char* key, std::vector<float>* out) {
++      const auto& entry = parsed.at(key);
++      collect(entry.is_object() ? entry.at("data") : entry, out);
++    };
++    read("style_ttl", &voice.ttl);
++    read("style_dp", &voice.dp);
++  } catch (const std::exception& exception) {
++    return absl::InvalidArgumentError(std::string("voice style: ") + exception.what());
++  }
++  if (voice.ttl.empty() || voice.dp.empty()) {
++    return absl::InvalidArgumentError("voice style held no style_ttl/style_dp numbers.");
++  }
++  return voice;
++}
++
++// onnx2tf rewrites some 3-D inputs from NCW to NWC and leaves others alone, per
++// graph and per input, and feeding an ONNX-shaped tensor into a rewritten input
++// does not error — it broadcasts wrongly and yields plausible but wrong audio.
++// The set below mirrors TRANSPOSED_INPUTS in
++// Tools/Windows/TtsBench/supertonic_litert.py, derived from the converted
++// graphs' input details and confirmed against onnxruntime (duration_predictor
++// 2.4e-07, text_encoder 3.7e-06, vector_estimator 1.4e-05). Outputs come back in
++// the ONNX layout.
++//
++// Masks are [1, 1, len], whose NCW and NWC byte layouts are identical, so they
++// need no transpose despite being listed as rewritten on the Python side.
++std::vector<float> ToNwc(const std::vector<float>& source, int channels,
++                         int length) {
++  std::vector<float> out(source.size());
++  for (int c = 0; c < channels; ++c) {
++    for (int t = 0; t < length; ++t) {
++      out[static_cast<size_t>(t) * channels + c] =
++          source[static_cast<size_t>(c) * length + t];
++    }
++  }
++  return out;
++}
++
++// Deterministic standard-normal latent: std::mt19937 with an explicit seed, so a
++// device run can be reproduced against the desktop bench. Without that, a
++// conversion problem and a different noise draw look the same.
++std::vector<float> SampleSupertonicLatent(int latent_dim, int latent_len,
++                                          const std::vector<float>& latent_mask,
++                                          uint32_t seed) {
++  std::mt19937 generator(seed);
++  std::normal_distribution<float> normal(0.0f, 1.0f);
++  std::vector<float> latent(static_cast<size_t>(latent_dim) * latent_len);
++  for (int c = 0; c < latent_dim; ++c) {
++    for (int t = 0; t < latent_len; ++t) {
++      latent[static_cast<size_t>(c) * latent_len + t] =
++          normal(generator) * latent_mask[t];
++    }
++  }
++  return latent;
++}
++
++// 16-bit PCM WAV, written natively so the samples never cross JNI.
++absl::Status WriteSupertonicWav(const std::string& path,
++                                const std::vector<float>& samples,
++                                int sample_rate) {
++  std::ofstream out(path, std::ios::binary | std::ios::trunc);
++  if (!out) {
++    return absl::UnavailableError("could not open " + path + " for writing.");
++  }
++
++  const uint32_t data_bytes = static_cast<uint32_t>(samples.size() * 2);
++  auto put32 = [&out](uint32_t value) {
++    const char bytes[4] = {static_cast<char>(value & 0xff),
++                           static_cast<char>((value >> 8) & 0xff),
++                           static_cast<char>((value >> 16) & 0xff),
++                           static_cast<char>((value >> 24) & 0xff)};
++    out.write(bytes, 4);
++  };
++  auto put16 = [&out](uint16_t value) {
++    const char bytes[2] = {static_cast<char>(value & 0xff),
++                           static_cast<char>((value >> 8) & 0xff)};
++    out.write(bytes, 2);
++  };
++
++  out.write("RIFF", 4);
++  put32(36 + data_bytes);
++  out.write("WAVE", 4);
++  out.write("fmt ", 4);
++  put32(16);
++  put16(1);                                        // PCM
++  put16(1);                                        // mono
++  put32(static_cast<uint32_t>(sample_rate));
++  put32(static_cast<uint32_t>(sample_rate) * 2);   // byte rate
++  put16(2);                                        // block align
++  put16(16);                                       // bits
++  out.write("data", 4);
++  put32(data_bytes);
++
++  for (const float sample : samples) {
++    const float clamped = std::max(-1.0f, std::min(1.0f, sample));
++    put16(static_cast<uint16_t>(static_cast<int16_t>(clamped * 32767.0f)));
++  }
++
++  out.flush();
++  return out ? absl::OkStatus()
++             : absl::DataLossError("failed while writing " + path);
++}
++
++// One entry per (paths, backend) combination; recompiling four graphs costs
++// seconds, and the sample scenes speak repeatedly.
++struct SupertonicCacheEntry {
++  std::string key;
++  std::unique_ptr<::litert::Environment> env;
++  std::unique_ptr<::litert::CompiledModel> duration_predictor;
++  std::unique_ptr<::litert::CompiledModel> text_encoder;
++  std::unique_ptr<::litert::CompiledModel> vector_estimator;
++  std::unique_ptr<::litert::CompiledModel> vocoder;
++  double compile_seconds = 0.0;
++};
++
++// Signature I/O names, read from the converted graphs (they survive conversion,
++// which is why binding by name is possible at all):
++//   duration_predictor(style_dp, text_ids, text_mask)                 -> duration
++//   text_encoder(style_ttl, text_ids, text_mask)                      -> text_emb
++//   vector_estimator(current_step, latent_mask, noisy_latent,
++//                    style_ttl, text_emb, text_mask, total_step)      -> denoised_latent
++//   vocoder(latent)                                                   -> wav_tts
++
++// Creates a named buffer, writes into it, and hands ownership to `map`.
++template <typename T>
++bool FeedSupertonicInput(const ::litert::CompiledModel& model,
++                         ::litert::FlatHashMap<::litert::StringView,
++                                               ::litert::TensorBuffer>* map,
++                         const char* name, const std::vector<T>& values,
++                         nlohmann::ordered_json* result) {
++  auto buffer_or = model.CreateInputBuffer(name);
++  if (!buffer_or.HasValue()) {
++    (*result)["error"] = std::string("input '") + name + "': " +
++                        buffer_or.Error().Message();
++    return false;
++  }
++  auto buffer = std::move(buffer_or.Value());
++  auto write = buffer.template Write<T>(absl::MakeSpan(values));
++  if (!write.HasValue()) {
++    (*result)["error"] = std::string("writing '") + name + "': " +
++                        write.Error().Message();
++    return false;
++  }
++  map->emplace(::litert::StringView(name), std::move(buffer));
++  return true;
++}
++
++
++// duration_predictor and text_encoder are converted with dynamic axes, which the
++// converter collapses to 1 — their text_ids/text_mask buffers are one element
++// until resized. The bucketed graphs are already the right size and resizing
++// them is a no-op, so this is called for both and failures are ignored: a graph
++// whose signature has no dynamic dimension rejects the request.
++void ResizeSupertonicTextInputs(::litert::CompiledModel& model, int text_len,
++                                nlohmann::ordered_json* result) {
++  const int ids_dims[2] = {1, text_len};
++  // The mask is fed NWC: [1, 1, len] and [1, len, 1] hold the same bytes.
++  const int mask_dims[3] = {1, text_len, 1};
++
++  // Non-strict, because these graphs only mark the *batch* dimension dynamic:
++  // text_mask's signature is [-1, 1, 1], so a strict resize of the length is
++  // rejected and the buffer stays one float wide ("4 vs 256"). The Python bench
++  // passed strict=False for the same reason.
++  auto ids = model.ResizeInputTensorNonStrict(
++      kSupertonicSignature, "text_ids", ::litert::Span<const int>(ids_dims, 2));
++  auto mask = model.ResizeInputTensorNonStrict(
++      kSupertonicSignature, "text_mask", ::litert::Span<const int>(mask_dims, 3));
++  if (result != nullptr) {
++    if (!ids.HasValue()) {
++      (*result)["resizeTextIdsError"] = ids.Error().Message();
++    }
++    if (!mask.HasValue()) {
++      (*result)["resizeTextMaskError"] = mask.Error().Message();
++    }
++  }
++}
++
++bool MakeSupertonicOutput(
++    const ::litert::CompiledModel& model,
++    ::litert::FlatHashMap<::litert::StringView, ::litert::TensorBuffer>* map,
++    const char* name, nlohmann::ordered_json* result) {
++  auto buffer_or = model.CreateOutputBuffer(name);
++  if (!buffer_or.HasValue()) {
++    (*result)["error"] = std::string("output '") + name + "': " +
++                        buffer_or.Error().Message();
++    return false;
++  }
++  map->emplace(::litert::StringView(name), std::move(buffer_or.Value()));
++  return true;
++}
++
++// Same, but with the shape stated explicitly.
++//
++// A graph that was resized needs this: `CreateOutputBuffer` allocates from the
++// size the model reports, and a non-strict resize does not update it, so the
++// buffer comes out at the pre-resize size and the device rejects the run with
++// "Custom allocation is too small for tensor idx: N". duration_predictor gets
++// away with `CreateOutputBuffer` because its output is a scalar duration whose
++// size does not depend on the text length; text_encoder's `text_emb` is
++// [1, embed, text_len] and does.
++bool MakeSupertonicOutputSized(
++    const ::litert::Environment& env,
++    ::litert::FlatHashMap<::litert::StringView, ::litert::TensorBuffer>* map,
++    const char* name, const std::vector<int32_t>& dims,
++    nlohmann::ordered_json* result) {
++  size_t elements = 1;
++  for (const int32_t dim : dims) {
++    if (dim <= 0) {
++      (*result)["error"] = std::string("output '") + name +
++                          "': non-positive dimension.";
++      return false;
++    }
++    elements *= static_cast<size_t>(dim);
++  }
++
++  const ::litert::RankedTensorType tensor_type(
++      ::litert::ElementType::Float32,
++      ::litert::Layout(::litert::Dimensions(dims.begin(), dims.end())));
++  auto buffer_or = ::litert::TensorBuffer::CreateManaged(
++      env, ::litert::TensorBufferType::kHostMemory, tensor_type,
++      elements * sizeof(float));
++  if (!buffer_or.HasValue()) {
++    (*result)["error"] = std::string("output '") + name + "': " +
++                        buffer_or.Error().Message();
++    return false;
++  }
++  map->emplace(::litert::StringView(name), std::move(buffer_or.Value()));
++  return true;
++}
++
++nlohmann::ordered_json RunSupertonicTtsToJson(
++    const std::string& duration_predictor_path,
++    const std::string& text_encoder_path,
++    const std::string& vector_estimator_path, const std::string& vocoder_path,
++    const std::string& tts_json_path, const std::string& voice_path,
++    const std::vector<int64_t>& text_ids, int real_text_len, int steps,
++    float speed, const std::string& backend, int seed,
++    const std::string& out_wav_path) {
++  nlohmann::ordered_json result;
++  result["success"] = false;
++  result["backendRequested"] = backend;
++  result["steps"] = steps;
++  result["speed"] = speed;
++  result["textLen"] = static_cast<int>(text_ids.size());
++  result["realTextLen"] = real_text_len;
++
++  if (text_ids.empty() || real_text_len <= 0 ||
++      real_text_len > static_cast<int>(text_ids.size())) {
++    result["error"] = "textIds/realTextLen are inconsistent.";
++    return result;
++  }
++  if (steps <= 0 || steps > 64) {
++    result["error"] = "steps must be between 1 and 64.";
++    return result;
++  }
++  if (!(speed > 0.1f) || speed > 4.0f) {
++    result["error"] = "speed must be between 0.1 and 4.0.";
++    return result;
++  }
++
++  auto config_or = LoadSupertonicConfig(tts_json_path);
++  if (!config_or.ok()) {
++    result["error"] = std::string(config_or.status().message());
++    return result;
++  }
++  const SupertonicConfig config = *config_or;
++
++  auto voice_or = LoadSupertonicVoice(voice_path);
++  if (!voice_or.ok()) {
++    result["error"] = std::string(voice_or.status().message());
++    return result;
++  }
++  const SupertonicVoice voice = *voice_or;
++
++  const int text_len = static_cast<int>(text_ids.size());
++  const int latent_dim = config.latent_dim();
++
++  // Resolved before the cache lookup so a cache hit still reports the backend.
++  // The cache key includes `backend`, so switching accelerators recompiles.
++  std::string upper_backend = backend;
++  std::transform(upper_backend.begin(), upper_backend.end(),
++                 upper_backend.begin(),
++                 [](unsigned char c) { return std::toupper(c); });
++  const bool want_gpu = upper_backend.rfind("GPU", 0) == 0;
++  result["fixedGraphBackend"] = want_gpu ? "GPU" : "CPU";
++
++  static std::mutex supertonic_cache_mutex;
++  static std::unique_ptr<SupertonicCacheEntry> supertonic_cache;
++
++  const std::string cache_key = duration_predictor_path + "\n" +
++                                text_encoder_path + "\n" +
++                                vector_estimator_path + "\n" + vocoder_path +
++                                "\n" + backend;
++  std::unique_lock<std::mutex> cache_lock(supertonic_cache_mutex);
++  const bool cache_hit =
++      supertonic_cache != nullptr && supertonic_cache->key == cache_key;
++  if (!cache_hit) {
++    UnityAsrLog("Supertonic TTS compiling models (cache miss).");
++    supertonic_cache.reset();
++    auto entry = std::make_unique<SupertonicCacheEntry>();
++    entry->key = cache_key;
++
++    auto env_or = ::litert::Environment::Create({});
++    if (!env_or.HasValue()) {
++      result["error"] = env_or.Error().Message();
++      return result;
++    }
++    entry->env =
++        std::make_unique<::litert::Environment>(std::move(env_or.Value()));
++
++    // The `backend` argument selects the accelerator for the *bucketed* graphs
++    // only. duration_predictor and text_encoder must stay on CPU regardless:
++    // they are resized per utterance, and a GPU delegate cannot re-prepare after
++    // a resize any more than XNNPACK can. Those two are also the cheap half, so
++    // there is little to win there.
++    //
++    // Backend strings mirror the ASR path: "CPU", "GPU", "GPU_FP16", and the
++    // GPU_NO_TEXTURE / GPU_NO_CONVERT / GPU_RELAXED variants.
++    // The kernel mode differs per graph, and that is the whole point:
++    //   * duration_predictor and text_encoder are converted with dynamic axes and
++    //     have to be resized per utterance. XNNPACK cannot re-prepare after a
++    //     resize — it fails with "failed to reshape runtime / Node number N
++    //     failed to prepare", on this device exactly as on the desktop — so they
++    //     run on the built-in optimized kernels. They are the cheap half
++    //     (~10 ms + ~110 ms on desktop), so this costs little.
++    //   * vector_estimator and vocoder are converted at fixed buckets and need no
++    //     resize, so they keep XNNPACK, which is what makes them fast (28 ms vs
++    //     183 ms per flow step on desktop).
++    auto make_options = [&result](bool allow_xnnpack)
++        -> std::optional<::litert::Options> {
++      auto options_or = ::litert::Options::Create();
++      if (!options_or.HasValue()) {
++        result["error"] = options_or.Error().Message();
++        return std::nullopt;
++      }
++      auto options = std::move(options_or.Value());
++      auto cpu_options = options.GetCpuOptions();
++      if (cpu_options.HasValue()) {
++        cpu_options->SetNumThreads(4);
++        cpu_options->SetKernelMode(allow_xnnpack
++                                       ? kLiteRtCpuKernelModeXnnpack
++                                       : kLiteRtCpuKernelModeBuiltin);
++      }
++      options.SetHardwareAccelerators(::litert::HwAccelerators::kCpu);
++      return options;
++    };
++
++    auto make_gpu_options = [&result, &upper_backend]()
++        -> std::optional<::litert::Options> {
++      auto options_or = ::litert::Options::Create();
++      if (!options_or.HasValue()) {
++        result["error"] = options_or.Error().Message();
++        return std::nullopt;
++      }
++      auto options = std::move(options_or.Value());
++      // CPU threads still matter: anything the GPU delegate declines falls back.
++      auto cpu_options = options.GetCpuOptions();
++      if (cpu_options.HasValue()) {
++        cpu_options->SetNumThreads(4);
++      }
++      auto gpu_options = options.GetGpuOptions();
++      if (!gpu_options.HasValue()) {
++        result["error"] = gpu_options.Error().Message();
++        return std::nullopt;
++      }
++      const bool use_fp16 = upper_backend.find("FP16") != std::string::npos;
++      const bool use_texture_weights =
++          upper_backend.find("NO_TEXTURE") == std::string::npos;
++      const bool convert_weights_on_gpu =
++          upper_backend.find("NO_CONVERT") == std::string::npos;
++      const bool relaxed_delegation =
++          upper_backend.find("RELAXED") != std::string::npos;
++      gpu_options->SetPrecision(use_fp16
++                                    ? ::litert::GpuOptions::Precision::kFp16
++                                    : ::litert::GpuOptions::Precision::kFp32);
++      gpu_options->EnableConstantTensorSharing(true);
++#if !defined(__APPLE__)
++      gpu_options->SetPreferTextureWeights(use_texture_weights);
++#endif
++      gpu_options->SetMadviseOriginalSharedTensors(true);
++      gpu_options->SetConvertWeightsOnGpu(convert_weights_on_gpu);
++      if (!relaxed_delegation) {
++        gpu_options->SetHintFullyDelegatedToSingleDelegate(true);
++      }
++      gpu_options->EnableInfiniteFloatCapping(true);
++      options.SetHardwareAccelerators(::litert::HwAccelerators::kGpu);
++      result["gpuPrecision"] = use_fp16 ? "fp16" : "fp32";
++      return options;
++    };
++
++    auto resizable_options = make_options(/*allow_xnnpack=*/false);
++    auto fixed_options =
++        want_gpu ? make_gpu_options() : make_options(/*allow_xnnpack=*/true);
++    if (!resizable_options.has_value() || !fixed_options.has_value()) {
++      return result;
++    }
++
++    const auto compile_started = absl::Now();
++    struct SupertonicTarget {
++      const std::string* path;
++      std::unique_ptr<::litert::CompiledModel>* slot;
++      bool needs_resize;
++    };
++    const SupertonicTarget targets[] = {
++        {&duration_predictor_path, &entry->duration_predictor, true},
++        {&text_encoder_path, &entry->text_encoder, true},
++        {&vector_estimator_path, &entry->vector_estimator, false},
++        {&vocoder_path, &entry->vocoder, false},
++    };
++    for (const auto& target : targets) {
++      UnityAsrLog("Supertonic TTS compiling " + *target.path +
++                  (target.needs_resize
++                       ? " (builtin kernels)"
++                       : (want_gpu ? " (gpu)" : " (xnnpack)")));
++      auto model_or = ::litert::CompiledModel::Create(
++          *entry->env, *target.path,
++          target.needs_resize ? *resizable_options : *fixed_options);
++      if (!model_or.HasValue()) {
++        result["error"] = *target.path + ": " + model_or.Error().Message();
++        return result;
++      }
++      *target.slot =
++          std::make_unique<::litert::CompiledModel>(std::move(model_or.Value()));
++    }
++    entry->compile_seconds =
++        absl::ToDoubleSeconds(absl::Now() - compile_started);
++    supertonic_cache = std::move(entry);
++  }
++
++  auto& cached = *supertonic_cache;
++  result["compiledModelCache"] = cache_hit ? "hit" : "miss";
++  result["compileSeconds"] = cache_hit ? 0.0 : cached.compile_seconds;
++
++  std::vector<float> text_mask(text_len, 0.0f);
++  for (int i = 0; i < real_text_len; ++i) {
++    text_mask[i] = 1.0f;
++  }
++
++  // style_dp arrives as ONNX [1, 8, 16]; the converted duration_predictor wants
++  // NWC [1, 16, 8]. Same size, so only the layout would have been wrong.
++  const int style_dp_channels = 8;
++  const int style_dp_length =
++      style_dp_channels > 0
++          ? static_cast<int>(voice.dp.size()) / style_dp_channels
++          : 0;
++  const std::vector<float> style_dp_nwc =
++      style_dp_length > 0 ? ToNwc(voice.dp, style_dp_channels, style_dp_length)
++                          : voice.dp;
++
++  // Checksums of the tensors as actually fed, for 1:1 comparison with the desktop
++  // bench (Tools/Windows/TtsBench/dump_supertonic_input_md5.py). A transposed
++  // tensor passes every size check, so this is the only cheap way to see it.
++  result["idsMd5"] = Md5HexOfBytes(text_ids.data(), text_ids.size() * sizeof(int64_t));
++  result["styleDpMd5"] =
++      Md5HexOfBytes(style_dp_nwc.data(), style_dp_nwc.size() * sizeof(float));
++  result["styleTtlMd5"] =
++      Md5HexOfBytes(voice.ttl.data(), voice.ttl.size() * sizeof(float));
++  result["textMaskMd5"] =
++      Md5HexOfBytes(text_mask.data(), text_mask.size() * sizeof(float));
++  result["idsFirst8"] = nlohmann::json::array();
++  for (size_t i = 0; i < text_ids.size() && i < 8; ++i) {
++    result["idsFirst8"].push_back(static_cast<long long>(text_ids[i]));
++  }
++
++  const auto run_started = absl::Now();
++  using BufferMap =
++      ::litert::FlatHashMap<::litert::StringView, ::litert::TensorBuffer>;
++
++  // ---- duration_predictor -> duration ---------------------------------------
++  float duration_seconds = 0.0f;
++  {
++    auto& model = *cached.duration_predictor;
++    ResizeSupertonicTextInputs(model, text_len, &result);
++    BufferMap inputs;
++    if (!FeedSupertonicInput(model, &inputs, "text_ids", text_ids, &result) ||
++        !FeedSupertonicInput(model, &inputs, "style_dp", style_dp_nwc, &result) ||
++        !FeedSupertonicInput(model, &inputs, "text_mask", text_mask, &result)) {
++      return result;
++    }
++    BufferMap outputs;
++    if (!MakeSupertonicOutput(model, &outputs, "duration", &result)) {
++      return result;
++    }
++    auto status = model.Run(kSupertonicSignature, inputs, outputs);
++    if (!status.HasValue()) {
++      result["error"] =
++          std::string("duration_predictor: ") + status.Error().Message();
++      return result;
++    }
++    auto values_or =
++        ReadTensorBufferVector<float>(outputs.at(::litert::StringView("duration")));
++    if (!values_or.ok() || values_or->empty()) {
++      result["error"] = "duration_predictor produced no output.";
++      return result;
++    }
++    duration_seconds = (*values_or)[0] / speed;
++  }
++  if (!(duration_seconds > 0.0f) || duration_seconds > 120.0f) {
++    result["error"] = "duration_predictor returned an implausible duration: " +
++                      std::to_string(duration_seconds);
++    return result;
++  }
++  result["durationSeconds"] = duration_seconds;
++
++  const int wav_samples =
++      static_cast<int>(duration_seconds * config.sample_rate);
++  const int real_latent_len =
++      (wav_samples + config.chunk() - 1) / config.chunk();
++  result["realLatentLen"] = real_latent_len;
++
++  // The bucket is fixed at conversion time, so it is read back from the graph
++  // the caller chose rather than recomputed.
++  int latent_len = real_latent_len;
++  {
++    auto probe_or = cached.vocoder->CreateInputBuffer("latent");
++    if (probe_or.HasValue()) {
++      auto size_or = probe_or.Value().Size();
++      if (size_or.HasValue() && latent_dim > 0) {
++        latent_len =
++            static_cast<int>(size_or.Value() / sizeof(float)) / latent_dim;
++      }
++    }
++  }
++  result["latentLen"] = latent_len;
++  if (real_latent_len > latent_len) {
++    result["error"] = "utterance needs " + std::to_string(real_latent_len) +
++                      " latent frames but the graphs were converted for " +
++                      std::to_string(latent_len) + "; use a larger bucket.";
++    return result;
++  }
++
++  std::vector<float> latent_mask(latent_len, 0.0f);
++  for (int i = 0; i < real_latent_len; ++i) {
++    latent_mask[i] = 1.0f;
++  }
++
++  // ---- text_encoder -> text_emb --------------------------------------------
++  std::vector<float> text_emb;
++  int embed_dim = 0;
++  {
++    auto& model = *cached.text_encoder;
++    ResizeSupertonicTextInputs(model, text_len, &result);
++    BufferMap inputs;
++    if (!FeedSupertonicInput(model, &inputs, "text_ids", text_ids, &result) ||
++        !FeedSupertonicInput(model, &inputs, "style_ttl", voice.ttl, &result) ||
++        !FeedSupertonicInput(model, &inputs, "text_mask", text_mask, &result)) {
++      return result;
++    }
++    BufferMap outputs;
++    const int voice_embed_dim =
++        voice.ttl.empty() ? 0 : static_cast<int>(voice.ttl.size()) / 50;
++    if (voice_embed_dim <= 0) {
++      result["error"] = "could not derive the embedding dim from style_ttl.";
++      return result;
++    }
++    if (!MakeSupertonicOutputSized(
++            *cached.env, &outputs, "text_emb",
++            {1, voice_embed_dim, text_len}, &result)) {
++      return result;
++    }
++    auto status = model.Run(kSupertonicSignature, inputs, outputs);
++    if (!status.HasValue()) {
++      result["error"] =
++          std::string("text_encoder: ") + status.Error().Message();
++      return result;
++    }
++    auto values_or =
++        ReadTensorBufferVector<float>(outputs.at(::litert::StringView("text_emb")));
++    if (!values_or.ok() || values_or->empty()) {
++      result["error"] = "text_encoder produced no output.";
++      return result;
++    }
++    text_emb = std::move(*values_or);
++    embed_dim = static_cast<int>(text_emb.size()) / text_len;
++  }
++  result["embedDim"] = embed_dim;
++  result["textEmbMd5"] =
++      Md5HexOfBytes(text_emb.data(), text_emb.size() * sizeof(float));
++
++  // ---- vector_estimator, `steps` times -------------------------------------
++  std::vector<float> latent =
++      SampleSupertonicLatent(latent_dim, latent_len, latent_mask,
++                             static_cast<uint32_t>(seed));
++  const std::vector<float> text_emb_nwc = ToNwc(text_emb, embed_dim, text_len);
++  const std::vector<float> total_step{static_cast<float>(steps)};
++  const auto flow_started = absl::Now();
++  for (int step = 0; step < steps; ++step) {
++    auto& model = *cached.vector_estimator;
++    const std::vector<float> latent_nwc = ToNwc(latent, latent_dim, latent_len);
++    const std::vector<float> current_step{static_cast<float>(step)};
++
++    BufferMap inputs;
++    if (!FeedSupertonicInput(model, &inputs, "noisy_latent", latent_nwc, &result) ||
++        !FeedSupertonicInput(model, &inputs, "text_emb", text_emb_nwc, &result) ||
++        !FeedSupertonicInput(model, &inputs, "style_ttl", voice.ttl, &result) ||
++        !FeedSupertonicInput(model, &inputs, "latent_mask", latent_mask, &result) ||
++        !FeedSupertonicInput(model, &inputs, "text_mask", text_mask, &result) ||
++        !FeedSupertonicInput(model, &inputs, "current_step", current_step, &result) ||
++        !FeedSupertonicInput(model, &inputs, "total_step", total_step, &result)) {
++      return result;
++    }
++    BufferMap outputs;
++    if (!MakeSupertonicOutput(model, &outputs, "denoised_latent", &result)) {
++      return result;
++    }
++    auto status = model.Run(kSupertonicSignature, inputs, outputs);
++    if (!status.HasValue()) {
++      result["error"] = "vector_estimator step " + std::to_string(step) + ": " +
++                        status.Error().Message();
++      return result;
++    }
++    auto values_or = ReadTensorBufferVector<float>(
++        outputs.at(::litert::StringView("denoised_latent")));
++    if (!values_or.ok() || values_or->size() != latent.size()) {
++      result["error"] = "vector_estimator output size mismatch.";
++      return result;
++    }
++    latent = std::move(*values_or);  // outputs keep the ONNX layout
++  }
++  const double flow_seconds = absl::ToDoubleSeconds(absl::Now() - flow_started);
++  result["vectorEstimatorSeconds"] = flow_seconds;
++  result["vectorEstimatorPerStepSeconds"] = flow_seconds / steps;
++
++  // ---- vocoder -> pcm ------------------------------------------------------
++  std::vector<float> pcm;
++  const auto vocoder_started = absl::Now();
++  {
++    auto& model = *cached.vocoder;
++    const std::vector<float> latent_nwc = ToNwc(latent, latent_dim, latent_len);
++    BufferMap inputs;
++    if (!FeedSupertonicInput(model, &inputs, "latent", latent_nwc, &result)) {
++      return result;
++    }
++    BufferMap outputs;
++    if (!MakeSupertonicOutput(model, &outputs, "wav_tts", &result)) {
++      return result;
++    }
++    auto status = model.Run(kSupertonicSignature, inputs, outputs);
++    if (!status.HasValue()) {
++      result["error"] = std::string("vocoder: ") + status.Error().Message();
++      return result;
++    }
++    auto values_or =
++        ReadTensorBufferVector<float>(outputs.at(::litert::StringView("wav_tts")));
++    if (!values_or.ok() || values_or->empty()) {
++      result["error"] = "vocoder produced no samples.";
++      return result;
++    }
++    pcm = std::move(*values_or);
++  }
++  result["vocoderSeconds"] =
++      absl::ToDoubleSeconds(absl::Now() - vocoder_started);
++
++  // A padded bucket synthesizes silence past the utterance; trim it so the
++  // reported length and the WAV are the real speech.
++  if (wav_samples > 0 && wav_samples < static_cast<int>(pcm.size())) {
++    result["trimmedSamples"] = static_cast<int>(pcm.size()) - wav_samples;
++    pcm.resize(wav_samples);
++  }
++
++  const double total_seconds = absl::ToDoubleSeconds(absl::Now() - run_started);
++  const double audio_seconds =
++      static_cast<double>(pcm.size()) / config.sample_rate;
++  result["audioSeconds"] = audio_seconds;
++  result["synthSeconds"] = total_seconds;
++  result["rtf"] = audio_seconds > 0.0 ? total_seconds / audio_seconds : 0.0;
++  result["sampleRate"] = config.sample_rate;
++  result["samples"] = static_cast<int>(pcm.size());
++
++  if (!out_wav_path.empty()) {
++    auto write_status =
++        WriteSupertonicWav(out_wav_path, pcm, config.sample_rate);
++    if (!write_status.ok()) {
++      result["error"] = std::string(write_status.message());
++      return result;
++    }
++    result["wavPath"] = out_wav_path;
++  }
++
++  result["success"] = true;
++  UnityAsrLog("Supertonic TTS done: rtf=" +
++              std::to_string(result["rtf"].get<double>()) +
++              ", audioSeconds=" + std::to_string(audio_seconds));
++  return result;
++}
++
++
 +nlohmann::ordered_json MakeTextMessageJson(const std::string& role,
 +                                          const std::string& text) {
 +  return nlohmann::ordered_json{
@@ -3322,6 +4084,9 @@ index 22251ba7..ed8094db 100644
 +    settings->GetMutableMainExecutorSettings().SetAdvancedSettings(
 +        advanced_settings);
 +  }
++
++  return EngineFactory::CreateDefault(std::move(*settings));
++}
  
 -// For Windows, __declspec( dllexport ) is required to export function in .dll.
 -// https://learn.microsoft.com/en-us/cpp/cpp/using-dllimport-and-dllexport-in-cpp-classes?view=msvc-170
@@ -3334,11 +4099,6 @@ index 22251ba7..ed8094db 100644
 -#else
 -#define LITERTLM_JNIEXPORT JNIEXPORT
 -#endif  // _WIN32
-+  return EngineFactory::CreateDefault(std::move(*settings));
-+}
- 
--#define JNI_METHOD(METHOD_NAME) \
--  Java_com_google_ai_edge_litertlm_LiteRtLmJni_##METHOD_NAME
 +absl::StatusOr<std::unique_ptr<Conversation>> CreateUnityBridgeConversation(
 +    Engine* engine, const std::string& system_instruction) {
 +  auto session_config = SessionConfig::CreateDefault();
@@ -3347,6 +4107,15 @@ index 22251ba7..ed8094db 100644
 +  }
 +  if (engine->GetEngineSettings().GetVisionExecutorSettings().has_value()) {
 +    session_config.SetVisionModalityEnabled(true);
++  }
+ 
+-#define JNI_METHOD(METHOD_NAME) \
+-  Java_com_google_ai_edge_litertlm_LiteRtLmJni_##METHOD_NAME
++  JsonPreface json_preface;
++  json_preface.messages = nlohmann::ordered_json::array();
++  if (!system_instruction.empty()) {
++    json_preface.messages.push_back(
++        MakeTextMessageJson("system", system_instruction));
 +  }
  
 -namespace {
@@ -3370,13 +4139,6 @@ index 22251ba7..ed8094db 100644
 -using litert::lm::Responses;
 -using litert::lm::SessionConfig;
 -using litert::lm::proto::SamplerParameters;
-+  JsonPreface json_preface;
-+  json_preface.messages = nlohmann::ordered_json::array();
-+  if (!system_instruction.empty()) {
-+    json_preface.messages.push_back(
-+        MakeTextMessageJson("system", system_instruction));
-+  }
-+
 +  auto conversation_config = ConversationConfig::Builder()
 +                                 .SetSessionConfig(session_config)
 +                                 .SetPreface(json_preface)
@@ -3390,7 +4152,7 @@ index 22251ba7..ed8094db 100644
  
  void ThrowLiteRtLmJniException(JNIEnv* env, const std::string& message) {
    jclass exClass =
-@@ -192,6 +3314,51 @@ jobject CreateBenchmarkInfoJni(
+@@ -192,6 +4076,51 @@ jobject CreateBenchmarkInfoJni(
        last_decode_tokens_per_second);
  }
  
@@ -3442,7 +4204,7 @@ index 22251ba7..ed8094db 100644
  // Converts a Java InputData array to a C++ vector of InputData.
  std::vector<InputData> GetNativeInputData(JNIEnv* env,
                                            jobjectArray input_data) {
-@@ -357,6 +3524,384 @@ std::optional<litert::lm::DataProcessorArguments> GetDataProcessorArguments(
+@@ -357,6 +4286,439 @@ std::optional<litert::lm::DataProcessorArguments> GetDataProcessorArguments(
  
  extern "C" {
  
@@ -3824,10 +4586,65 @@ index 22251ba7..ed8094db 100644
 +          .dump(2));
 +}
 +
++LITERTLM_JNIEXPORT jstring JNICALL
++Java_com_google_ai_edge_litertlm_unity_UnityLiteRtLmBridge_nativeRunSupertonicTts(
++    JNIEnv* env, jclass thiz, jstring duration_predictor_path,
++    jstring text_encoder_path, jstring vector_estimator_path,
++    jstring vocoder_path, jstring tts_json_path, jstring voice_path,
++    jintArray text_ids, jint real_text_len, jint steps, jfloat speed,
++    jstring backend, jint seed, jstring out_wav_path) {
++  const std::string duration_predictor_str =
++      JStringToStdString(env, duration_predictor_path);
++  const std::string text_encoder_str = JStringToStdString(env, text_encoder_path);
++  const std::string vector_estimator_str =
++      JStringToStdString(env, vector_estimator_path);
++  const std::string vocoder_str = JStringToStdString(env, vocoder_path);
++  const std::string tts_json_str = JStringToStdString(env, tts_json_path);
++  const std::string voice_str = JStringToStdString(env, voice_path);
++  const std::string backend_str = JStringToStdString(env, backend);
++  const std::string out_wav_str = JStringToStdString(env, out_wav_path);
++
++  if (duration_predictor_str.empty() || text_encoder_str.empty() ||
++      vector_estimator_str.empty() || vocoder_str.empty() ||
++      tts_json_str.empty() || voice_str.empty()) {
++    ThrowLiteRtLmJniException(
++        env,
++        "durationPredictorPath, textEncoderPath, vectorEstimatorPath, "
++        "vocoderPath, ttsJsonPath and voicePath are required.");
++    return nullptr;
++  }
++  if (text_ids == nullptr) {
++    ThrowLiteRtLmJniException(env, "textIds is required.");
++    return nullptr;
++  }
++
++  const jsize id_count = env->GetArrayLength(text_ids);
++  std::vector<jint> raw_ids(static_cast<size_t>(id_count));
++  if (id_count > 0) {
++    env->GetIntArrayRegion(text_ids, 0, id_count, raw_ids.data());
++  }
++  // The converted graphs keep text_ids as int64 (the ONNX dtype survived
++  // conversion), so widen here rather than at the Java boundary — an int32
++  // write fails with "TensorBuffer host memory buffer size is smaller than the
++  // given data size".
++  std::vector<int64_t> ids(raw_ids.begin(), raw_ids.end());
++
++  return NewStringStandardUTF(
++      env,
++      RunSupertonicTtsToJson(
++          duration_predictor_str, text_encoder_str, vector_estimator_str,
++          vocoder_str, tts_json_str, voice_str, ids,
++          static_cast<int>(real_text_len), static_cast<int>(steps),
++          static_cast<float>(speed),
++          backend_str.empty() ? "CPU" : backend_str, static_cast<int>(seed),
++          out_wav_str)
++          .dump(2));
++}
++
  LITERTLM_JNIEXPORT void JNICALL
  Java_com_google_ai_edge_litertlm_NativeLibraryLoader_nativeCheckLoaded(
      JNIEnv* env, jclass thiz) {}
-@@ -573,7 +4118,10 @@ LITERTLM_JNIEXPORT jlong JNICALL JNI_METHOD(nativeCreateBenchmark)(
+@@ -573,7 +4935,10 @@ LITERTLM_JNIEXPORT jlong JNICALL JNI_METHOD(nativeCreateBenchmark)(
      return 0;
    }
  
@@ -3839,7 +4656,7 @@ index 22251ba7..ed8094db 100644
    if (!settings.ok()) {
      ThrowLiteRtLmJniException(env, "Failed to create engine settings: " +
                                         settings.status().ToString());
-@@ -614,6 +4162,9 @@ LITERTLM_JNIEXPORT jlong JNICALL JNI_METHOD(nativeCreateBenchmark)(
+@@ -614,6 +4979,9 @@ LITERTLM_JNIEXPORT jlong JNICALL JNI_METHOD(nativeCreateBenchmark)(
    auto& benchmark_params = settings->GetMutableBenchmarkParams();
    benchmark_params.set_num_prefill_tokens(prefill_tokens);
    benchmark_params.set_num_decode_tokens(decode_tokens);
@@ -3860,10 +4677,10 @@ index 00000000..3a10407b
 +extern "C" void LiteRtLmUnityLoaderAnchor() {}
 diff --git a/kotlin/java/com/google/ai/edge/litertlm/unity/UnityLiteRtLmBridge.java b/kotlin/java/com/google/ai/edge/litertlm/unity/UnityLiteRtLmBridge.java
 new file mode 100644
-index 00000000..8cf19f18
+index 00000000..2762eaa0
 --- /dev/null
 +++ b/kotlin/java/com/google/ai/edge/litertlm/unity/UnityLiteRtLmBridge.java
-@@ -0,0 +1,291 @@
+@@ -0,0 +1,353 @@
 +package com.google.ai.edge.litertlm.unity;
 +
 +public final class UnityLiteRtLmBridge implements AutoCloseable {
@@ -4131,6 +4948,53 @@ index 00000000..8cf19f18
 +      int decodeTokens,
 +      boolean enableSpeculativeDecoding);
 +
++  /**
++   * Synthesizes speech with Supertonic on LiteRT and writes a 16-bit PCM WAV to
++   * {@code outWavPath}, returning the result JSON (timings, bucket, error).
++   *
++   * <p>The text ids arrive already normalized and padded: the front end (Unicode
++   * NFKD then the unicode indexer) runs on the C# side so that NFKD does not
++   * require ICU here. {@code realTextLength} is the unpadded count and is what
++   * builds the attention mask.
++   *
++   * <p>{@code vectorEstimatorPath} and {@code vocoderPath} must come from the
++   * same fixed-shape bucket; the native side checks the utterance against the
++   * bucket the graph was converted at and reports a clear error rather than
++   * producing wrong audio.
++   *
++   * <p>One call per utterance: the flow-matching loop runs natively, so neither
++   * the latent nor the PCM crosses this boundary.
++   */
++  public String runSupertonicTts(
++      String durationPredictorPath,
++      String textEncoderPath,
++      String vectorEstimatorPath,
++      String vocoderPath,
++      String ttsJsonPath,
++      String voicePath,
++      int[] textIds,
++      int realTextLength,
++      int steps,
++      float speed,
++      String backend,
++      int seed,
++      String outWavPath) {
++    return nativeRunSupertonicTts(
++        durationPredictorPath,
++        textEncoderPath,
++        vectorEstimatorPath,
++        vocoderPath,
++        ttsJsonPath,
++        voicePath,
++        textIds,
++        realTextLength,
++        steps,
++        speed,
++        backend,
++        seed,
++        outWavPath);
++  }
++
 +  private static native String nativeInspectLiteRtModel(String modelPath);
 +
 +  private static native String nativeRunParakeetAsrSmoke(
@@ -4154,6 +5018,21 @@ index 00000000..8cf19f18
 +      String language,
 +      String vadMode,
 +      String sileroModelPath);
++
++  private static native String nativeRunSupertonicTts(
++      String durationPredictorPath,
++      String textEncoderPath,
++      String vectorEstimatorPath,
++      String vocoderPath,
++      String ttsJsonPath,
++      String voicePath,
++      int[] textIds,
++      int realTextLength,
++      int steps,
++      float speed,
++      String backend,
++      int seed,
++      String outWavPath);
 +}
 diff --git a/runtime/engine/litert_lm_main.cc b/runtime/engine/litert_lm_main.cc
 index 6dae7590..3b61eb66 100644

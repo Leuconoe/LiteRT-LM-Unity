@@ -6,9 +6,36 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/LiteRtLmSampleScene.unity
+    path: Assets/Samples/LiteRT-LM for Unity/0.14.0/Test Scenes/Scenes/LiteRtLmSampleScene.unity
     guid: ddc22dc752554914b3ce5991ba357640
-  - enabled: 0
-    path: Assets/Scenes/Tests/LiteRtLmTranslateTestScene.unity
+  - enabled: 1
+    path: Assets/Samples/LiteRT-LM for Unity/0.14.0/Test Scenes/Scenes/LiteRtLmTranslateTestScene.unity
     guid: 3afe55144d96b664086b3e17a560425e
+  - enabled: 1
+    path: Assets/Samples/LiteRT-LM for Unity/0.14.0/Test Scenes/Scenes/LiteRtLmLlmChatTestScene.unity
+    guid: fee0bbf54eae3cc4da0f22724af8ffb0
+  - enabled: 1
+    path: Assets/Samples/LiteRT-LM for Unity/0.14.0/Test Scenes/Scenes/LiteRtLmAsrTestScene.unity
+    guid: 9191500c9822e2c4aa44f3128312483a
+  - enabled: 1
+    path: Assets/Samples/LiteRT-LM for Unity/0.14.0/Test Scenes/Scenes/LiteRtLmMultimodalTestScene.unity
+    guid: 6ce4ad1495e7b324dad5043b159df5fb
+  - enabled: 1
+    path: Assets/Samples/LiteRT-LM for Unity/0.14.0/Test Scenes/Scenes/LiteRtLmAsrFunctionCallingTestScene.unity
+    guid: 4b6647bd7c386844095f76656fca2c98
+  - enabled: 1
+    path: Assets/Samples/LiteRT-LM for Unity/0.14.0/Test Scenes/Scenes/LiteRtLmMultimodalFunctionCallingTestScene.unity
+    guid: f6ab1ee622b6e0540895fa7b82bf9d53
+  - enabled: 0
+    path: Assets/Samples/LiteRT-LM for Unity/0.14.0/Automated Tests/Scenes/LiteRtLmConversationTestScene.unity
+    guid: b528e0348ba6d36418254f71d6195ba7
+  - enabled: 0
+    path: Assets/Samples/LiteRT-LM for Unity/0.14.0/Automated Tests/Scenes/LiteRtLmFunctionCallingBenchmarkScene.unity
+    guid: 9330f415f03e4ea39e399a503310f242
+  - enabled: 0
+    path: Assets/Samples/LiteRT-LM for Unity/0.14.0/Automated Tests/Scenes/LiteRtLmAndroidSmokeTestScene.unity
+    guid: cc60b648dd3ca2846bc28c93e127a42a
+  - enabled: 1
+    path: Assets/Samples/LiteRT-LM for Unity/0.14.0/Test Scenes/Scenes/LiteRtLmTtsTestScene.unity
+    guid: e91f58c83cbe77e4490d741ec132ace9
   m_configObjects: {}

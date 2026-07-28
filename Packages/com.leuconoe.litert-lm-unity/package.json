@@ -36,8 +36,13 @@
   "samples": [
     {
       "displayName": "Test Scenes",
-      "description": "Six scenes covering LLM chat, ASR (file / microphone / always-listening), multimodal image+audio, voice and multimodal function calling, and translation — plus the Android APK build menu and the scene generator.",
+      "description": "Interactive scenes: LLM chat, ASR (file / microphone / always-listening), multimodal image+audio, voice and multimodal function calling, and translation. Includes the shared UI kit and the scene generator.",
       "path": "Samples~/TestScenes"
+    },
+    {
+      "displayName": "Automated Tests",
+      "description": "Batchmode smoke tests, the conversation regression test and the 20-case function-calling benchmark, plus the Android APK build menu. Depends on the Test Scenes sample.",
+      "path": "Samples~/AutomatedTests"
     }
   ]
 }

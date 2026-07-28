@@ -141,6 +141,11 @@ namespace LiteRTLM.Unity
                 .GetResult();
         }
 
+        /// <summary>True for the stock advanced binary, which lacks the custom flags.</summary>
+        private static bool IsAdvancedExecutableName(string executablePath) =>
+            Path.GetFileName(executablePath ?? string.Empty)
+                .StartsWith("litert_lm_advanced_main", StringComparison.OrdinalIgnoreCase);
+
         private static async Task<string> RunProcessAsync(
             string executablePath,
             string modelPath,
@@ -186,29 +191,63 @@ namespace LiteRTLM.Unity
 
             var tempDirectory = GetWorkspaceTempDirectory();
             var promptFilePath = Path.Combine(tempDirectory, $"litertlm-unity-prompt-{Guid.NewGuid():N}.txt");
-            File.WriteAllText(promptFilePath, prompt ?? string.Empty);
+            var promptText = prompt ?? string.Empty;
+            if (IsAdvancedExecutableName(executablePath) && !string.IsNullOrWhiteSpace(systemMessage))
+            {
+                promptText = systemMessage.Trim() + Environment.NewLine + Environment.NewLine + promptText;
+            }
+
+            File.WriteAllText(promptFilePath, promptText);
             var systemMessageFilePath = WriteOptionalTempFile(tempDirectory, "litertlm-unity-system", systemMessage);
             var toolsJsonFilePath = WriteOptionalTempFile(tempDirectory, "litertlm-unity-tools", toolsJson);
             var messagesJsonFilePath = WriteOptionalTempFile(tempDirectory, "litertlm-unity-messages", messagesJson);
 
             var executableName = Path.GetFileName(executablePath);
             var isMainExecutable = executableName.StartsWith("litert_lm_main", StringComparison.OrdinalIgnoreCase);
+            // litert_lm_advanced_main takes the same flags as litert_lm_main. Without
+            // this it fell through to the legacy `run <model>` form, so the binary
+            // never received --model_path and failed with "Model path is empty".
+            var isAdvancedExecutable =
+                executableName.StartsWith("litert_lm_advanced_main", StringComparison.OrdinalIgnoreCase);
+            var usesFlagArguments = isMainExecutable || isAdvancedExecutable;
+            // Media arrives as [audio:...] / [image:...] tags inside the prompt; the
+            // matching executor only loads when its backend flag is set.
+            var mediaFlags = string.Empty;
+            if (isAdvancedExecutable)
+            {
+                if (prompt != null && prompt.Contains("[audio:"))
+                {
+                    mediaFlags += $" --audio_backend={backend.ToLowerInvariant()}";
+                }
+
+                if (prompt != null && prompt.Contains("[image:"))
+                {
+                    mediaFlags += $" --vision_backend={backend.ToLowerInvariant()}";
+                }
+            }
 
             var wrapperScriptPath = Path.Combine(Path.GetDirectoryName(executablePath) ?? string.Empty, "Run-LiteRtLmSample.ps1");
             var usePowerShellWrapper = isMainExecutable && File.Exists(wrapperScriptPath);
 
             var commandPath = usePowerShellWrapper ? "pwsh" : executablePath;
-            var optionalArguments = BuildOptionalArguments(
-                systemMessageFilePath,
-                toolsJsonFilePath,
-                messagesJsonFilePath,
-                enableConstrainedDecoding,
-                outputMessageJson,
-                usePowerShellWrapper);
+            // The custom function-calling flags (--system_message_file, --tools_json_file,
+            // --enable_constrained_decoding, --output_message_json) only exist in
+            // litert_lm_main, which this project patches. litert_lm_advanced_main is
+            // stock and rejects them outright, so it gets the system message folded
+            // into the prompt instead.
+            var optionalArguments = isAdvancedExecutable
+                ? string.Empty
+                : BuildOptionalArguments(
+                    systemMessageFilePath,
+                    toolsJsonFilePath,
+                    messagesJsonFilePath,
+                    enableConstrainedDecoding,
+                    outputMessageJson,
+                    usePowerShellWrapper);
             var arguments = usePowerShellWrapper
                 ? $"-File \"{wrapperScriptPath}\" -Backend {backend.ToLowerInvariant()} -ModelPath \"{modelPath}\" -PromptFilePath \"{promptFilePath}\"{optionalArguments}"
-                : isMainExecutable
-                    ? $"--backend={backend.ToLowerInvariant()} --model_path=\"{modelPath}\" --input_prompt_file=\"{promptFilePath}\"{optionalArguments}"
+                : usesFlagArguments
+                    ? $"--backend={backend.ToLowerInvariant()} --model_path=\"{modelPath}\" --input_prompt_file=\"{promptFilePath}\"{mediaFlags}{optionalArguments}"
                     : $"run \"{modelPath}\" --input_prompt_file \"{promptFilePath}\" --backend {backend.ToLowerInvariant()}";
 
             var startInfo = new ProcessStartInfo

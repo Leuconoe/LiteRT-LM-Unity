@@ -1,4 +1,7 @@
 ﻿<Solution>
-  <Project Path="Assembly-CSharp.csproj" />
-  <Project Path="Assembly-CSharp-Editor.csproj" />
+  <Project Path="LiteRTLM.Unity.Samples.csproj" />
+  <Project Path="LiteRTLM.Unity.Samples.Automated.csproj" />
+  <Project Path="LiteRTLM.Unity.Samples.Editor.csproj" />
+  <Project Path="LiteRTLM.Unity.csproj" />
+  <Project Path="LiteRTLM.Unity.Samples.Automated.Editor.csproj" />
 </Solution>
