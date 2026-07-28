@@ -1,0 +1,17 @@
+{
+  "name": "LiteRTLM.Unity.Samples.Automated",
+  "rootNamespace": "LiteRTLM.Unity",
+  "references": [
+    "LiteRTLM.Unity",
+    "LiteRTLM.Unity.Samples"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

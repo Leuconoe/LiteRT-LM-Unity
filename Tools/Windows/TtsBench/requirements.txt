@@ -1,0 +1,20 @@
+# Toolchain for converting Supertonic ONNX to tflite and benchmarking it.
+# Kept in its own venv (.venv-convert) because TensorFlow and onnx2tf are heavy
+# and must not disturb the ASR bench venv in ../WhisperTflite.
+#
+# Python 3.11-3.13. TensorFlow has no cp314 wheel; Convert-SupertonicToLiteRt.ps1
+# -Bootstrap picks 3.12 first for that reason.
+#
+# Verified set, 2026-07-28.
+onnx==1.20.1
+onnxruntime==1.26.0
+onnxsim
+onnx2tf==2.6.7
+tensorflow>=2.18,<2.21
+ai-edge-litert==2.1.6
+ai-edge-quantizer==0.8.0
+onnx-graphsurgeon
+sng4onnx
+simple_onnx_processing_tools
+psutil
+soundfile

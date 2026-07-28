@@ -89,11 +89,27 @@ model**.
   dispatch and synchronization overhead exceeds the compute win. GPU does win
   prefill by ~1.8× (184 vs 101 tok/s) and multimodal image turns by ~3.1×.
   → **CPU for chat, GPU for long-prompt prefill and multimodal.**
-- **Windows (RTX 4090, WebGPU/Dawn over D3D12, reference only)**: v0.14 fixes
-  the GPU backend — decode 49.3 tok/s vs 17.8–26.8 on CPU (~2×). GPU is the
-  Windows default and `LiteRtLmWindowsCliClient` falls back to CPU once per
-  session on failure. **The profile is the opposite of Android's, so never pick
-  a device backend from desktop results.**
+- **Windows (RTX 4090, WebGPU/Dawn over D3D12, reference only)**: GPU wins on
+  decode but loses everywhere else, and the sample scenes default to **CPU**
+  because of it. Measured with `litert_lm_main`, one process per request:
+
+  | gemma-4-E2B | CPU | GPU |
+  | --- | ---: | ---: |
+  | Init executor | 305 ms | 5,097 ms |
+  | Time to first token | 0.49 s | 2.38 s |
+  | Prefill | 43.9 tok/s | 7.6 tok/s |
+  | Decode | 13.2 tok/s | 53.3 tok/s |
+
+  The CLI is stateless, so every request pays executor init again: about 4.8 s
+  extra on GPU, which only 84-odd output tokens of faster decode would repay.
+  Chat turns and function-call routing are far shorter than that, and prefill —
+  which dominates long prompts and image turns — is 6× *slower* on GPU here.
+  OpenCL context creation fails on this build, so GPU runs through WebGPU
+  (Dawn → D3D12) rather than the native path Android uses, and there is no
+  shader cache equivalent to the CPU `xnnpack_cache_*` file.
+  `LiteRtLmWindowsCliClient` also falls back to CPU once per session on failure.
+  **The profile is the opposite of Android's, so never pick a device backend
+  from desktop results.**
 
 ## 4. Function-calling tiers
 
