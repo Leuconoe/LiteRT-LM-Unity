@@ -32,9 +32,12 @@ which is unchanged at v0.14.0; the suffix marks the package revision.
 
 ### Notes
 
-- Model weights are **OpenRAIL-M**, not a permissive licence, and are not
-  redistributed with the package. `docs/tts-model-research.md` screens nine
-  candidates and names the MIT fallback if that is refused.
+- Model weights are **OpenRAIL-M** and are not redistributed with the package.
+  Commercial use is permitted — the restrictions are on use cases, not commerce —
+  and was accepted for this project on 2026-07-29. Anyone shipping the weights
+  still has to include the licence with them, pass the use restrictions
+  downstream, and disclose that the audio is machine-generated (clause (e)).
+  See `docs/tts-model-research.md`.
 - CPU is the shipping backend. The OpenCL delegate rejects the converted graphs
   on a BHWC shape mismatch; that is a conversion-layout limitation, not a tuning
   knob.

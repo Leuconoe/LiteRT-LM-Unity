@@ -44,5 +44,8 @@ construction — that every other script and the C# port are checked against. Th
 upstream repository was announced for archival on 2026-07-23, which is the other
 reason not to depend on fetching it.
 
-The Supertonic *model weights* are separate and carry **OpenRAIL-M**, not MIT; see
-the licence discussion in the doc above before shipping them.
+The Supertonic *model weights* are separate and carry **OpenRAIL-M**, not MIT.
+Commercial use is permitted and accepted for this project (2026-07-29); shipping
+the weights still requires including the licence with them, passing the use
+restrictions downstream, and disclosing machine-generated audio. See the licence
+discussion in the doc above.

@@ -167,8 +167,8 @@ management written by us: **1–2 weeks**, not days.
 
 **Recommendation:**
 
-- **Android** — Supertonic if OpenRAIL-M clears legal; otherwise Chatterbox
-  Multilingual q4f16, budgeting the driver. Do not put Qwen3-TTS on kona: 2 GB
+- **Android** — Supertonic. OpenRAIL-M cleared on 2026-07-29 (commercial use
+  accepted), so the Chatterbox fallback is not needed. Do not put Qwen3-TTS on kona: 2 GB
   plus an autoregressive 0.6 B talker on a device whose 1 B int4 decode measures
   ~16 tok/s is the worst size/speed trade of the three.
 - **Windows** — whichever engine Android lands on, so there is one code path.
@@ -206,16 +206,30 @@ other — it is the same prefill/decode/KV-cache shape.
    sherpa-onnx keeps maintaining the *runtime*, so this is a "no new versions"
    risk, not a "stops working" risk. Mirror the model files into our own storage
    rather than depending on the upstream repo staying up.
-2. **OpenRAIL-M is not a plain open licence.** Its use restrictions (a)–(m) ban
+2. **OpenRAIL-M carries use restrictions, but permits commercial use.**
+   **Resolved 2026-07-29 by the project owner: commercial use is accepted.**
+   Weights and code may be used to build personal and commercial products, so
+   Supertonic is the shipping engine and the MIT fallback is off the critical
+   path.
+
+   The "RAIL" part restricts *use cases*, not commerce. Restrictions (a)–(m) ban
    illegal use, harming minors, disinformation, impersonation/deepfakes,
    undisclosed machine-generated content, automated decisions with legal effect,
    discrimination, medical advice, and law-enforcement/justice profiling. There
    is **no military or defence restriction** in the list, and a drone HUD reading
-   status aloud is not any of the above. The clause that actually touches us is
-   (e): machine-generated audio must be disclosed as such. **This needs a legal
-   sign-off on the customer side, not an engineering decision** — if it comes
-   back "permissive licences only", switch to MeloTTS-Korean (MIT weights) and
-   budget the ONNX export plus a Korean G2P port.
+   status aloud is not any of the above.
+
+   Three obligations survive the decision and are engineering work, not legal
+   work:
+
+   | Obligation | What it means here |
+   | --- | --- |
+   | Ship the licence with the weights | The LICENSE text and Attachment A go into the deliverable alongside the model files, not just into this repo |
+   | Propagate the restrictions | OpenRAIL-M is a carry-forward licence: anyone we hand the model to must receive the same use restrictions, so they belong in the delivery terms |
+   | Clause (e) disclosure | Synthesized audio must be identifiable as machine-generated — a line in the UI or the operator manual, decided once and applied to every scene that speaks |
+
+   The licensor claims no rights over generated audio, so output produced by the
+   shipped product is unencumbered.
 
 Not yet verified — flagged rather than assumed:
 
@@ -1046,9 +1060,12 @@ Supertonic Korean before committing to it.
 
 ## Decisions needed before Phase 1
 
-1. **Is OpenRAIL-M acceptable to the customer?** This single answer picks the
-   engine: yes → Supertonic, 2–3 days; no → Chatterbox Multilingual q4f16 (MIT),
-   1–2 weeks for the ONNX driver. Nothing else about the plan changes.
+1. ~~**Is OpenRAIL-M acceptable to the customer?**~~ **Answered 2026-07-29: yes,
+   commercial use is accepted.** Supertonic is the engine; the Chatterbox
+   alternative stays documented but unbuilt. What remains is not a choice but
+   three delivery items — ship the licence with the weights, carry the use
+   restrictions into the delivery terms, and disclose synthesized audio
+   (clause (e)). See [Two risks worth stating plainly](#two-risks-worth-stating-plainly).
 2. **Streaming or full-utterance?** Supertonic's C# API has a chunk callback;
    an autoregressive engine streams naturally. Command acknowledgements are short
    enough that it may not matter for the first release.
