@@ -289,7 +289,7 @@ Sample scene, generated (not hand-authored) and run:
 
 ### The device has no system voice at all
 
-**METALENSE2 (kona) is an AOSP build with no TTS engine, and one cannot be
+**The kona target is an AOSP build with no TTS engine, and one cannot be
 installed** (user-confirmed, 2026-07-27). Phase 0 therefore covers Windows only,
 and the Android leg of the fallback plan is gone: `LiteRtLmAndroidSystemTts` will
 report unavailable on the target and stays in the tree for other devices.
@@ -697,7 +697,7 @@ The patch was regenerated (`Tools/UnityAar/litert-lm-unity-aar.patch`, 17 files
 as before plus the TTS code; the previous revision is kept as `.patch.take8`) and
 the AAR is building as take9.
 
-**Device**: 46a880a0 (METALENSE2, kona, Android 12) — arm64-v8a, 98 GB free on
+**Device**: 46a880a0 (kona / SM8250, Android 12) — arm64-v8a, 98 GB free on
 `/data`, 7.9 GB RAM against a 202 MB model set. Backend is CPU for this first
 pass: bucketing is what let the *desktop* delegate attach, and whether the Android
 GPU/OpenCL accelerator takes these graphs is a measurement to make, not an
@@ -936,7 +936,7 @@ the `512 vs 524` failure by sweeping in `dims`; two distinct bugs from one funct
 
 ### Working on the device, 2026-07-28
 
-**Supertonic TTS runs correctly on METALENSE2 (kona, Android 12) through LiteRT.**
+**Supertonic TTS runs correctly on the kona / SM8250 device (Android 12) through LiteRT.**
 Every checksum matches the desktop and the audio transcribes back correctly.
 
 | Tensor | Desktop | Device |

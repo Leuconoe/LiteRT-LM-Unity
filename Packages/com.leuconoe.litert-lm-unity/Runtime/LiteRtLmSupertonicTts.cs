@@ -13,7 +13,7 @@ namespace LiteRTLM.Unity
     /// Supertonic TTS running on LiteRT — the neural voice, as opposed to the
     /// platform voices in <see cref="LiteRtLmSystemTts"/>.
     ///
-    /// This exists because the METALENSE2 target is an AOSP build with no TTS
+    /// This exists because the Android target device is an AOSP build with no TTS
     /// engine and no way to install one, so a bundled model is the only way the
     /// device speaks at all.
     ///

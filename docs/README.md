@@ -16,6 +16,10 @@ numbers are reference only.
 
 ## Details
 
+- [What LiteRT-LM can actually run](litert-lm-model-support.md) — the screening
+  gate every candidate model has to clear, why LiteRT-LM and LiteRT are not the
+  same runtime, and the verdict on file for each model already checked. **Read
+  this before evaluating a new model.**
 - [LLM details](llm-details.md) — tiers, backend choice, device measurements
 - [ASR details](asr-details.md) — full lineup, VAD, ACFT-KO training background,
   smoke-test commands

@@ -1,0 +1,16 @@
+# Install torch first, from the CUDA index — the PyPI wheel is CPU-only:
+#   pip install --index-url https://download.pytorch.org/whl/cu128 torch torchaudio
+# Run-RaonDesktop.ps1 -Bootstrap does this for you.
+#
+# The model card asks for transformers>=4.57.1; the config was written by 4.57.3.
+# Left unpinned deliberately so a break shows up as a break rather than silently
+# running an old stack — if a future major version breaks the remote code, pin
+# it here with the error in the comment.
+transformers>=4.57.1
+accelerate>=1.0
+soundfile>=0.12
+safetensors>=0.4
+huggingface_hub[hf_xet]>=0.30
+# Optional upstream extra: speaker-conditioned TTS. Left in because voice
+# conditioning is the interesting half of this model for us.
+speechbrain>=1.0

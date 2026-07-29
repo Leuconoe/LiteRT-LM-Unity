@@ -14,7 +14,7 @@ which is unchanged at v0.14.0; the suffix marks the package revision.
   the engine does.
 - `LiteRtLmSystemTts` — the platform voice: Windows SAPI (a Korean voice ships
   with the OS) and Android `TextToSpeech`. No model files, no model licence.
-  **Not available on the METALENSE2 target**, which is an AOSP build with no TTS
+  **Not available on the Android target device**, which is an AOSP build with no TTS
   engine and no way to install one — the reason the neural backend exists.
 - `LiteRtLmSupertonicTts` — Supertonic running on LiteRT, the runtime the LLM and
   ASR paths already use. Verified on device: **RTF 0.15–0.27, four to seven times

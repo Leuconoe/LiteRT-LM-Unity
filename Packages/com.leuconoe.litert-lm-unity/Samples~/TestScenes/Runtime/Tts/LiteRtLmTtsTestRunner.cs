@@ -12,7 +12,7 @@ namespace LiteRTLM.Unity
     /// Platform reality this scene is built to expose rather than hide:
     ///   • Windows/editor — SAPI, and a Korean voice (Microsoft Heami) ships with
     ///     the OS, so this path works with no model files at all.
-    ///   • Android — uses the device TTS engine. The METALENSE2 target (kona) is an
+    ///   • Android — uses the device TTS engine. The Android target device (kona) is an
     ///     AOSP build with no TTS engine and no way to install one, so the scene
     ///     will report the backend as unavailable there. Giving that device a voice
     ///     needs a bundled-model backend implementing <see cref="ILiteRtLmTts"/>;
@@ -82,7 +82,7 @@ namespace LiteRTLM.Unity
         /// <summary>
         /// Swaps the backend. Both implement <see cref="ILiteRtLmTts"/>, so nothing
         /// else in the scene changes — which is the point of the interface: on the
-        /// METALENSE2 target the system voice does not exist at all (AOSP, no TTS
+        /// target device the system voice does not exist at all (AOSP, no TTS
         /// engine installable), so Supertonic is the only one that speaks there,
         /// while on the desktop it is the other way round.
         /// </summary>
@@ -137,7 +137,7 @@ namespace LiteRTLM.Unity
             if (!_tts.IsAvailable)
             {
                 GUILayout.Label(
-                    "No system voice on this platform. On the METALENSE2 (AOSP, no TTS " +
+                    "No system voice on this platform. On the AOSP target (no TTS " +
                     "engine installable) this is expected — the device needs a " +
                     "bundled-model backend, see docs/tts-model-research.md.",
                     LiteRtLmUi.WrapLabel);

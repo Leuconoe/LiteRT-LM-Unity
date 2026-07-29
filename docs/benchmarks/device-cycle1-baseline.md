@@ -1,7 +1,7 @@
 # Device Cycle 1 — Baseline (take3 AAR)
 
 - Date: 2026-07-23
-- Device: `46a880a0` — Qualcomm kona / SM8250 (METALENSE2), Android 12, 7.7 GiB RAM
+- Device: `46a880a0` — Qualcomm kona / SM8250, Android 12, 7.7 GiB RAM
 - AAR: `Assets/Plugins/Android/litertlm-unity-bridge.aar` rebuilt 14:33 ("take3"):
   qwen3 ASR mode, `sendMessageWithMedia`, short-utterance fixes (boost-only RMS
   loudness normalization + energy-gate VAD trim in the shared ASR PCM path,
