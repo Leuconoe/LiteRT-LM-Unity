@@ -105,6 +105,98 @@ Linux + Docker (`krafton-ai/vllm-omni`). BF16 needs no AWQ kernels and fits in
 driver is an evaluation harness; it is not a route to a delivered product
 without separate terms from KRAFTON.
 
+### Measured on the workstation (2026-07-29, BF16, RTX 4090)
+
+`Run-RaonDesktop.ps1 -Model KRAFTON/Raon-Speech-9B`. Load 315 s, **18.11 GB
+allocated** — it fits a 24 GB card with room to spare.
+
+| Task | Input | Result |
+| --- | --- | --- |
+| STT | 소리 키워줘 (1.3 s) | `소리 키워 줘.` — CER 0.000, 7.4 s |
+| STT | 볼륨 업 (0.8 s) | `볼륨업` — CER 0.000, 0.6 s |
+| STT | 현재 서울의 날씨는 흐림 입니다 (3.2 s) | CER 0.000, 5.5 s |
+| STT | 2025년 3월 5일 전술평가 결과 보고 (4.0 s) | CER 0.000, **74.9 s** |
+| TTS | 고도 백 미터로 상승합니다. | 7.4 s audio in 19.0 s — **RTF 2.58** |
+| TTS | 경고. 강풍이… 예상 소요 시간 삼 분. | 15.4 s audio in 77.3 s — **RTF 5.01** |
+| TTS | Altitude one hundred meters… | 3.4 s audio in 7.3 s — RTF 2.13 |
+
+**Transcription quality is excellent — CER 0.000 on all four clips, including the
+0.79 s one that base-tier Whisper gets wrong.** Speed is the problem: RTF above 1
+means slower than real time, against the 0.27–0.45 KRAFTON publishes. The gap is
+the harness, not the model — those numbers come from vLLM with continuous
+batching and streaming, and this is a naive `generate()` loop through
+`RaonPipeline`. The 74.9 s STT outlier is the same effect (an over-long
+generation with no streaming cut-off). Treat these as a **functional** result,
+not a performance one; for real numbers use the Docker path below.
+
+Also logged, and relevant if this is ever taken seriously: `flash_attn` is
+absent, so Mimi falls back to SDPA and **ignores its sliding window — audio
+beyond ~20 s may show artifacts**.
+
+### AWQ-INT4: use Docker
+
+Windows `transformers` cannot load the AWQ build, but the container can, and it
+is the configuration the published numbers come from. GPU passthrough is
+verified working here (Docker Desktop, WSL2 backend, driver 596.49, the 4090
+visible inside `nvidia/cuda:12.8.0-base`).
+
+```powershell
+.\Tools\Research\Raon\Build-RaonVllmOmni.ps1 -Smoke
+```
+
+which is a wrapper for:
+
+```bash
+git clone --depth 1 https://github.com/krafton-ai/vllm-omni.git
+docker build -f vllm-omni/docker/Dockerfile.ci -t vllm-omni vllm-omni
+docker run --rm --gpus all --shm-size=16g -p 8000:8000 \
+  -v "$HOME/.cache/huggingface:/root/.cache/huggingface" \
+  vllm-omni bash -c \
+  "vllm serve KRAFTON/Raon-Speech-9B-AWQ-INT4 --omni --port 8000 \
+   --trust-remote-code --quantization awq --dtype float16"
+```
+
+The image is `FROM vllm/vllm-openai` — a large pull, not a source compile.
+Mount the host Hugging Face cache or every container re-downloads 7.3 GB. The
+server speaks the OpenAI chat API with `audio_url` content parts.
+
+## Porting review — can any of this move onto LiteRT-LM?
+
+Asked directly, so answered directly, for both halves.
+
+### Raon → LiteRT-LM: no
+
+Beyond the gate failures above, the blocking fact is structural: it is seven
+sub-models behind one custom class, and one of them is a codec **decoder**. Even
+granting every architecture were authored in ai-edge-torch — weeks of work each —
+there would be nothing to load them into, for the reason below.
+
+### TTS → LiteRT-LM: no, and this is an upstream limitation
+
+**LiteRT-LM's output type is text.** In `runtime/engine/io_types.h` the input
+side is a variant of `InputText` / `InputImage` / `InputAudio`, but the output
+side is `Responses`, which holds `response_texts_` and exposes `GetTexts()`.
+There is no audio-output type, no vocoder stage, and no `tts`, `vocoder` or
+`audio_output` symbol anywhere in `runtime/` or `schema/` at v0.14.0.
+
+So audio is something LiteRT-LM **accepts**, not something it **produces**.
+Hosting a TTS pipeline there is not a matter of adding a model — it needs a new
+output type on the engine API, which is an upstream change to LiteRT-LM itself,
+not something reachable from our AAR patch.
+
+### Position: TTS stays on LiteRT
+
+**Supertonic runs on LiteRT — four `.tflite` graphs plus our own driver — and
+that is the shipping configuration.** It is not a workaround: it is the same
+route Whisper and Silero VAD already take, it is measured at RTF 0.15–0.27 on
+device, and it needs nothing from upstream.
+
+**If a future LiteRT-LM adds speech output, we move to it.** The work would be
+contained: the flow-matching loop and the bucket chooser are already native in
+`litertlm.cc`, and `ILiteRtLmTts` exists precisely so callers do not change when
+the engine does. Until then, "everything must run on LiteRT-LM" cannot include
+TTS, because the runtime has no way to hand back a waveform.
+
 ## If a candidate fails gate 1 but you still want a number
 
 Score it on the desktop before paying for a port.

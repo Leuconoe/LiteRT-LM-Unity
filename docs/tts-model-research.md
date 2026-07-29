@@ -80,6 +80,14 @@ different product from the on-device one this repo has been built around: it add
 a network dependency, link latency on top of the 0.6–0.9 s first-audio, and a
 second machine to power and maintain.
 
+**Measured on this workstation 2026-07-29** (BF16, RTX 4090, 18.11 GB
+allocated): STT is excellent — **CER 0.000 on all four Korean test clips**,
+including the 0.79 s one base-tier Whisper gets wrong. TTS produced correct
+audio at RTF 2.1–5.0, i.e. slower than real time, but that is the harness rather
+than the model: a naive `generate()` loop against published numbers that come
+from vLLM with continuous batching. Driver and the Docker route for reproducing
+the published figures: `Tools/Research/Raon/`.
+
 So Raon is a **system-architecture decision, not an engine swap**. If the answer
 is "the ground station may host it", Raon-Speech-9B-AWQ-INT4 is a strong choice
 and would also let the ASR side collapse into the same model. If speech must keep

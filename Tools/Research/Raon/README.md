@@ -34,10 +34,23 @@ ERROR: Failed to build 'pypcre' when getting requirements to build wheel
 import at runtime. The upstream serving path is Linux + Docker
 (`krafton-ai/vllm-omni`), which is where the published numbers come from.
 
-So on this workstation: **BF16 on the 4090**. It needs no AWQ kernels, and the
-weights fit with room for KV cache. The AWQ build is worth revisiting only if a
-`pypcre` wheel appears or the evaluation moves to Linux — and given the licence
-below, that is not urgent.
+So on this workstation, two routes:
+
+| | BF16 via `transformers` | AWQ-INT4 via Docker |
+| --- | --- | --- |
+| Command | `Run-RaonDesktop.ps1 -Model KRAFTON/Raon-Speech-9B` | `Build-RaonVllmOmni.ps1 -Smoke` |
+| Weights | 16.9 GB, 18.11 GB allocated | 7.3 GB |
+| Works here | **yes** — CER 0.000 on all four STT clips | container is Linux, so the kernel problem disappears |
+| Speed | RTF 2.1–5.0, i.e. slower than real time | the configuration KRAFTON's 0.27–0.45 RTF comes from |
+| Why the gap | naive `generate()` loop, no streaming, no batching | vLLM continuous batching + streaming |
+
+Use BF16 for a functional check, Docker for anything you intend to quote as a
+performance number. GPU passthrough is verified working here (Docker Desktop,
+WSL2 backend, driver 596.49).
+
+One caveat the loader prints and it is worth heeding: `flash_attn` is not
+installed, so Mimi falls back to SDPA and **ignores its sliding window — audio
+longer than about 20 s may contain artifacts**.
 
 ## Two things to be clear about before quoting any of this
 
