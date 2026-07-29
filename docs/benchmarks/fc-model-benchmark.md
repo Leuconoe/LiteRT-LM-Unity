@@ -49,6 +49,14 @@ load LFM2.5 at all — v0.14 resolves this.
 | Qwen2.5-1.5B wi4b64 (proto) | 790 MB | CurrentTuned | 8/20 | 18.2 | 231 | 1.0 | 8.5 |
 | Qwen2.5-0.5B wi4b64 (proto) | 265 MB | CurrentTuned | 2/20 | 56.7 | 1031 | 0.4 | 2.2 |
 | functiongemma-270m (mobile_actions) | 276 MB | MobileActions | **6/7** | 38.2 | 1295 | 0.3 | 3.5 |
+| kanana-2-1.3b-instruct §| 2.58 GB bf16 | CurrentTuned | 17/20 | 22.0 | — | 52.5 | 1.5 |
+
+§ **Not measured on this runtime.** Kanana has no LiteRT conversion path, so it
+was scored on an RTX 4090 through `transformers`
+(`Tools/Research/Kanana/Run-KananaEval.ps1`) with the same cases, tools and
+grading. The pass rate is comparable; the timings are not — they are unquantized
+bf16 on a desktop GPU, and `init s` is a Hugging Face load, not a LiteRT engine
+init. Detail and the two blockers: [`../llm-details.md` §6](../llm-details.md#6-evaluated-and-rejected).
 
 † gemma-4-E2B init is 0.25 s because its XNNPACK weight caches already exist next
 to the bundle; first-ever load is much slower.

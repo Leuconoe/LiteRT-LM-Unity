@@ -39,7 +39,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
 $BenchDir = Join-Path $PSScriptRoot "TtsBench"
 $VenvPython = Join-Path $BenchDir ".venv-convert\Scripts\python.exe"
 
@@ -114,7 +114,7 @@ if ($Run) {
         $r.vector_estimator_s, $r.vector_estimator_per_step_s, $r.vocoder_s | Write-Host
 
     if ($RoundTrip) {
-        $asr = (& (Join-Path $PSScriptRoot "Run-WhisperTfliteWindows.ps1") `
+        $asr = (& (Join-Path $PSScriptRoot "..\Whisper\Run-WhisperTfliteWindows.ps1") `
             -Model (Join-Path $ProjectRoot "Assets\StreamingAssets\ASR\whisper-turbo-acft-ko\acft_turbo_5s_drq.tflite") `
             -Audio $wav -Lang $Lang) *>&1 | Out-String
         $heard = ""

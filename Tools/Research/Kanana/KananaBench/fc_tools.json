@@ -1,0 +1,15 @@
+[
+  {"type":"function","function":{"name":"IncreaseBrightness","description":"디스플레이/화면 밝기를 더욱 밝게 합니다.","parameters":{"type":"object","properties":{},"required":[]}}},
+  {"type":"function","function":{"name":"DecreaseBrightness","description":"디스플레이의 화면 밝기를 더욱 어둡게 합니다.","parameters":{"type":"object","properties":{},"required":[]}}},
+  {"type":"function","function":{"name":"DecreaseVolume","description":"시스템의 음량을 더욱 작게 합니다.","parameters":{"type":"object","properties":{},"required":[]}}},
+  {"type":"function","function":{"name":"IncreaseVolume","description":"시스템의 음량을 더욱 크게 합니다.","parameters":{"type":"object","properties":{},"required":[]}}},
+  {"type":"function","function":{"name":"ShowMultimodalDataList","description":"멀티모달 데이터 목록을 화면에 표시합니다.","parameters":{"type":"object","properties":{},"required":[]}}},
+  {"type":"function","function":{"name":"VisualizeSchedulingResults","description":"타격 스케쥴링 결과를 화면에 가시화합니다.","parameters":{"type":"object","properties":{},"required":[]}}},
+  {"type":"function","function":{"name":"VisualizeRecentSituationAwarenessResults","description":"최근 상황인지 결과를 화면에 가시화합니다.","parameters":{"type":"object","properties":{},"required":[]}}},
+  {"type":"function","function":{"name":"SortSituationMap","description":"상황도를 정렬합니다.","parameters":{"type":"object","properties":{},"required":[]}}},
+  {"type":"function","function":{"name":"HideMultimodalData","description":"멀티모달 데이터를 화면에서 끕니다.","parameters":{"type":"object","properties":{},"required":[]}}},
+  {"type":"function","function":{"name":"ViewSituationAwarenessResults","description":"특정 시간 범위의 상황인지 결과를 열람합니다.","parameters":{"type":"object","properties":{"startTime":{"type":"string","description":"시작 시간, YYYY-MM-DD HH:MM:SS"},"endTime":{"type":"string","description":"종료 시간, YYYY-MM-DD HH:MM:SS"}},"required":["startTime","endTime"]}}},
+  {"type":"function","function":{"name":"ViewThreatAssessmentResults","description":"특정 시간 범위의 위협평가 결과를 열람합니다.","parameters":{"type":"object","properties":{"startTime":{"type":"string","description":"시작 시간, YYYY-MM-DD HH:MM:SS"},"endTime":{"type":"string","description":"종료 시간, YYYY-MM-DD HH:MM:SS"}},"required":["startTime","endTime"]}}},
+  {"type":"function","function":{"name":"ViewSchedulingResults","description":"특정 시간 범위의 스케쥴링 결과를 열람합니다.","parameters":{"type":"object","properties":{"startTime":{"type":"string","description":"시작 시간, YYYY-MM-DD HH:MM:SS"},"endTime":{"type":"string","description":"종료 시간, YYYY-MM-DD HH:MM:SS"}},"required":["startTime","endTime"]}}},
+  {"type":"function","function":{"name":"DefaultResponse","description":"input과 일치하는 description이 없다면 이 함수를 사용합니다.","parameters":{"type":"object","properties":{},"required":[]}}}
+]

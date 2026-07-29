@@ -36,7 +36,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
 $RunnerDir = Join-Path $PSScriptRoot "WhisperTflite"
 $Runner = Join-Path $RunnerDir "whisper_tflite_runner.py"
 $Requirements = Join-Path $RunnerDir "requirements.txt"

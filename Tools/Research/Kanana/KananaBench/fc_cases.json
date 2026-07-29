@@ -1,0 +1,26 @@
+{
+  "referenceNow": "2026-04-24 10:30:00",
+  "note": "Ported verbatim from Samples~/AutomatedTests/Runtime/Benchmark/LiteRtLmFunctionCallingBenchmarkRunner.cs (Cases[]). Keep the two in sync.",
+  "cases": [
+    { "id": "B01", "user": "화면을 조금 더 밝게 해줘.", "expectedTool": "IncreaseBrightness" },
+    { "id": "B02", "user": "디스플레이가 눈부셔. 밝기를 낮춰.", "expectedTool": "DecreaseBrightness" },
+    { "id": "B03", "user": "소리가 너무 커. 볼륨을 줄여줘.", "expectedTool": "DecreaseVolume" },
+    { "id": "B04", "user": "회의실에서 잘 안 들려. 음량을 올려.", "expectedTool": "IncreaseVolume" },
+    { "id": "B05", "user": "멀티모달 데이터 목록을 화면에 띄워줘.", "expectedTool": "ShowMultimodalDataList" },
+    { "id": "B06", "user": "타격 스케줄링 결과를 시각화해.", "expectedTool": "VisualizeSchedulingResults" },
+    { "id": "B07", "user": "최근 상황인지 결과를 가시화해줘.", "expectedTool": "VisualizeRecentSituationAwarenessResults" },
+    { "id": "B08", "user": "상황도를 보기 좋게 정렬해.", "expectedTool": "SortSituationMap" },
+    { "id": "B09", "user": "지금 표시 중인 멀티모달 데이터는 꺼줘.", "expectedTool": "HideMultimodalData" },
+    { "id": "B10", "user": "오늘 상황인지 결과를 열람해줘.", "expectedTool": "ViewSituationAwarenessResults", "expectedStartTime": "2026-04-24 00:00:00", "expectedEndTime": "2026-04-24 23:59:59" },
+    { "id": "B11", "user": "어제 위협평가 결과 조회.", "expectedTool": "ViewThreatAssessmentResults", "expectedStartTime": "2026-04-23 00:00:00", "expectedEndTime": "2026-04-23 23:59:59" },
+    { "id": "B12", "user": "2025년 3월 스케줄링 결과를 보여줘.", "expectedTool": "ViewSchedulingResults", "expectedStartTime": "2025-03-01 00:00:00", "expectedEndTime": "2025-03-31 23:59:59" },
+    { "id": "B13", "user": "2026-04-20 상황인지 결과가 필요해.", "expectedTool": "ViewSituationAwarenessResults", "expectedStartTime": "2026-04-20 00:00:00", "expectedEndTime": "2026-04-20 23:59:59" },
+    { "id": "B14", "user": "오늘 타격 스케쥴링 결과를 열람해줘.", "expectedTool": "ViewSchedulingResults", "expectedStartTime": "2026-04-24 00:00:00", "expectedEndTime": "2026-04-24 23:59:59" },
+    { "id": "B15", "user": "밝기 말고 볼륨을 크게 해줘.", "expectedTool": "IncreaseVolume" },
+    { "id": "B16", "user": "화면이 너무 어두워서 작전 지도가 안 보여.", "expectedTool": "IncreaseBrightness" },
+    { "id": "B17", "user": "내일 날씨는 어때?", "expectedTool": "DefaultResponse" },
+    { "id": "B18", "user": "드론 배터리 상태를 알려줘.", "expectedTool": "DefaultResponse" },
+    { "id": "B19", "user": "지난달 위협평가 결과를 열람해줘.", "expectedTool": "ViewThreatAssessmentResults", "expectedStartTime": "2026-03-01 00:00:00", "expectedEndTime": "2026-03-31 23:59:59" },
+    { "id": "B20", "user": "4월 24일 상황인지 결과 조회해.", "expectedTool": "ViewSituationAwarenessResults", "expectedStartTime": "2026-04-24 00:00:00", "expectedEndTime": "2026-04-24 23:59:59" }
+  ]
+}

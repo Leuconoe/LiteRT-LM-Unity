@@ -29,7 +29,7 @@ namespace LiteRTLM.Unity
     ///     and the latent never leaves native memory.
     ///
     /// Layout expected under StreamingAssets (staged by
-    /// Tools/Windows/Deploy-SupertonicLiteRt.ps1):
+    /// Tools/Research/Supertonic/Deploy-SupertonicLiteRt.ps1):
     /// <code>
     /// TTS/supertonic-litert/
     ///   dynamic/{duration_predictor,text_encoder}/*.tflite

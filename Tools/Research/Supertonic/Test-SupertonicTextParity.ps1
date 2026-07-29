@@ -24,7 +24,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
 $BenchDir = Join-Path $PSScriptRoot "TtsBench"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 

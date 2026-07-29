@@ -38,7 +38,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
 $Runner = Join-Path $PSScriptRoot "TtsBench\supertonic_tts.py"
 if (!(Test-Path $Runner)) { throw "Runner not found: $Runner" }
 
@@ -57,7 +57,7 @@ function Test-PythonDeps([string]$exe) {
 $candidates = @()
 if ($Python) { $candidates += $Python }
 if ($env:LITERTLM_PYTHON) { $candidates += $env:LITERTLM_PYTHON }
-$candidates += (Join-Path $PSScriptRoot "WhisperTflite\.venv\Scripts\python.exe")
+$candidates += (Join-Path $PSScriptRoot "..\Whisper\WhisperTflite\.venv\Scripts\python.exe")
 $candidates += (Join-Path $ProjectRoot "External\acft-training\.venv\Scripts\python.exe")
 $py = $candidates | Where-Object { Test-PythonDeps $_ } | Select-Object -First 1
 if (!$py) {
@@ -122,7 +122,7 @@ foreach ($line in $lines) {
         # The ASR wrapper reports through Write-Host, so merge every stream before
         # parsing — piping stdout alone yields nothing.
         $asrModelPath = if ([IO.Path]::IsPathRooted($AsrModel)) { $AsrModel } else { Join-Path $ProjectRoot $AsrModel }
-        $asr = (& (Join-Path $PSScriptRoot "Run-WhisperTfliteWindows.ps1") `
+        $asr = (& (Join-Path $PSScriptRoot "..\Whisper\Run-WhisperTfliteWindows.ps1") `
             -Model $asrModelPath -Audio $wav -Lang $Lang) *>&1 | Out-String
         $heard = ""
         foreach ($asrLine in ($asr -split "`r?`n")) {

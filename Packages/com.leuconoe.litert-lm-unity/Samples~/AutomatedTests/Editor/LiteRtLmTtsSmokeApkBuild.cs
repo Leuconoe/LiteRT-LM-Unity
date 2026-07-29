@@ -66,7 +66,7 @@ namespace LiteRTLM.Unity.Editor
             {
                 throw new DirectoryNotFoundException(
                     $"TTS model set not found: {ttsRootAbsolute}. " +
-                    "Run Tools/Windows/Deploy-SupertonicLiteRt.ps1 first.");
+                    "Run Tools/Research/Supertonic/Deploy-SupertonicLiteRt.ps1 first.");
             }
 
             // A folder entry is enough: the selection helper keeps whole

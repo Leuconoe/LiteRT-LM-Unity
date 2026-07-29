@@ -81,8 +81,8 @@ exports and four clips, on CPU through `ai_edge_litert`. Full results, timings
 and caveats: [Whisper tflite on Windows](../benchmarks/whisper-windows-tflite.md).
 
 The driver no longer lives in untracked scratch. It is
-`Tools/Windows/WhisperTflite/whisper_tflite_runner.py`, driven by
-`Tools/Windows/Run-WhisperTfliteWindows.ps1` (`-Sweep` reproduces the table,
+`Tools/Research/Whisper/WhisperTflite/whisper_tflite_runner.py`, driven by
+`Tools/Research/Whisper/Run-WhisperTfliteWindows.ps1` (`-Sweep` reproduces the table,
 `-Bootstrap` builds its own venv). The old `External/acft-work/bench_acft.py`
 was the only copy and is not in git.
 

@@ -38,7 +38,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 if (!$WorkRoot) { $WorkRoot = Join-Path $ProjectRoot "External\tts-work" }
@@ -113,7 +113,7 @@ if ($Verify) {
         if (!$line) { Write-Host "FAILED  $sentence" -ForegroundColor Red; continue }
         $r = $line | ConvertFrom-Json
 
-        $asr = (& (Join-Path $PSScriptRoot "Run-WhisperTfliteWindows.ps1") `
+        $asr = (& (Join-Path $PSScriptRoot "..\Whisper\Run-WhisperTfliteWindows.ps1") `
             -Model (Join-Path $ProjectRoot "Assets\StreamingAssets\ASR\whisper-base\whisper_base_30s_i8.tflite") `
             -Audio $wav -Lang ko) *>&1 | Out-String
         $heard = ""

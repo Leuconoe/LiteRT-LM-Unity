@@ -28,7 +28,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
 $BenchDir = Join-Path $PSScriptRoot "TtsBench"
 $VenvPython = Join-Path $BenchDir ".venv-convert\Scripts\python.exe"
 if (!(Test-Path $VenvPython)) { throw "Conversion venv missing; run Convert-SupertonicToLiteRt.ps1 -Bootstrap." }
@@ -61,7 +61,7 @@ foreach ($step in $Steps) {
     Add-Content -Path $jsonl -Value $line -Encoding utf8
     $r = $line | ConvertFrom-Json
 
-    $asr = (& (Join-Path $PSScriptRoot "Run-WhisperTfliteWindows.ps1") `
+    $asr = (& (Join-Path $PSScriptRoot "..\Whisper\Run-WhisperTfliteWindows.ps1") `
         -Model (Join-Path $ProjectRoot $AsrModel) -Audio $wav -Lang $Lang) *>&1 | Out-String
     $heard = ""
     foreach ($asrLine in ($asr -split "`r?`n")) {

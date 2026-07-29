@@ -32,7 +32,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 $logDirectory = Join-Path $ProjectRoot "Builds\Logs\AndroidTtsSmoke"
@@ -47,7 +47,7 @@ foreach ($backend in $Backends) {
     # -ClearAppData only on the first run: re-staging 200 MB out of the APK each
     # time would dominate the measurement.
     $clear = ($backend -eq $Backends[0])
-    $output = & (Join-Path $PSScriptRoot "Run-LiteRtLmAndroidTtsSmokeTest.ps1") `
+    $output = & (Join-Path $PSScriptRoot "..\..\Windows\Run-LiteRtLmAndroidTtsSmokeTest.ps1") `
         -DeviceSerial $DeviceSerial -ApkPath $ApkPath -Backend $backend `
         -Steps $Steps -RunsPerSentence $RunsPerSentence `
         -TimeoutSeconds $TimeoutSeconds -SkipTranscribe:$true `

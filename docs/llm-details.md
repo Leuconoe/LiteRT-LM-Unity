@@ -5,6 +5,49 @@ LLM setup and benchmark records for the Unity LiteRT-LM bridge.
 kona / 7.5 GiB RAM, device `46a880a0`); Windows numbers are development aids
 only. The README keeps a summary; the evidence is here.
 
+## Model inventory — everything measured, with its source
+
+The sections below quote whichever models are relevant to a decision. This table
+is the complete list, so that "did we ever try X?" has an answer that does not
+depend on reading all of them.
+
+**Ran on LiteRT** — `.litertlm` bundles, measured on device or on the Windows CLI.
+FC is the 20-case Korean routing score ([§4](#4-function-calling-tiers)); decode
+is Android CPU unless noted.
+
+| Model | Build measured | Size | FC | Decode | Verdict | Source |
+| --- | --- | ---: | ---: | ---: | --- | --- |
+| Qwen2.5-0.5B-Instruct | project `wi4b64_ekv1280` | 265 MB | 2/20 | 35.5 | **resident** — fastest chat, not a router | [project i4](https://huggingface.co/leuconoe/litert-lm-unity-quantized) · [upstream](https://huggingface.co/litert-community/Qwen2.5-0.5B-Instruct) |
+| Qwen2.5-0.5B-Instruct | official `q8` | 521 MB | — | 25.7 | superseded by the i4 build; **fails engine creation on GPU** | [litert-community](https://huggingface.co/litert-community/Qwen2.5-0.5B-Instruct) |
+| Qwen2.5-1.5B-Instruct | official `q8_ekv4096` | 1.5 GB | — | 8.5 | not deployed — the size does not pay off | [litert-community](https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct) |
+| Qwen2.5-1.5B-Instruct | project `wi4b64` prototype | 790 MB | 8/20 | 18.2† | not deployed | [project i4](https://huggingface.co/leuconoe/litert-lm-unity-quantized) |
+| Qwen3-0.6B | stock | 586 MB | **20/20** | 6.1 | best accuracy on the set, but 22.5 s per command | [litert-community](https://huggingface.co/litert-community/Qwen3-0.6B) |
+| Qwen3-0.6B | project `mixed_int4` | 475 MB | **18/20** | 20.9 | **resident — small-tier FC pick** | [litert-community](https://huggingface.co/litert-community/Qwen3-0.6B) |
+| Gemma3-270M-IT | official `q8` | 290 MB | — | 27.7 | not deployed — answers missed our smoke bar. Cannot be i4'd (no f32 source) | [litert-community](https://huggingface.co/litert-community/gemma-3-270m-it) |
+| Gemma3-1B-IT | official `int4` | 557 MB | 3/20 | 16.0 | chat fallback only — **not a router** | [litert-community](https://huggingface.co/litert-community/Gemma3-1B-IT) |
+| FunctionGemma-270M | `ft-mobile-actions` | 276 MB | 6/7‡ | 38.2† | comparison point — built around fine-tuning, so excluded from selection | [litert-community](https://huggingface.co/litert-community/functiongemma-270m-ft-mobile-actions) |
+| LFM2.5-1.2B-Instruct | `int4` | 702 MB | **17/20** | 16.8 | **mid-tier FC pick**. Requires the v0.14 runtime | [LiquidAI](https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct) |
+| gemma-4-E2B-it | official QAT `wNa8o8` | 2.6 GB | **19/20** | 5.2 | **on-demand flagship** — chat, image, audio and FC in one model | [litert-community](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm) |
+
+† Windows CLI decode — this model was never deployed to the device.
+‡ Scored on the separate 7-case English mobile-actions set, not the Korean 20.
+
+**Screened and rejected** — none of these reached a device measurement, and the
+reason is recorded so nobody re-runs the search.
+
+| Model | Why not | Source |
+| --- | --- | --- |
+| Kanana-2-1.3B-Instruct | **No LiteRT path** (custom `kanana2_tiny` architecture) and the licence requires a separate Kakao agreement for on-premise delivery. Scored 17/20 on desktop — see [§6](#6-evaluated-and-rejected) | [kakaocorp](https://huggingface.co/kakaocorp/kanana-2-1.3b-instruct) |
+| Qwen3.5-0.8B-MTP | MTP is a llama.cpp feature; litert-torch does not support the architecture, and the community port produced incoherent output on v0.14 | [Qwen](https://huggingface.co/Qwen/Qwen3.5-0.8B) |
+| Bonsai-1.7B (ternary) | The 1-bit size advantage does not survive LiteRT's int4/8 requantization, so the format's whole benefit is lost | [prism-ml](https://huggingface.co/prism-ml/Ternary-Bonsai-1.7B-gguf) |
+| Hammer2.1-0.5b | **CC-BY-NC** — non-commercial, unusable in a delivered product | [MadeAgents](https://huggingface.co/MadeAgents/Hammer2.1-0.5b) |
+| VibeVoice-ASR | 8.7 B — outside the on-device size budget | [microsoft](https://huggingface.co/microsoft/VibeVoice-ASR-BitNet) |
+| gemma-4-E2B GGUF | ~16× faster decode on desktop CUDA, but **no Android path**. Desktop experimentation only — [comparison](benchmarks/gemma4-gguf-vs-litertlm.md) | [unsloth](https://huggingface.co/unsloth/gemma-4-E2B-it-qat-mobile-GGUF) |
+
+ASR and TTS models are inventoried separately in
+[`asr-details.md`](asr-details.md) and
+[`tts-model-research.md`](tts-model-research.md).
+
 ## 1. Recommended combinations by device RAM
 
 `Mobile` verdicts: **resident** = fine to keep loaded at all times ·
@@ -142,7 +185,58 @@ memory-bandwidth-bound, so smaller weights translate directly into throughput
 (q8 → i4 gives half the size and +38 % decode). int2, Q5 and 1.58-bit are
 impossible — LiteRT has no kernels for them.
 
-## 6. Evaluated and rejected (2026-07-23)
+## 6. Evaluated and rejected
+
+### Kanana-2-1.3B-Instruct (2026-07-29) — good model, two hard blockers
+
+Kakao's Korean SLM, released 2026-07-27. Measured because its published Korean
+scores are strong for the size: HAE-RAE 75.34 against Qwen3-1.7B-Base's 55.54,
+KoMT-Bench 6.54 against 5.29, BFCL-v3 Live 69.64 against 65.48.
+
+**It scores 17/20 on our routing set** — level with LFM2.5-1.2B, one below the
+Qwen3-0.6B int4 we ship. Reproduce with
+`.\Tools\Research\Kanana\Run-KananaEval.ps1`; raw records in
+`Builds/Logs/kanana-2-1.3b-instruct-fc-bench.jsonl`.
+
+| | |
+| --- | --- |
+| Parameters | 1,291,478,272 (bf16, 2.58 GB; an fp32 copy also ships) |
+| Architecture | `Kanana2TinyForCausalLM` — 32 layers, 32 heads, 8 KV heads, **3:1 hybrid sliding-window / full attention**, per-layer-type RoPE (YaRN on full-attention layers only) |
+| Context | 32,768 |
+| Tool format | qwen3-coder style (`<tool_call><function=Name><parameter=…>`) |
+| Measured on | RTX 4090, bf16, greedy, `transformers` 5.14.1 |
+
+The three failures are worth reading, because two of them are the same bug:
+
+| Case | Asked | Answered |
+| --- | --- | --- |
+| B11 | 어제 (from 2026-04-24) | `2025-04-23` — right day, **wrong year** |
+| B19 | 지난달 | `2025-03-01` — right month, **wrong year** |
+| B17 | 내일 날씨는 어때? | Prose refusal instead of the `DefaultResponse` tool |
+
+Relative *past* dates slip a year while absolute and same-day ones are correct
+(B10, B12, B13, B14, B20 all pass), so this is date arithmetic, not tool
+selection. A Korean chat check also mistranslated 백 as "one thousand", which is
+a numeral error in the direction that matters for a command UI.
+
+**Blocker 1 — no LiteRT path.** The architecture is custom and shipped as remote
+code (`trust_remote_code`). litert-torch converts a fixed set of architectures,
+and a 3:1 hybrid SWA layout with two different RoPE configurations per layer type
+is not one of them; supporting it means authoring the model in ai-edge-torch, not
+running a converter. Nothing measured above runs on the device today.
+
+**Blocker 2 — licence.** Weights are under the
+[Kanana Open License Agreement](https://huggingface.co/kakaocorp/kanana-2-1.3b-instruct/blob/main/LICENSE),
+not a permissive licence. §4.1(ii) requires a **separate commercial licence from
+Kakao**, at Kakao's sole discretion, to offer the model to third parties "as part
+of a system integration (SI) or on-premise deployment solution" — which is
+exactly this product's shape. §4.1(i) covers API/cloud resale. Evaluation is
+unaffected; delivery is a negotiation.
+
+Neither blocker is worth clearing for 17/20 when Qwen3-0.6B int4 already gives
+18/20 at 475 MB, on device, under Apache-2.0.
+
+### Earlier screening (2026-07-23)
 
 - **Qwen3.5-0.8B-MTP** — not feasible here. MTP is a llama.cpp feature,
   litert-torch does not support the architecture, and the community litertlm

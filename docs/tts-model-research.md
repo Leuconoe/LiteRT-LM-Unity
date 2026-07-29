@@ -320,8 +320,8 @@ exposure, and use it as the fallback when the neural engine is unavailable.
 The model runs, speaks Korean, and is fast. Measured, not claimed:
 
 - Package: `Assets/StreamingAssets/TTS/supertonic-int8/` (92 MB, gitignored like
-  every other model here), driven by `Tools/Windows/Run-SupertonicTts.ps1` +
-  `Tools/Windows/TtsBench/supertonic_tts.py` (sherpa-onnx 1.13.4, CPU, 4 threads).
+  every other model here), driven by `Tools/Research/Supertonic/Run-SupertonicTts.ps1` +
+  `Tools/Research/Supertonic/TtsBench/supertonic_tts.py` (sherpa-onnx 1.13.4, CPU, 4 threads).
 - **RTF 0.034–0.044 — 23–29× real-time** on the 7950X, 44.1 kHz output, across
   five Korean lines of 2.5–4.7 s. Synthesis of a 4.65 s utterance takes 174 ms.
 - Quality judged by round-trip ASR rather than by ear, using the accuracy-best
@@ -364,17 +364,17 @@ vocoder(latent)                                                  -> wav
 ```
 
 (Pipeline taken from the MIT reference `py/helper.py`, vendored as
-`Tools/Windows/TtsBench/supertonic_helper.py`; `vector_estimator` is the one that
+`Tools/Research/Supertonic/TtsBench/supertonic_helper.py`; `vector_estimator` is the one that
 runs per flow-matching step and therefore dominates both size and time.)
 
 Tooling, all in the repo:
 
 | File | Role |
 | --- | --- |
-| `Tools/Windows/Convert-SupertonicToLiteRt.ps1` | one entry point: `-Bootstrap`, `-Describe`, `-Convert`, `-Run -RoundTrip` |
-| `Tools/Windows/TtsBench/convert_supertonic_to_tflite.py` | onnx2tf per graph, output-checked against onnxruntime (`-cotof`), writes a conversion report |
-| `Tools/Windows/TtsBench/quantize_supertonic_tflite.py` | ai-edge-quantizer with this project's recipes (`dynamic_wi8_afp32`, `dynamic_wi4b64_afp32`; never wi4c), per-graph tiers |
-| `Tools/Windows/TtsBench/supertonic_litert.py` | the pipeline on LiteRT, binding inputs by name then by shape, resizing per utterance, reporting per-stage timings |
+| `Tools/Research/Supertonic/Convert-SupertonicToLiteRt.ps1` | one entry point: `-Bootstrap`, `-Describe`, `-Convert`, `-Run -RoundTrip` |
+| `Tools/Research/Supertonic/TtsBench/convert_supertonic_to_tflite.py` | onnx2tf per graph, output-checked against onnxruntime (`-cotof`), writes a conversion report |
+| `Tools/Research/Supertonic/TtsBench/quantize_supertonic_tflite.py` | ai-edge-quantizer with this project's recipes (`dynamic_wi8_afp32`, `dynamic_wi4b64_afp32`; never wi4c), per-graph tiers |
+| `Tools/Research/Supertonic/TtsBench/supertonic_litert.py` | the pipeline on LiteRT, binding inputs by name then by shape, resizing per utterance, reporting per-stage timings |
 
 Conversion venv is separate (`TtsBench/.venv-convert`, Python 3.12) because
 TensorFlow and onnx2tf are heavy and must not disturb the ASR bench venv.
@@ -528,7 +528,7 @@ too, and the Conv/BatchMatMul kernels require fp32/int8 inputs
 
 #### Deployed
 
-`Tools/Windows/Deploy-SupertonicLiteRt.ps1` stages the ladder into
+`Tools/Research/Supertonic/Deploy-SupertonicLiteRt.ps1` stages the ladder into
 `Assets/StreamingAssets/TTS/supertonic-litert/` — **201.7 MB total**:
 
 | Part | Size |
@@ -885,7 +885,7 @@ what changes the duration.
 
 Rather than guess at the next candidate, the JNI now reports the **md5 of each
 tensor as actually fed** (reusing the Md5 helpers already in that file), and
-`Tools/Windows/TtsBench/dump_supertonic_input_md5.py` prints the desktop
+`Tools/Research/Supertonic/TtsBench/dump_supertonic_input_md5.py` prints the desktop
 equivalents in the same dtype and byte order:
 
 ```
@@ -980,7 +980,7 @@ change can be compared against it rather than re-derived.
 
 #### GPU / OpenCL: measured, and it does not work
 
-`Tools/Windows/Compare-SupertonicDeviceBackends.ps1` runs the device smoke test
+`Tools/Research/Supertonic/Compare-SupertonicDeviceBackends.ps1` runs the device smoke test
 once per backend and tabulates the result. `backend` selects the accelerator for
 the **bucketed graphs only** — `duration_predictor` and `text_encoder` are resized
 per utterance and a GPU delegate can no more re-prepare after a resize than

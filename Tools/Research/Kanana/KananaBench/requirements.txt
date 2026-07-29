@@ -1,0 +1,10 @@
+# Install torch first, from the CUDA index — the PyPI wheel is CPU-only:
+#   pip install --index-url https://download.pytorch.org/whl/cu128 torch
+# Run-KananaEval.ps1 -Bootstrap does this for you.
+#
+# transformers >= 4.57 is a hard floor: Kanana-2 ships its modeling code as
+# remote code (`Kanana2TinyForCausalLM`) and older versions cannot load it.
+transformers>=4.57
+accelerate>=1.0
+safetensors>=0.4
+huggingface_hub[hf_xet]>=0.30

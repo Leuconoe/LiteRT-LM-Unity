@@ -11,7 +11,7 @@ merely does not crash proves nothing about the audio, and nobody can judge Korea
 synthesis by reading a log.
 
 Models come from the APK's StreamingAssets (staged by
-Deploy-SupertonicLiteRt.ps1), so unlike the ASR smoke test there is nothing to
+Tools/Research/Supertonic/Deploy-SupertonicLiteRt.ps1), so unlike the ASR smoke test there is nothing to
 push except the config — 202 MB over adb per run would be wasteful.
 
 .EXAMPLE
@@ -176,7 +176,7 @@ if ($wavs.Count -gt 0 -and -not $SkipTranscribe) {
     Write-Host ""
     Write-Host "=== round-trip transcription (desktop ASR) ==="
     foreach ($wav in $wavs) {
-        $asr = (& (Join-Path $PSScriptRoot "Run-WhisperTfliteWindows.ps1") `
+        $asr = (& (Join-Path $PSScriptRoot "..\Research\Whisper\Run-WhisperTfliteWindows.ps1") `
             -Model (Join-Path $ProjectRoot $AsrModel) -Audio $wav.FullName -Lang $Language) *>&1 | Out-String
         $heard = ""
         foreach ($asrLine in ($asr -split "`r?`n")) {

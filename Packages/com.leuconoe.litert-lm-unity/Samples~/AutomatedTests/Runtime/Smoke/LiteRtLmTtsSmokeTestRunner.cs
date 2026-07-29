@@ -21,7 +21,7 @@ namespace LiteRTLM.Unity
     /// <c>LiteRtLmTtsSmokeTest.config.json</c> into the app's persistent data
     /// directory, so a sweep does not need a rebuild.
     ///
-    /// Model layout comes from Tools/Windows/Deploy-SupertonicLiteRt.ps1.
+    /// Model layout comes from Tools/Research/Supertonic/Deploy-SupertonicLiteRt.ps1.
     /// StreamingAssets inside an APK is not a real directory, so every file the
     /// native side has to open is copied out first — the same approach the ASR
     /// smoke runner takes.
@@ -236,7 +236,7 @@ namespace LiteRTLM.Unity
                         $"wav={wavPath}, bytes={bytes}");
 
                     // Checksums of the tensors the native side actually fed, to be
-                    // compared against Tools/Windows/TtsBench/dump_supertonic_input_md5.py.
+                    // compared against Tools/Research/Supertonic/TtsBench/dump_supertonic_input_md5.py.
                     // A transposed tensor passes every size check, so this is the
                     // only cheap way to localize a layout mistake.
                     if (run == 1)

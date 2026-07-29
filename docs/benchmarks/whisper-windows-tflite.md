@@ -13,9 +13,9 @@ driver is now in the repository and the sweep is one command.
 ## Reproduce
 
 ```powershell
-.\Tools\Windows\Run-WhisperTfliteWindows.ps1 -Sweep          # the table below
-.\Tools\Windows\Run-WhisperTfliteWindows.ps1 -Sweep -All     # + stock medium / large-v3
-.\Tools\Windows\Run-WhisperTfliteWindows.ps1 `
+.\Tools\Research\Whisper\Run-WhisperTfliteWindows.ps1 -Sweep          # the table below
+.\Tools\Research\Whisper\Run-WhisperTfliteWindows.ps1 -Sweep -All     # + stock medium / large-v3
+.\Tools\Research\Whisper\Run-WhisperTfliteWindows.ps1 `
     -Model "Assets\StreamingAssets\ASR\whisper-turbo-acft-ko\acft_turbo_5s_drq.tflite" `
     -Audio "Assets\StreamingAssets\TestAssets\Audio\volume-볼륨 업.mp3"
 ```
@@ -24,9 +24,9 @@ Results land in `Builds/Logs/whisper-windows-tflite-sweep.jsonl`, one JSON
 object per run.
 
 The wrapper finds a Python with the four required packages; if none exists,
-`-Bootstrap` creates `Tools/Windows/WhisperTflite/.venv` (gitignored) from
+`-Bootstrap` creates `Tools/Research/Whisper/WhisperTflite/.venv` (gitignored) from
 `requirements.txt`. The driver itself is
-`Tools/Windows/WhisperTflite/whisper_tflite_runner.py`: 16 kHz mono → slaney
+`Tools/Research/Whisper/WhisperTflite/whisper_tflite_runner.py`: 16 kHz mono → slaney
 log-mel → `encode` → greedy decode with a forced
 `[SOT, lang, transcribe, notimestamps]` prefix. `n_mels`, the mel-frame window
 and the vocabulary size are read from the signatures, so 80-mel and 128-mel,
