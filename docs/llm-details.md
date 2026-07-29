@@ -33,7 +33,8 @@ is Android CPU unless noted.
 ‡ Scored on the separate 7-case English mobile-actions set, not the Korean 20.
 
 **Screened and rejected** — none of these reached a device measurement, and the
-reason is recorded so nobody re-runs the search.
+reason is recorded so nobody re-runs the search. This is the index;
+[§6](#6-evaluated-and-rejected) carries the reasoning.
 
 | Model | Why not | Source |
 | --- | --- | --- |
@@ -41,12 +42,49 @@ reason is recorded so nobody re-runs the search.
 | Qwen3.5-0.8B-MTP | MTP is a llama.cpp feature; litert-torch does not support the architecture, and the community port produced incoherent output on v0.14 | [Qwen](https://huggingface.co/Qwen/Qwen3.5-0.8B) |
 | Bonsai-1.7B (ternary) | The 1-bit size advantage does not survive LiteRT's int4/8 requantization, so the format's whole benefit is lost | [prism-ml](https://huggingface.co/prism-ml/Ternary-Bonsai-1.7B-gguf) |
 | Hammer2.1-0.5b | **CC-BY-NC** — non-commercial, unusable in a delivered product | [MadeAgents](https://huggingface.co/MadeAgents/Hammer2.1-0.5b) |
-| VibeVoice-ASR | 8.7 B — outside the on-device size budget | [microsoft](https://huggingface.co/microsoft/VibeVoice-ASR-BitNet) |
 | gemma-4-E2B GGUF | ~16× faster decode on desktop CUDA, but **no Android path**. Desktop experimentation only — [comparison](benchmarks/gemma4-gguf-vs-litertlm.md) | [unsloth](https://huggingface.co/unsloth/gemma-4-E2B-it-qat-mobile-GGUF) |
 
 ASR and TTS models are inventoried separately in
 [`asr-details.md`](asr-details.md) and
-[`tts-model-research.md`](tts-model-research.md).
+[`tts-model-research.md`](tts-model-research.md). **Nothing that is an ASR or TTS
+model belongs in this table** — that separation was violated once (VibeVoice-ASR
+was screened here and listed as an LLM) and the entry has been moved to
+[`asr-details.md`](asr-details.md#screened-and-rejected).
+
+### Korean LLMs — measured elsewhere, on llama.cpp
+
+Supplied by the project owner on 2026-07-29 from a **separate evaluation outside
+this repository**. Not reproducible with the tooling here and not comparable to
+anything above: different runtime (GGUF `Q4_K_M` on llama.cpp, not `.litertlm` on
+LiteRT-LM), different hardware, and a different task from our 20-case routing
+set. Recorded because the ranking is useful and the search should not be redone.
+
+| Model | Pass | Latency ¹ | Latency ² | Memory | Verdict as supplied |
+| --- | ---: | ---: | ---: | ---: | --- |
+| EXAONE 3.5 2.4B Instruct | 100.0% | 81.9 ms | 163.3 ms | 2166 MB | **first choice among Korean models** |
+| A.X 4.0 Light | 100.0% | 134.4 ms | 405.1 ms | 4298 MB | pass |
+| EXAONE 3.5 7.8B Instruct | 100.0% | 208.0 ms | 438.7 ms | 4771 MB | pass |
+| SOLAR 10.7B Instruct | 91.7% | 364.1 ms | 757.0 ms | 6408 MB | pass, heavy |
+| HyperCLOVAX SEED Text Instruct 1.5B | 83.3% | 42.3 ms | 55.8 ms | 1280 MB | below bar |
+| HyperCLOVAX SEED Text Instruct 0.5B | 30.6% | 107.9 ms | 204.8 ms | 669 MB | below bar |
+| Mi:dm 2.0 Mini Instruct | 8.3% | 22.1 ms | 44.0 ms | 1822 MB | below bar |
+
+¹ ² The two latency columns were supplied without definitions — do not assume
+they are time-to-first-token and total, and do not quote them as such until the
+source clarifies.
+
+**What this means for the device, which is the criterion here:** nothing
+directly. Every row is GGUF, and GGUF has **no Android path** — the same reason
+gemma-4-E2B GGUF sits in the rejected table above. None of these architectures
+has a `.litertlm` conversion route today, so adopting one means the same
+ai-edge-torch authoring project that Kanana would need. The smallest passing
+model, EXAONE 3.5 2.4B at 2166 MB, is also close to gemma-4-E2B's 2.6 GB
+on-demand tier while doing less — no image, no audio, no 19/20 routing.
+
+Where they would matter: the **PC-side** secondary goal, where GGUF is a
+perfectly good runtime and 2–6 GB is unremarkable. If a Korean-language desktop
+assistant becomes a requirement of its own, EXAONE 3.5 2.4B is the row to start
+from.
 
 ## 1. Recommended combinations by device RAM
 
@@ -244,7 +282,6 @@ Neither blocker is worth clearing for 17/20 when Qwen3-0.6B int4 already gives
 - **Bonsai-1.7B** — not adopted. Its 1-bit size advantage does not survive the
   int4/8 requantization that LiteRT conversion applies, so the benefit that
   motivates the format is lost on this runtime
-- **VibeVoice-ASR** — 8.7B, outside the on-device size budget for this project
 - **GGUF / llama.cpp** — Windows CUDA decode ~243 tok/s (~16× litertlm CPU) but
   **no Android path**. llama.cpp is the desktop experimentation stack; litertlm
   is the product runtime.

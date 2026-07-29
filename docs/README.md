@@ -34,7 +34,7 @@ numbers are reference only.
 - [Device PDCA ledger](benchmarks/device-cycle1-baseline.md) — cycles 1–6 in full
 - [Short-utterance ASR research](benchmarks/short-utterance-asr-research.md)
 - [Whisper tflite on Windows](benchmarks/whisper-windows-tflite.md) — desktop
-  runs, and why the 128-mel device failure is a JNI bug
+  runs, 20/20, and the tier boundary on short clips reproducing off-device
 - [gemma-4 GGUF comparison](benchmarks/gemma4-gguf-vs-litertlm.md)
 - [v0.14 session report](benchmarks/session-final-report-20260723.md)
 
