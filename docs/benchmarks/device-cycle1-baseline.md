@@ -433,7 +433,7 @@ fix; short-utterance reliability is already solved by using turbo/qwen3-asr.
 ## 4. ASR→LLM function calling on device — PASS (FC device verification 1/2)
 
 `LiteRtLmAndroidAsrFunctionCallingDemo-c3.apk` (19:12, temp-copy batchmode via
-`Tools/Windows/Build-LiteRtLmAndroidAsrFunctionCallingDemoApk.ps1`; whisper-tiny
+`Tools/Windows/Tests/Build-LiteRtLmAndroidAsrFunctionCallingDemoApk.ps1`; whisper-tiny
 i8 + gemma3-1b-it-int4 packaged in StreamingAssets, take5 AAR). Fresh install,
 fresh process; status file `LiteRtLmAsrFunctionCallingDemo.status.txt`.
 

@@ -52,7 +52,7 @@ Do not use Unity MCP build/menu actions until the active instance is verified as
 
 Added:
 
-`Tools/Windows/Run-LiteRtLmAndroidDeviceBenchmarks.ps1`
+`Tools/Windows/Tests/Run-LiteRtLmAndroidDeviceBenchmarks.ps1`
 
 Key behavior:
 
@@ -227,7 +227,7 @@ Likely relevant changes:
 ```text
 README.md
 Assets/Scripts/LiteRTLM/LiteRtLmAndroidSmokeTestRunner.cs
-Tools/Windows/Run-LiteRtLmAndroidDeviceBenchmarks.ps1
+Tools/Windows/Tests/Run-LiteRtLmAndroidDeviceBenchmarks.ps1
 ```
 
 Note: the Unity project working tree has many unrelated changes. Do not assume `git status` is clean.
@@ -243,13 +243,13 @@ adb devices -l
 Run all physical-device benchmarks:
 
 ```powershell
-.\Tools\Windows\Run-LiteRtLmAndroidDeviceBenchmarks.ps1
+.\Tools\Windows\Tests\Run-LiteRtLmAndroidDeviceBenchmarks.ps1
 ```
 
 Run only selected benchmarks:
 
 ```powershell
-.\Tools\Windows\Run-LiteRtLmAndroidDeviceBenchmarks.ps1 `
+.\Tools\Windows\Tests\Run-LiteRtLmAndroidDeviceBenchmarks.ps1 `
   -BenchmarkName 'qwen2.5-0.5b-cpu','qwen3-0.6b-gpu'
 ```
 

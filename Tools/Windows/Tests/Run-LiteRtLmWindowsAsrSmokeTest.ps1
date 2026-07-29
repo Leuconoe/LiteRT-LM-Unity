@@ -13,7 +13,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
 if ([string]::IsNullOrWhiteSpace($ModelPath)) {
     $ModelPath = Join-Path $ProjectRoot "Assets\StreamingAssets\Multimodal\gemma-4-e2b\gemma-4-E2B-it.litertlm"
 }
@@ -21,7 +21,7 @@ if ([string]::IsNullOrWhiteSpace($AudioPath)) {
     $AudioPath = Join-Path $ProjectRoot "Assets\StreamingAssets\TestAssets\Audio\2025년 3월 5일 전술평가 결과 보고.mp3"
 }
 
-$ExecutablePath = Join-Path $PSScriptRoot "litert_lm_advanced_main.windows_x86_64.exe"
+$ExecutablePath = Join-Path $PSScriptRoot "..\Bin\litert_lm_advanced_main.windows_x86_64.exe"
 if (!(Test-Path $ExecutablePath)) {
     throw "Advanced CLI not found: $ExecutablePath"
 }

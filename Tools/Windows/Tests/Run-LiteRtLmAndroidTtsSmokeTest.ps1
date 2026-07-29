@@ -15,9 +15,9 @@ Tools/Research/Supertonic/Deploy-SupertonicLiteRt.ps1), so unlike the ASR smoke 
 push except the config — 202 MB over adb per run would be wasteful.
 
 .EXAMPLE
-  .\Tools\Windows\Run-LiteRtLmAndroidTtsSmokeTest.ps1
+  .\Tools\Windows\Tests\Run-LiteRtLmAndroidTtsSmokeTest.ps1
 .EXAMPLE
-  .\Tools\Windows\Run-LiteRtLmAndroidTtsSmokeTest.ps1 -Steps 8 -Backend CPU -ClearAppData
+  .\Tools\Windows\Tests\Run-LiteRtLmAndroidTtsSmokeTest.ps1 -Steps 8 -Backend CPU -ClearAppData
 #>
 [CmdletBinding(PositionalBinding = $false)]
 param(
@@ -40,7 +40,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 $logDirectory = Join-Path $ProjectRoot "Builds\Logs\AndroidTtsSmoke"
@@ -176,7 +176,7 @@ if ($wavs.Count -gt 0 -and -not $SkipTranscribe) {
     Write-Host ""
     Write-Host "=== round-trip transcription (desktop ASR) ==="
     foreach ($wav in $wavs) {
-        $asr = (& (Join-Path $PSScriptRoot "..\Research\Whisper\Run-WhisperTfliteWindows.ps1") `
+        $asr = (& (Join-Path $PSScriptRoot "..\..\Research\Whisper\Run-WhisperTfliteWindows.ps1") `
             -Model (Join-Path $ProjectRoot $AsrModel) -Audio $wav.FullName -Lang $Language) *>&1 | Out-String
         $heard = ""
         foreach ($asrLine in ($asr -split "`r?`n")) {

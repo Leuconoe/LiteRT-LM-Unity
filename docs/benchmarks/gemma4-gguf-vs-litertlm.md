@@ -3,7 +3,7 @@
 Date: 2026-07-23. Host: Windows 11, RTX 4090 (24 GB), AMD Ryzen (16 threads used for CPU runs).
 
 - llama.cpp build: `b4d6c7d8f (10091)`, CUDA 12 prebuilt release (`External/gguf-bench/llamacpp/`).
-- LiteRT-LM runner: `Tools/Windows/litert_lm_main.windows_x86_64.exe` (**May 8 build** — pre-v0.14; the numbers below are from this build).
+- LiteRT-LM runner: `Tools/Windows/Bin/litert_lm_main.windows_x86_64.exe` (**May 8 build** — pre-v0.14; the numbers below are from this build).
 - Korean smoke prompt: `대한민국의 수도는 어디인가요? 한 문장으로 답하세요.` (English smoke: drone-gimbal one-liner.)
 - Raw logs: `External/gguf-bench/results/`.
 

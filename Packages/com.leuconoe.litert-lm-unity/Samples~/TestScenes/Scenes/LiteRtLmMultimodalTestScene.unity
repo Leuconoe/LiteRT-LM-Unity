@@ -151,7 +151,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9d46c2e1b9b04a3999985faeda74512d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  windowsAdvancedExecutable: Tools/Windows/litert_lm_advanced_main.windows_x86_64.exe
+  windowsAdvancedExecutable: Tools/Windows/Bin/litert_lm_advanced_main.windows_x86_64.exe
   maxNumTokens: 4000
   systemInstruction: You are a helpful multimodal assistant.
 --- !u!4 &254399401

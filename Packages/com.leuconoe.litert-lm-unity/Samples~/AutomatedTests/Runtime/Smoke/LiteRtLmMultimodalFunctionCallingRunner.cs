@@ -56,7 +56,7 @@ namespace LiteRTLM.Unity
 
         [Header("LLM")]
         [SerializeField] private string llmModelPath = "LLM/gemma3-1b/gemma3-1b-it-int4.litertlm";
-        [SerializeField] private string windowsCliExecutablePath = "Tools/Windows/litert_lm_main.windows_x86_64.exe";
+        [SerializeField] private string windowsCliExecutablePath = "Tools/Windows/Bin/litert_lm_main.windows_x86_64.exe";
         [SerializeField] private string windowsBackend = "CPU";
         [SerializeField] private float timeoutSeconds = 120f;
         [SerializeField] private bool enableConstrainedDecoding = true;

@@ -87,7 +87,7 @@ crashlytics-build.properties
 .env
 
 # Windows exe backups
-Tools/Windows/*.exe.backup-*
+Tools/Windows/Bin/*.exe.backup-*
 
 # UPM sample import (restore with Tools/Windows/Restore-LiteRtLmSamples.ps1)
 /Assets/Samples/

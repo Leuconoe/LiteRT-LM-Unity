@@ -27,7 +27,7 @@ namespace LiteRTLM.Unity
         [SerializeField] private string backend = "GPU";
         [SerializeField] private string systemInstruction = "You are a helpful assistant.";
         [SerializeField] private int maxNumTokens = 1024;
-        [SerializeField] private string windowsCliExecutablePath = "Tools/Windows/litert_lm_main.windows_x86_64.exe";
+        [SerializeField] private string windowsCliExecutablePath = "Tools/Windows/Bin/litert_lm_main.windows_x86_64.exe";
 
         // CPU on Windows. The CLI is stateless — one process per request — so a
         // GPU turn pays executor init every time. Measured on an RTX 4090 with

@@ -256,7 +256,7 @@ The benchmark runner reuses a single APK. Push the model and runtime JSON config
 into app storage, then launch the same build:
 
 ```powershell
-.\Tools\Windows\Run-LiteRtLmAndroidDeviceBenchmarks.ps1 `
+.\Tools\Windows\Tests\Run-LiteRtLmAndroidDeviceBenchmarks.ps1 `
   -DeviceSerial <device-serial> `
   -BenchmarkName gemma-4-e2b-it-gpu,gemma-4-e2b-it-cpu `
   -SingleApkPath Builds\Android\LiteRtLmAndroidSmokeTest-gemma3-270m-it-q8-CPU.apk `

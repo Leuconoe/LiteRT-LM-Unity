@@ -8,7 +8,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
 $RepoRoot = (Resolve-Path (Join-Path $ProjectRoot "..")).Path
 if ([string]::IsNullOrWhiteSpace($TempRoot)) {
     $TempRoot = Join-Path $ProjectRoot "temp\unity-android-build"

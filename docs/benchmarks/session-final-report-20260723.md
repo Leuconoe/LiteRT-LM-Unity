@@ -119,7 +119,7 @@ physical device (46a880a0).
 - Handoff: `docs/handoffs/v0.14-upgrade-handoff.md`
 - Models: `Assets/StreamingAssets/{LLM,ASR,Multimodal,TestAssets}/…`
   (by category, then by model)
-- Tools: `Tools/Windows/Run-LiteRtLmWindowsAsrSmokeTest.ps1`, the i4 repack
+- Tools: `Tools/Windows/Tests/Run-LiteRtLmWindowsAsrSmokeTest.ps1`, the i4 repack
   pipeline (scratchpad + `External/ModelWork/README-i4-prototypes.md`)
 
 ## 3. Remaining work (as of 2026-07-23)

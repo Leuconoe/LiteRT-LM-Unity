@@ -37,7 +37,7 @@ Implement and stabilize LiteRT-LM Unity function calling by exposing grammar-sty
 - Baseline exe was committed as:
   - `e321987 chore: add baseline Windows LiteRT LM executable`
 - Local safety backup exists but must not be committed:
-  - `Tools/Windows/litert_lm_main.windows_x86_64.exe.backup-*`
+  - `Tools/Windows/Bin/litert_lm_main.windows_x86_64.exe.backup-*`
 
 ## Implemented Work In Progress
 
@@ -68,7 +68,7 @@ Build the updated Windows CLI, replace the Unity exe, verify flags, run the Unit
 
 1. Build `//runtime/engine:litert_lm_main --config=windows`.
 2. Copy the built exe into:
-   - `LiteRT-LM-Unity/Tools/Windows/litert_lm_main.windows_x86_64.exe`
+   - `LiteRT-LM-Unity/Tools/Windows/Bin/litert_lm_main.windows_x86_64.exe`
 3. Verify `--helpfull` includes:
    - `--tools_json_file`
    - `--enable_constrained_decoding`
@@ -81,7 +81,7 @@ Build the updated Windows CLI, replace the Unity exe, verify flags, run the Unit
 Run:
 
 ```powershell
-& 'LiteRT-LM-Unity\Tools\Windows\Run-LiteRtLmEditorSelfTest.ps1' `
+& 'LiteRT-LM-Unity\Tools\Windows\Tests\Run-LiteRtLmEditorSelfTest.ps1' `
   -MaxAttempts 1 `
   -ExecuteMethod 'LiteRTLM.Unity.Editor.LiteRtLmBuild.RunWindowsFunctionCallingBenchmarkBatchmode' `
   -StatusRelativePath 'Builds\Logs\LiteRtLmFunctionCallingBenchmark.status.txt' `

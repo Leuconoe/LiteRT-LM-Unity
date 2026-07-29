@@ -30,7 +30,7 @@ namespace LiteRTLM.Unity.Editor
         private static string TranslateTestScenePath => LiteRtLmTestSceneGenerator.TranslateTestScenePath;
         private const string StreamingAssetsModelPath = "Assets/StreamingAssets/model.litertlm";
         private const string WindowsSelfTestModelFileName = "Multimodal/gemma-4-e2b/gemma-4-E2B-it.litertlm";
-        private const string WindowsSelfTestExecutableRelativePath = "Tools/Windows/litert_lm_main.windows_x86_64.exe";
+        private const string WindowsSelfTestExecutableRelativePath = "Tools/Windows/Bin/litert_lm_main.windows_x86_64.exe";
         private const string WindowsSelfTestPrompt = "Say hello from LiteRT-LM Unity editor self-test.";
         private const string WindowsSelfTestStatusRelativePath = "Builds/Logs/LiteRtLmEditorSelfTest.status.txt";
         private const string ConversationTestStatusRelativePath = "Builds/Logs/LiteRtLmConversationTest.status.txt";

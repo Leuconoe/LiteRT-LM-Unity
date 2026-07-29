@@ -22,7 +22,7 @@ $RepoRoot = Split-Path -Parent $ProjectRoot
 $WorkspaceTempRoot = Join-Path $RepoRoot "temp\windows-cli"
 New-Item -ItemType Directory -Force -Path $WorkspaceTempRoot | Out-Null
 
-$ExecutablePath = Join-Path $ScriptDirectory "litert_lm_main.windows_x86_64.exe"
+$ExecutablePath = Join-Path $ScriptDirectory "Bin\litert_lm_main.windows_x86_64.exe"
 if (-not (Test-Path $ExecutablePath)) {
     throw "LiteRT-LM Windows executable not found: $ExecutablePath"
 }

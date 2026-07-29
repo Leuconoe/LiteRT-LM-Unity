@@ -13,7 +13,7 @@ namespace LiteRTLM.Unity
 
         [SerializeField] private bool runOnStart = true;
         [SerializeField] private string modelPath = "Multimodal/gemma-4-e2b/gemma-4-E2B-it.litertlm";
-        [SerializeField] private string windowsCliExecutablePath = "Tools/Windows/litert_lm_main.windows_x86_64.exe";
+        [SerializeField] private string windowsCliExecutablePath = "Tools/Windows/Bin/litert_lm_main.windows_x86_64.exe";
         [SerializeField] private string windowsBackend = "CPU";
         [SerializeField] private float timeoutSeconds = 120f;
         [SerializeField] private bool includeConversationHistory = true;

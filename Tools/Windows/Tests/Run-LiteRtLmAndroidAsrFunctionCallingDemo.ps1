@@ -9,7 +9,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
 if ([string]::IsNullOrWhiteSpace($ApkPath)) {
     $ApkPath = Join-Path $ProjectRoot "Builds\Android\LiteRtLmAndroidAsrFunctionCallingDemo-gemma3-1b-whisper-tiny.apk"
 }

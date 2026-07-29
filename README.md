@@ -75,7 +75,7 @@ Working in this repository instead of consuming the package? The samples live in
 2. **Place models** — pick from the tables below and put them under
    `Assets/StreamingAssets/` (model files are not in the repository)
 3. **Build the APK** — Unity menu `LiteRT-LM/Android/...` or
-   `Tools/Windows/Build-LiteRtLmAndroid*.ps1`
+   `Tools/Windows/Tests/Build-LiteRtLmAndroid*.ps1`
 4. **Smoke test** — `Run-LiteRtLmAndroidAsrSmokeTest.ps1 -DeviceSerial <serial>`;
    results land in `Builds/Logs/AndroidDeviceRuns/`
 
@@ -87,7 +87,8 @@ Working in this repository instead of consuming the package? The samples live in
 | `Packages/com.leuconoe.litert-lm-unity/Samples~/TestScenes/` | Scene runners, the seven hand-driven scenes, the APK build menu and the scene generator |
 | `Packages/com.leuconoe.litert-lm-unity/Samples~/AutomatedTests/` | Smoke, conversation and function-calling benchmark scenes |
 | `Assets/StreamingAssets/` | Where you place models (not in the repository) |
-| `Tools/Windows/` | Build, AAR and device scripts |
+| `Tools/Windows/` | Build and workflow scripts · `Bin/` prebuilt runtime · `Tests/` device and smoke runners |
+| `Tools/Research/` | Conversion and benchmark drivers behind the numbers in `docs/` |
 | `docs/` | Benchmarks and handoffs |
 
 ## Recommended models

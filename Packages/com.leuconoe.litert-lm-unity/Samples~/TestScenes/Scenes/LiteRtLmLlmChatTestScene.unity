@@ -155,7 +155,7 @@ MonoBehaviour:
   backend: GPU
   systemInstruction: You are a helpful assistant.
   maxNumTokens: 1024
-  windowsCliExecutablePath: Tools/Windows/litert_lm_main.windows_x86_64.exe
+  windowsCliExecutablePath: Tools/Windows/Bin/litert_lm_main.windows_x86_64.exe
   windowsBackend: CPU
   windowsRequestTimeoutSeconds: 120
   enableThinking: 0

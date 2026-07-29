@@ -1,15 +1,13 @@
 param(
-    [string]$AsrModelFileName = "ASR/whisper-tiny/whisper_tiny_30s_i8.tflite",
-    [string]$AudioFileName = "TestAssets/Audio/2025년 3월 5일 전술평가 결과 보고.mp3",
-    [string]$TokenizerJsonPath = "ASR/whisper-tiny/tokenizer.json",
+    [string]$ModelFileName = "parakeet_tdt_0.6b_v3_5s_i8.tflite",
+    [string]$AudioFileName = "TestAssets/Audio/Tactical Evaluation Results Report - March 5, 2025.mp3",
+    [string]$TokenizerJsonPath = "parakeet-tdt-0.6b-v3/tokenizer.json",
+    [ValidateSet("parakeet", "whisper")]
+    [string]$AsrMode = "parakeet",
+    [string]$AsrLanguage = "auto",
     [ValidateSet("GPU_FP16", "GPU", "GPU_RELAXED", "GPU_NO_TEXTURE", "GPU_NO_CONVERT", "GPU_RELAXED_NO_CONVERT", "CPU")]
-    [string]$AsrBackend = "CPU",
-    [string]$AsrLanguage = "ko",
-    [string]$LlmModelFileName = "LLM/gemma3-1b/gemma3-1b-it-int4.litertlm",
-    [ValidateSet("GPU", "CPU")]
-    [string]$LlmBackend = "GPU",
-    [int]$LlmMaxNumTokens = 512,
-    [string]$OutputApk = "LiteRtLmAndroidAsrFunctionCallingDemo-gemma3-1b-whisper-tiny.apk",
+    [string]$Backend = "GPU_FP16",
+    [string]$OutputApk = "LiteRtLmAndroidAsrSmokeTest-parakeet-tdt-0.6b-v3.apk",
     [string]$UnityPath = "",
     [string]$TempRoot = "",
     [switch]$KeepProjectCopy
@@ -17,9 +15,9 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
 if ([string]::IsNullOrWhiteSpace($TempRoot)) {
-    $TempRoot = Join-Path $ProjectRoot "temp\unity-android-asr-function-calling-build"
+    $TempRoot = Join-Path $ProjectRoot "temp\unity-android-asr-build"
 }
 
 function Invoke-CheckedRobocopy {
@@ -70,19 +68,45 @@ function ConvertTo-ProcessArgument {
     return '"' + $Argument.Replace('"', '\"') + '"'
 }
 
-$asrModelSource = Join-Path $ProjectRoot "Assets\StreamingAssets\$AsrModelFileName"
-if (!(Test-Path $asrModelSource)) {
-    throw "ASR model not found: $asrModelSource"
+function Get-WhisperEncoderCompanionFileName {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FileName
+    )
+
+    if ($FileName.EndsWith("_f32.tflite", [StringComparison]::OrdinalIgnoreCase)) {
+        $preferred = $FileName.Substring(0, $FileName.Length - ".tflite".Length) + "_encoder.tflite"
+        $legacy = $FileName.Substring(0, $FileName.Length - "_f32.tflite".Length) + "_encoder_f32.tflite"
+        if (Test-Path (Join-Path $ProjectRoot "Assets\StreamingAssets\$preferred")) {
+            return $preferred
+        }
+        if (Test-Path (Join-Path $ProjectRoot "Assets\StreamingAssets\$legacy")) {
+            return $legacy
+        }
+        return $preferred
+    }
+
+    if ($FileName.EndsWith(".tflite", [StringComparison]::OrdinalIgnoreCase)) {
+        return $FileName.Substring(0, $FileName.Length - ".tflite".Length) + "_encoder.tflite"
+    }
+
+    return ""
 }
 
-$llmModelSource = Join-Path $ProjectRoot "Assets\StreamingAssets\$LlmModelFileName"
-if (!(Test-Path $llmModelSource)) {
-    throw "LLM model not found: $llmModelSource"
+$modelSource = Join-Path $ProjectRoot "Assets\StreamingAssets\$ModelFileName"
+if (!(Test-Path $modelSource)) {
+    throw "ASR model not found: $modelSource"
+}
+
+$encoderModelFileName = Get-WhisperEncoderCompanionFileName -FileName $ModelFileName
+$encoderModelSource = ""
+if (![string]::IsNullOrWhiteSpace($encoderModelFileName)) {
+    $encoderModelSource = Join-Path $ProjectRoot "Assets\StreamingAssets\$encoderModelFileName"
 }
 
 $audioSource = Join-Path $ProjectRoot "Assets\StreamingAssets\$AudioFileName"
 if (!(Test-Path $audioSource)) {
-    throw "ASR demo audio not found: $audioSource"
+    throw "ASR test audio not found: $audioSource"
 }
 
 $tokenizerSource = Join-Path $ProjectRoot "Assets\StreamingAssets\$TokenizerJsonPath"
@@ -99,7 +123,7 @@ $runId = Get-Date -Format "yyyyMMdd-HHmmss"
 $runRoot = Join-Path $TempRoot $runId
 $buildProjectRoot = Join-Path $runRoot "p"
 $buildLogs = Join-Path $ProjectRoot "Builds\Logs\AndroidBuilds"
-$unityLogPath = Join-Path $buildLogs "$runId-asr-function-calling-unity.log"
+$unityLogPath = Join-Path $buildLogs "$runId-asr-smoke-unity.log"
 $outputPath = Join-Path $ProjectRoot "Builds\Android\$OutputApk"
 
 New-Item -ItemType Directory -Force -Path $runRoot, $buildLogs, (Split-Path -Parent $outputPath) | Out-Null
@@ -157,8 +181,11 @@ try {
         }
     }
 
-    Copy-StreamingAssetWithMeta -SourcePath $asrModelSource -RelativeDestination $AsrModelFileName
-    Copy-StreamingAssetWithMeta -SourcePath $llmModelSource -RelativeDestination $LlmModelFileName
+    Copy-StreamingAssetWithMeta -SourcePath $modelSource -RelativeDestination $ModelFileName
+    if (![string]::IsNullOrWhiteSpace($encoderModelSource) -and (Test-Path $encoderModelSource)) {
+        Write-Host "[LiteRT-LM] Including Whisper encoder companion: $encoderModelFileName"
+        Copy-StreamingAssetWithMeta -SourcePath $encoderModelSource -RelativeDestination $encoderModelFileName
+    }
     Copy-StreamingAssetWithMeta -SourcePath $audioSource -RelativeDestination $AudioFileName
 
     $resolvedUnityPath = Resolve-UnityPath
@@ -167,9 +194,10 @@ try {
     $env:TEMP = $workspaceTemp
     $env:TMP = $workspaceTemp
 
-    Write-Host "[LiteRT-LM] Building Android ASR function-calling demo APK"
-    Write-Host "[LiteRT-LM] ASR model/backend/language: $AsrModelFileName / $AsrBackend / $AsrLanguage"
-    Write-Host "[LiteRT-LM] LLM model/backend/max tokens: $LlmModelFileName / $LlmBackend / $LlmMaxNumTokens"
+    Write-Host "[LiteRT-LM] Building Android ASR smoke APK"
+    Write-Host "[LiteRT-LM] ASR mode: $AsrMode"
+    Write-Host "[LiteRT-LM] ASR backend: $Backend"
+    Write-Host "[LiteRT-LM] ASR language: $AsrLanguage"
     Write-Host "[LiteRT-LM] Unity log: $unityLogPath"
     $unityArguments = @(
         "-batchmode",
@@ -179,25 +207,21 @@ try {
         "-buildTarget",
         "Android",
         "-executeMethod",
-        "LiteRTLM.Unity.Editor.LiteRtLmBuild.BuildAndroidAsrFunctionCallingDemoApkFromCommandLine",
+        "LiteRTLM.Unity.Editor.LiteRtLmBuild.BuildAndroidAsrSmokeTestApkFromCommandLine",
         "-logFile",
         $unityLogPath,
         "-litertlmAsrModel",
-        $AsrModelFileName,
+        $ModelFileName,
         "-litertlmAsrAudio",
         $AudioFileName,
         "-litertlmAsrTokenizer",
         $TokenizerJsonPath,
-        "-litertlmAsrBackend",
-        $AsrBackend,
+        "-litertlmAsrMode",
+        $AsrMode,
         "-litertlmAsrLanguage",
         $AsrLanguage,
-        "-litertlmLlmModel",
-        $LlmModelFileName,
-        "-litertlmLlmBackend",
-        $LlmBackend,
-        "-litertlmLlmMaxNumTokens",
-        $LlmMaxNumTokens,
+        "-litertlmBackend",
+        $Backend,
         "-litertlmOutputApk",
         $outputPath
     )

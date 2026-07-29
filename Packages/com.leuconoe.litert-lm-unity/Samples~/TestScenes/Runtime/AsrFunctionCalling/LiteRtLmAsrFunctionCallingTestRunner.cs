@@ -425,7 +425,7 @@ namespace LiteRTLM.Unity
         {
             var executable = Path.Combine(
                 Path.GetDirectoryName(Application.dataPath) ?? Directory.GetCurrentDirectory(),
-                "Tools/Windows/litert_lm_main.windows_x86_64.exe");
+                "Tools/Windows/Bin/litert_lm_main.windows_x86_64.exe");
 
             if (!File.Exists(executable))
             {

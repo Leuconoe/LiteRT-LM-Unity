@@ -30,7 +30,7 @@ namespace LiteRTLM.Unity
         [SerializeField] private string systemInstruction = "You are a helpful assistant.";
         [SerializeField] private string prompt = "Say hello from LiteRT-LM running inside Unity.";
         [SerializeField] private string backend = "GPU";
-        [SerializeField] private string windowsCliExecutablePath = "Tools/Windows/litert_lm_main.windows_x86_64.exe";
+        [SerializeField] private string windowsCliExecutablePath = "Tools/Windows/Bin/litert_lm_main.windows_x86_64.exe";
         [SerializeField] private string windowsBackend = "CPU";
         [SerializeField] private float windowsRequestTimeoutSeconds = 30f;
         [SerializeField] private string cacheDir = "";
@@ -520,7 +520,7 @@ namespace LiteRTLM.Unity
 
             if (string.Equals(configuredPath, "litert-lm", StringComparison.OrdinalIgnoreCase))
             {
-                configuredPath = "Tools/Windows/litert_lm_main.windows_x86_64.exe";
+                configuredPath = "Tools/Windows/Bin/litert_lm_main.windows_x86_64.exe";
             }
 
             if (Path.IsPathRooted(configuredPath))

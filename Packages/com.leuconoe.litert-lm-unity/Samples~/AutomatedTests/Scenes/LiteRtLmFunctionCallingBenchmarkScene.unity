@@ -129,7 +129,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::LiteRTLM.Unity.LiteRtLmFunctionCallingBenchmarkRunner
   runOnStart: 1
   modelPath: gemma-4-E2B-it.litertlm
-  windowsCliExecutablePath: Tools/Windows/litert_lm_main.windows_x86_64.exe
+  windowsCliExecutablePath: Tools/Windows/Bin/litert_lm_main.windows_x86_64.exe
   windowsBackend: CPU
   timeoutSeconds: 120
   requireConstrainedCli: 1

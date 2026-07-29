@@ -301,7 +301,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: de87a6ed0e10b43449687697764ec8c7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  windowsExecutable: Tools/Windows/litert_lm_main.windows_x86_64.exe
+  windowsExecutable: Tools/Windows/Bin/litert_lm_main.windows_x86_64.exe
   maxNumTokens: 4000
 --- !u!4 &1691619908
 Transform:

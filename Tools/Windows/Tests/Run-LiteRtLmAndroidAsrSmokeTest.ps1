@@ -21,7 +21,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
 if ([string]::IsNullOrWhiteSpace($ApkPath)) {
     $ApkPath = Join-Path $ProjectRoot "Builds\Android\LiteRtLmAndroidAsrSmokeTest-parakeet-tdt-0.6b-v3.apk"
 }

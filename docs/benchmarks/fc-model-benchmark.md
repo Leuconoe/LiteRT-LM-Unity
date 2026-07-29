@@ -8,7 +8,7 @@
 
 20-case Korean Unity command-routing benchmark (+ 7-case English mobile-actions set)
 run against the **v0.14 fork Windows binaries** deployed 2026-07-23 13:53
-(`Tools/Windows/litert_lm_main.windows_x86_64.exe`). Cases, prompt profiles, tools
+(`Tools/Windows/Bin/litert_lm_main.windows_x86_64.exe`). Cases, prompt profiles, tools
 JSON, output parsing, deterministic guards, and validation are an exact CLI-level
 port of `Assets/Scripts/LiteRTLM/LiteRtLmFunctionCallingBenchmarkRunner.cs`
 (driver: session scratchpad `fc_bench.py`, raw records `results.jsonl`).
@@ -148,7 +148,7 @@ not cover the Korean Unity commands.
 - **Pitfall**: the CLI media-tag regex is `\[(image|audio):([^\s\]]+)\]` —
   **paths with whitespace are silently not parsed** (the model then sees the
   literal path text and refuses). Stage audio under a space-free path.
-- Scripted entry point: `Tools/Windows/Run-LiteRtLmWindowsAsrSmokeTest.ps1`
+- Scripted entry point: `Tools/Windows/Tests/Run-LiteRtLmWindowsAsrSmokeTest.ps1`
   (params `-ModelPath -AudioPath -Prompt -Backend -AudioBackend -TimeoutSeconds
   -Benchmark`; auto-stages whitespace paths, UTF-8 prompt file, writes
   raw + summary logs under `Builds/Logs/WindowsAsrSmoke/`). Verified PASS twice.

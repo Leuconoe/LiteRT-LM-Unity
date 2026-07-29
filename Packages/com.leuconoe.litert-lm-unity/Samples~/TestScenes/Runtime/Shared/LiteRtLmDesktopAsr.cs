@@ -22,7 +22,7 @@ namespace LiteRTLM.Unity
 
         /// <summary>Advanced CLI, relative to the project root.</summary>
         public const string DefaultExecutableRelativePath =
-            "Tools/Windows/litert_lm_advanced_main.windows_x86_64.exe";
+            "Tools/Windows/Bin/litert_lm_advanced_main.windows_x86_64.exe";
 
         /// <summary>True when this platform can run the desktop ASR path.</summary>
         public static bool IsSupported =>

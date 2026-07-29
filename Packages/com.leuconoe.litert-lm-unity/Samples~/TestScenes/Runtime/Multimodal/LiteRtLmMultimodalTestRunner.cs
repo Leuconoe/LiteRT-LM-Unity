@@ -32,7 +32,7 @@ namespace LiteRTLM.Unity
         private static readonly string[] AudioSourceLabels = { "None", "Bundled", "File", "Microphone" };
         private static readonly string[] BackendLabels = { "CPU", "GPU" };
 
-        [SerializeField] private string windowsAdvancedExecutable = "Tools/Windows/litert_lm_advanced_main.windows_x86_64.exe";
+        [SerializeField] private string windowsAdvancedExecutable = "Tools/Windows/Bin/litert_lm_advanced_main.windows_x86_64.exe";
         [SerializeField] private int maxNumTokens = 4000;
         [SerializeField] private string systemInstruction = "You are a helpful multimodal assistant.";
 

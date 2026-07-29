@@ -22,7 +22,7 @@ namespace LiteRTLM.Unity
         // start the run and stream it to the overlay rather than sit at Idle.
         [SerializeField] private bool runOnStart = true;
         [SerializeField] private string modelPath = "Multimodal/gemma-4-e2b/gemma-4-E2B-it.litertlm";
-        [SerializeField] private string windowsCliExecutablePath = "Tools/Windows/litert_lm_main.windows_x86_64.exe";
+        [SerializeField] private string windowsCliExecutablePath = "Tools/Windows/Bin/litert_lm_main.windows_x86_64.exe";
         [SerializeField] private string windowsBackend = "CPU";
         [SerializeField] private float timeoutSeconds = 120f;
         [SerializeField] private bool requireConstrainedCli = true;
@@ -177,7 +177,7 @@ namespace LiteRTLM.Unity
             {
                 throw new InvalidOperationException(
                     "Current litert_lm_main binary does not expose constrained function-calling flags. " +
-                    "Rebuild runtime/engine:litert_lm_main from the updated source and copy it to Tools/Windows/litert_lm_main.windows_x86_64.exe. " +
+                    "Rebuild runtime/engine:litert_lm_main from the updated source and copy it to Tools/Windows/Bin/litert_lm_main.windows_x86_64.exe. " +
                     $"Probe={helpProbe}");
             }
 

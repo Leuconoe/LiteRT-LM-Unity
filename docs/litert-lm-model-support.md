@@ -133,12 +133,21 @@ Also logged, and relevant if this is ever taken seriously: `flash_attn` is
 absent, so Mimi falls back to SDPA and **ignores its sliding window — audio
 beyond ~20 s may show artifacts**.
 
-### AWQ-INT4: use Docker
+### AWQ-INT4: the Docker route (researched, not yet run to completion)
 
-Windows `transformers` cannot load the AWQ build, but the container can, and it
-is the configuration the published numbers come from. GPU passthrough is
-verified working here (Docker Desktop, WSL2 backend, driver 596.49, the 4090
-visible inside `nvidia/cuda:12.8.0-base`).
+Windows `transformers` cannot load the AWQ build; a Linux container sidesteps
+the packaging problem entirely, and it is the configuration the published
+numbers come from.
+
+**What is verified:** GPU passthrough works here — Docker Desktop on the WSL2
+backend, driver 596.49, the 4090 visible from inside
+`nvidia/cuda:12.8.0-base-ubuntu24.04`. And `docker/Dockerfile.ci` is
+`FROM vllm/vllm-openai:v0.20.0`, so the build is a base-image pull plus
+`uv pip install ".[dev]"` — nothing compiles from source.
+
+**What is not:** the image build was stopped partway through the base pull, so
+the server has never actually been started and no AWQ number exists. The recipe
+below is read off the upstream Dockerfile and the model card, not off a run.
 
 ```powershell
 .\Tools\Research\Raon\Build-RaonVllmOmni.ps1 -Smoke

@@ -713,7 +713,7 @@ assumption to ship.
 
 #### First device run — the harness works, two API mistakes found
 
-`Tools/Windows/Run-LiteRtLmAndroidTtsSmokeTest.ps1` against a 261 MB APK
+`Tools/Windows/Tests/Run-LiteRtLmAndroidTtsSmokeTest.ps1` against a 261 MB APK
 (`LiteRT-LM/Build/Android/Build TTS Smoke Test APK`, which packages only
 `TTS/supertonic-litert`). Everything up to inference is correct: the models stage
 out of the APK, and the **bucket chooser picks the right rung on device** — 39 ids

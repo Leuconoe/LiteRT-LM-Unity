@@ -109,13 +109,13 @@ English (that is all Whisper's translate task supports). Notes:
 
 ### Windows ASR (gemma-4 audio path)
 
-`Tools/Windows/litert_lm_advanced_main.windows_x86_64.exe` supports
+`Tools/Windows/Bin/litert_lm_advanced_main.windows_x86_64.exe` supports
 `[audio:<path>]` prompt tags with `--audio_backend`; the gemma-4-E2B bundle
 contains the audio encoder sections and transcribes the Korean gate clip
 exactly (mp3 supported, 3.9–5.3 s warm). Scripted entry point:
 
 ```powershell
-.\Tools\Windows\Run-LiteRtLmWindowsAsrSmokeTest.ps1 `
+.\Tools\Windows\Tests\Run-LiteRtLmWindowsAsrSmokeTest.ps1 `
   -AudioPath "Assets\StreamingAssets\TestAssets\Audio\2025년 3월 5일 전술평가 결과 보고.mp3"
 ```
 
@@ -225,7 +225,7 @@ The current ASR runner can reuse a single APK. Push the selected model, audio,
 tokenizer, and runtime JSON config into app storage, then launch the same build:
 
 ```powershell
-.\Tools\Windows\Run-LiteRtLmAndroidAsrSmokeTest.ps1 `
+.\Tools\Windows\Tests\Run-LiteRtLmAndroidAsrSmokeTest.ps1 `
   -DeviceSerial <device-serial> `
   -ApkPath Builds\Android\LiteRtLmAndroidAsrSmokeTest-generic.apk `
   -ModelFileName "ASR/whisper-tiny/whisper_tiny_30s_i8.tflite" `
@@ -243,7 +243,7 @@ known to compile on the target device.
 Qwen3-ASR uses `-AsrMode qwen3` (CPU only, language auto-detect):
 
 ```powershell
-.\Tools\Windows\Run-LiteRtLmAndroidAsrSmokeTest.ps1 `
+.\Tools\Windows\Tests\Run-LiteRtLmAndroidAsrSmokeTest.ps1 `
   -DeviceSerial <device-serial> `
   -ApkPath Builds\Android\LiteRtLmAndroidAsrSmokeTest-generic.apk `
   -ModelFileName "ASR/qwen3-asr-0.6b/qwen3_asr_0.6b_5s_i8.tflite" `

@@ -15,6 +15,12 @@
   The image is FROM vllm/vllm-openai (prebuilt), so nothing compiles from source
   — expect a large pull rather than a long build.
 
+  STATUS: NOT YET RUN END TO END. The GPU probe below is verified working on this
+  machine, and the build/serve commands are read off upstream's Dockerfile.ci and
+  model card — but the image build was stopped during the base pull, so the
+  server has never been started from here and no AWQ number exists yet. Expect to
+  debug the serve step on first use rather than trusting it.
+
 .PARAMETER WorkDir
   Where to clone vllm-omni. Defaults under External/, which is untracked scratch
   — this script is the copy that matters, not the clone.

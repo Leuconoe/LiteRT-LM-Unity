@@ -474,7 +474,7 @@ MonoBehaviour:
   systemInstruction: You are a helpful assistant.
   prompt: Say hello from LiteRT-LM running inside Unity.
   backend: GPU
-  windowsCliExecutablePath: Tools/Windows/litert_lm_main.windows_x86_64.exe
+  windowsCliExecutablePath: Tools/Windows/Bin/litert_lm_main.windows_x86_64.exe
   windowsBackend: CPU
   windowsRequestTimeoutSeconds: 120
   cacheDir: 

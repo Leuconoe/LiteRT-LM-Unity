@@ -40,13 +40,20 @@ So on this workstation, two routes:
 | --- | --- | --- |
 | Command | `Run-RaonDesktop.ps1 -Model KRAFTON/Raon-Speech-9B` | `Build-RaonVllmOmni.ps1 -Smoke` |
 | Weights | 16.9 GB, 18.11 GB allocated | 7.3 GB |
-| Works here | **yes** — CER 0.000 on all four STT clips | container is Linux, so the kernel problem disappears |
+| Works here | **verified** — CER 0.000 on all four STT clips | **not yet run** — see below |
 | Speed | RTF 2.1–5.0, i.e. slower than real time | the configuration KRAFTON's 0.27–0.45 RTF comes from |
 | Why the gap | naive `generate()` loop, no streaming, no batching | vLLM continuous batching + streaming |
 
 Use BF16 for a functional check, Docker for anything you intend to quote as a
-performance number. GPU passthrough is verified working here (Docker Desktop,
-WSL2 backend, driver 596.49).
+performance number.
+
+**The Docker route is researched, not proven.** GPU passthrough is verified
+(Docker Desktop, WSL2 backend, driver 596.49, the 4090 visible inside
+`nvidia/cuda:12.8.0-base`), and `Dockerfile.ci` is `FROM vllm/vllm-openai` so
+the build is a pull rather than a compile — but the image build was stopped
+during that pull and the server has never been started from here. Treat
+`Build-RaonVllmOmni.ps1` as a recipe to debug on first use, not a working
+command.
 
 One caveat the loader prints and it is worth heeding: `flash_attn` is not
 installed, so Mimi falls back to SDPA and **ignores its sliding window — audio
