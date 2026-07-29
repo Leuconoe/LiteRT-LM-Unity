@@ -1,0 +1,9 @@
+# Dependencies for whisper_tflite_runner.py (Windows CPU).
+# ai-edge-litert 2.1.6 ships win_amd64 wheels for cp310-cp314.
+# Verified set, 2026-07-27, on Python 3.12.13 and on a clean 3.13 venv.
+# numpy 2.2.6 has no cp314 wheel and fails to build from source — do not
+# bootstrap on 3.14.
+ai-edge-litert==2.1.6
+numpy==2.2.6
+soundfile==0.14.0
+tokenizers==0.21.4

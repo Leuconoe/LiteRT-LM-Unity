@@ -246,6 +246,75 @@ namespace LiteRTLM.Unity
 #endif
         }
 
+        /// <summary>
+        /// Synthesizes speech with Supertonic on LiteRT and writes a WAV, returning
+        /// the bridge's result JSON (timings, bucket, error).
+        ///
+        /// The text ids arrive already prepared and padded to the bucket the
+        /// vector_estimator/vocoder graphs were converted at — the front end runs
+        /// in C# (<see cref="LiteRtLmSupertonicText"/>) so that Unicode NFKD does
+        /// not require ICU in the AAR. <paramref name="realTextLength"/> is the
+        /// unpadded count, which is what builds the attention mask.
+        ///
+        /// One call per utterance: the flow-matching loop stays native, so the
+        /// latent never crosses the JNI boundary.
+        /// </summary>
+        public string RunSupertonicTts(
+            string durationPredictorPath,
+            string textEncoderPath,
+            string vectorEstimatorPath,
+            string vocoderPath,
+            string ttsJsonPath,
+            string voicePath,
+            int[] textIds,
+            int realTextLength,
+            int steps = 4,
+            float speed = 1.05f,
+            string backend = "CPU",
+            int seed = 1234,
+            string outWavPath = "")
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            foreach (var pair in new[]
+                     {
+                         (nameof(durationPredictorPath), durationPredictorPath),
+                         (nameof(textEncoderPath), textEncoderPath),
+                         (nameof(vectorEstimatorPath), vectorEstimatorPath),
+                         (nameof(vocoderPath), vocoderPath),
+                         (nameof(ttsJsonPath), ttsJsonPath),
+                         (nameof(voicePath), voicePath),
+                     })
+            {
+                if (string.IsNullOrWhiteSpace(pair.Item2))
+                {
+                    throw new ArgumentException(pair.Item1 + " is required.", pair.Item1);
+                }
+            }
+
+            if (textIds == null || textIds.Length == 0)
+            {
+                throw new ArgumentException("textIds is required.", nameof(textIds));
+            }
+            if (realTextLength <= 0 || realTextLength > textIds.Length)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(realTextLength),
+                    $"realTextLength must be within 1..{textIds.Length}.");
+            }
+
+            EnsureBridge();
+            return _bridge.Call<string>(
+                "runSupertonicTts", durationPredictorPath, textEncoderPath,
+                vectorEstimatorPath, vocoderPath, ttsJsonPath, voicePath,
+                textIds, realTextLength, steps, speed,
+                string.IsNullOrWhiteSpace(backend) ? "CPU" : backend, seed,
+                outWavPath ?? string.Empty);
+#else
+            throw new PlatformNotSupportedException(
+                "Supertonic TTS currently supports Android device builds only.");
+#endif
+        }
+
         public string RunQwen3AsrSmoke(
             string modelPath,
             string audioPath,

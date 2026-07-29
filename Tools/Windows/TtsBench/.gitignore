@@ -1,0 +1,3 @@
+# Created by Convert-SupertonicToLiteRt.ps1 -Bootstrap (TensorFlow + onnx2tf, ~2 GB)
+.venv-convert/
+__pycache__/

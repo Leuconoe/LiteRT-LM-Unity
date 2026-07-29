@@ -64,7 +64,8 @@ if ([string]::IsNullOrWhiteSpace($ArtifactDir)) {
 $ArtifactDir = [System.IO.Path]::GetFullPath($ArtifactDir)
 
 if ([string]::IsNullOrWhiteSpace($UnityPluginsDir)) {
-    $UnityPluginsDir = Join-Path $ProjectRoot "Assets\Plugins\Android"
+    # The bridge ships inside the UPM package, not under Assets/.
+    $UnityPluginsDir = Join-Path $ProjectRoot "Packages\com.leuconoe.litert-lm-unity\Runtime\Plugins\Android"
 }
 $UnityPluginsDir = [System.IO.Path]::GetFullPath($UnityPluginsDir)
 

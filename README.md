@@ -53,9 +53,14 @@ Pin a release by appending a tag: `…litert-lm-unity#v0.14.0a-unity`.
 Git URL installs need [git](https://git-scm.com/) on `PATH`; the package carries
 a 31 MB Android AAR, so the first resolve takes a moment.
 
-**Samples** — in Package Manager select *LiteRT-LM for Unity* → **Samples** →
-*Test Scenes* → **Import**. That brings in six scenes, the Android build menu
-and the scene generator.
+**Samples** — in Package Manager select *LiteRT-LM for Unity* → **Samples**:
+
+| Sample | Contents |
+| --- | --- |
+| *Test Scenes* | Seven hand-driven scenes (quick start, chat, ASR, multimodal, voice FC, multimodal FC, translate), the Android build menu and the scene generator |
+| *Automated Tests* | Three unattended scenes (Android smoke, conversation, FC benchmark) that run on load and write their results to `Builds/Logs/` |
+
+Import *Test Scenes* first; *Automated Tests* is only needed for regression runs.
 
 Working in this repository instead of consuming the package? The samples live in
 `Samples~/`, which Unity does not compile. Import them once with:
@@ -79,7 +84,8 @@ Working in this repository instead of consuming the package? The samples live in
 | Path | Contents |
 | --- | --- |
 | `Packages/com.leuconoe.litert-lm-unity/Runtime/` | `LiteRtLmUnityClient` (Android bridge), `LiteRtLmMicVadCapture`, `LiteRtLmStatusHudOverlay`, `LiteRtLmWindowsCliClient`, and the native AAR |
-| `Packages/com.leuconoe.litert-lm-unity/Samples~/TestScenes/` | Scene runners, the six test scenes, the APK build menu and the scene generator |
+| `Packages/com.leuconoe.litert-lm-unity/Samples~/TestScenes/` | Scene runners, the seven hand-driven scenes, the APK build menu and the scene generator |
+| `Packages/com.leuconoe.litert-lm-unity/Samples~/AutomatedTests/` | Smoke, conversation and function-calling benchmark scenes |
 | `Assets/StreamingAssets/` | Where you place models (not in the repository) |
 | `Tools/Windows/` | Build, AAR and device scripts |
 | `docs/` | Benchmarks and handoffs |
@@ -131,12 +137,22 @@ loads rather than both being resident.
 
 | Scene | Purpose |
 | --- | --- |
+| `LiteRtLmSampleScene` | Quick start — model path, one prompt, one response |
 | `LiteRtLmLlmChatTestScene` | Multi-turn chat, think/no_think toggle |
 | `LiteRtLmAsrTestScene` | ASR — file / microphone / always-listening (Continuous) |
-| `LiteRtLmMultimodalTestScene` | Image + audio input |
-| `LiteRtLmAsrFunctionCallingTestScene` | Voice → tool call (15.5 s) |
+| `LiteRtLmMultimodalTestScene` | Image + audio input, with a file picker on Windows |
+| `LiteRtLmAsrFunctionCallingTestScene` | Voice → tool call (15.5 s), editable prompt and tool list |
 | `LiteRtLmMultimodalFunctionCallingTestScene` | Image + utterance → tool call (40.7 s) |
 | `LiteRtLmTranslateTestScene` | Translation — Whisper Direct / ASR+LLM |
+
+The *Automated Tests* sample adds `LiteRtLmAndroidSmokeTestScene`,
+`LiteRtLmConversationTestScene` and `LiteRtLmFunctionCallingBenchmarkScene`.
+These start on load and report through an on-screen overlay, so a device run
+needs no interaction.
+
+Windows runs the same scenes through the bundled CLI binaries, so ASR,
+translation, multimodal and function calling can all be exercised in the editor
+before an APK build.
 
 ## Rebuilding the AAR (after native changes)
 
