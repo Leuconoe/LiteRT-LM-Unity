@@ -3,6 +3,42 @@
 All notable changes to this package are documented here. The version tracks the
 LiteRT-LM runtime it wraps.
 
+## [0.14.0b] — 2026-07-29
+
+Text to speech. The package version still tracks the LiteRT-LM runtime it wraps,
+which is unchanged at v0.14.0; the suffix marks the package revision.
+
+### Added
+
+- `ILiteRtLmTts` — one interface, three backends, so callers do not change when
+  the engine does.
+- `LiteRtLmSystemTts` — the platform voice: Windows SAPI (a Korean voice ships
+  with the OS) and Android `TextToSpeech`. No model files, no model licence.
+  **Not available on the METALENSE2 target**, which is an AOSP build with no TTS
+  engine and no way to install one — the reason the neural backend exists.
+- `LiteRtLmSupertonicTts` — Supertonic running on LiteRT, the runtime the LLM and
+  ASR paths already use. Verified on device: **RTF 0.15–0.27, four to seven times
+  faster than real time** on kona (CPU), audio confirmed by round-trip ASR.
+- `LiteRtLmSupertonicText` — the reference text front end ported to C#. Unicode
+  NFKD runs here so that ICU stays out of the AAR; byte-identical to the Python
+  reference across 8 cases, Hangul jamo decomposition included.
+- `LiteRtLmUnityClient.RunSupertonicTts` and the matching
+  `UnityLiteRtLmBridge.runSupertonicTts` / native runner. One bridge call per
+  utterance: the flow-matching loop stays native, so neither the latent nor the
+  PCM crosses JNI.
+- **TTS test scene** (interactive, backend toggle and flow-step slider) and a
+  headless **TTS smoke scene** with an APK build entry that packages only the
+  TTS model set.
+
+### Notes
+
+- Model weights are **OpenRAIL-M**, not a permissive licence, and are not
+  redistributed with the package. `docs/tts-model-research.md` screens nine
+  candidates and names the MIT fallback if that is refused.
+- CPU is the shipping backend. The OpenCL delegate rejects the converted graphs
+  on a BHWC shape mismatch; that is a conversion-layout limitation, not a tuning
+  knob.
+
 ## [0.14.0] — 2026-07-27
 
 First release as a UPM package. Previously the same code shipped as loose files
