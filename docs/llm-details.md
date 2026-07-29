@@ -46,7 +46,7 @@ reason is recorded so nobody re-runs the search. This is the index;
 
 ASR and TTS models are inventoried separately in
 [`asr-details.md`](asr-details.md) and
-[`tts-model-research.md`](tts-model-research.md). **Nothing that is an ASR or TTS
+[`tts-details.md`](tts-details.md). **Nothing that is an ASR or TTS
 model belongs in this table** — that separation was violated once (VibeVoice-ASR
 was screened here and listed as an LLM) and the entry has been moved to
 [`asr-details.md`](asr-details.md#screened-and-rejected).

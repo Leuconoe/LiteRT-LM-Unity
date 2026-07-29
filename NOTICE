@@ -1,0 +1,19 @@
+LiteRT-LM-Unity
+Copyright 2026 Leuconoe
+
+This product includes software developed by Google LLC as part of
+google-ai-edge/LiteRT-LM (https://github.com/google-ai-edge/LiteRT-LM),
+licensed under the Apache License, Version 2.0.
+
+The Android library `litertlm-unity-bridge.aar` and the Windows executables
+under `Tools/Windows/Bin/` are built from LiteRT-LM sources with the
+modifications in `Tools/UnityAar/litert-lm-unity-aar.patch`, and are therefore
+derivative works of that project.
+
+`Tools/Research/Supertonic/TtsBench/supertonic_helper.py` is vendored verbatim
+from supertone-inc/supertonic, licensed under the MIT License,
+Copyright (c) 2025 Supertone Inc.
+
+No model weights are distributed with this repository. Models are downloaded
+separately and carry their own licenses; see
+Packages/com.leuconoe.litert-lm-unity/THIRD-PARTY-NOTICES.md.

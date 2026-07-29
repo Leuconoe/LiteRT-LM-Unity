@@ -13,7 +13,7 @@
   Requires a CUDA GPU with roughly 8 GB free for the AWQ-INT4 build.
 
   Licence: CC-BY-NC-4.0. Evaluation only — this cannot ship in a delivered
-  product. See docs/tts-model-research.md.
+  product. See docs/tts-details.md.
 
 .PARAMETER Bootstrap
   Create the venv and install torch (CUDA 12.8) plus the model's requirements.

@@ -1,4 +1,9 @@
-# TTS: model research and implementation plan
+# TTS Details
+
+Engine selection, conversion and the shipped implementation. Started as a
+research note on 2026-07-27 and kept as the TTS reference once Supertonic
+shipped, so the screening that ruled models out sits next to the numbers from
+the engine that won.
 
 Written 2026-07-27. The project has ASR (device + desktop) and LLM; TTS is the
 missing half of the voice loop. This picks an engine and lays out how to build it.

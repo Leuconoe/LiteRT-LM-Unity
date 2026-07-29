@@ -16,7 +16,7 @@ namespace LiteRTLM.Unity
     ///     AOSP build with no TTS engine and no way to install one, so the scene
     ///     will report the backend as unavailable there. Giving that device a voice
     ///     needs a bundled-model backend implementing <see cref="ILiteRtLmTts"/>;
-    ///     see docs/tts-model-research.md.
+    ///     see docs/tts-details.md.
     /// </summary>
     public sealed class LiteRtLmTtsTestRunner : MonoBehaviour
     {
@@ -148,7 +148,7 @@ namespace LiteRTLM.Unity
                 GUILayout.Label(
                     "No system voice on this platform. On the AOSP target (no TTS " +
                     "engine installable) this is expected — the device needs a " +
-                    "bundled-model backend, see docs/tts-model-research.md.",
+                    "bundled-model backend, see docs/tts-details.md.",
                     LiteRtLmUi.WrapLabel);
             }
 

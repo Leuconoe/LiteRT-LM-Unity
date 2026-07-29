@@ -58,7 +58,7 @@ Device runs need `-DeviceSerial 46a880a0` — an emulator is usually attached to
 
 | Directory | Question it answered | Written up in |
 | --- | --- | --- |
-| `Supertonic/` | Can Supertonic TTS run on LiteRT, and how fast? Conversion, quantization, bucketing, desktop/device comparison | `docs/tts-model-research.md` |
+| `Supertonic/` | Can Supertonic TTS run on LiteRT, and how fast? Conversion, quantization, bucketing, desktop/device comparison | `docs/tts-details.md` |
 | `Whisper/` | Can the Whisper tflite exports run on Windows? | `docs/benchmarks/whisper-windows-tflite.md` |
 | `Kanana/` | How does a candidate LLM score on our 20-case Korean routing set when LiteRT cannot run it yet? | `docs/llm-details.md` |
 

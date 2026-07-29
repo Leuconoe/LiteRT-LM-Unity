@@ -84,4 +84,4 @@ would let ASR and TTS collapse into one model — but it adds a network
 dependency, link latency on top of the model's own first-audio time, and a
 second machine to power and maintain. It is a system-architecture decision, not
 an engine swap. Written up in
-[`docs/tts-model-research.md`](../../../docs/tts-model-research.md).
+[`docs/tts-details.md`](../../../docs/tts-details.md).

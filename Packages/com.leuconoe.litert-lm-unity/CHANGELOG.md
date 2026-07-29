@@ -43,7 +43,7 @@ which is unchanged at v0.14.0; the suffix marks the package revision.
   and was accepted for this project on 2026-07-29. Anyone shipping the weights
   still has to include the licence with them, pass the use restrictions
   downstream, and disclose that the audio is machine-generated (clause (e)).
-  See `docs/tts-model-research.md`.
+  See `docs/tts-details.md`.
 - CPU is the shipping backend. The OpenCL delegate rejects the converted graphs
   on a BHWC shape mismatch; that is a conversion-layout limitation, not a tuning
   knob.

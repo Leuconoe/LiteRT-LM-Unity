@@ -23,8 +23,8 @@ numbers are reference only.
 - [LLM details](llm-details.md) — tiers, backend choice, device measurements
 - [ASR details](asr-details.md) — full lineup, VAD, ACFT-KO training background,
   smoke-test commands
-- [TTS model research and plan](tts-model-research.md) — engine choice for the
-  missing half of the voice loop, licences, and the phased build
+- [TTS details](tts-details.md) — engine screening and licences, the LiteRT
+  conversion and bucketing work, and the shipped Supertonic numbers
 
 ## Benchmarks (source data)
 

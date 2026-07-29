@@ -32,7 +32,7 @@ from the PowerShell wrappers in `..` rather than invoked directly:
 - `check_tflite_runs.py` — does a converted graph allocate and invoke, with and
   without XNNPACK.
 
-Findings and measurements live in [docs/tts-model-research.md](../../../docs/tts-model-research.md).
+Findings and measurements live in [docs/tts-details.md](../../../docs/tts-details.md).
 
 ## Third-party code
 

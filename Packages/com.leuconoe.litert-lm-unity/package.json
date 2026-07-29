@@ -10,6 +10,7 @@
     "com.unity.modules.imgui": "1.0.0",
     "com.unity.modules.jsonserialize": "1.0.0"
   },
+  "license": "Apache-2.0",
   "documentationUrl": "https://github.com/Leuconoe/LiteRT-LM-Unity#readme",
   "changelogUrl": "https://github.com/Leuconoe/LiteRT-LM-Unity/blob/main/Packages/com.leuconoe.litert-lm-unity/CHANGELOG.md",
   "licensesUrl": "https://github.com/Leuconoe/LiteRT-LM-Unity/blob/main/Packages/com.leuconoe.litert-lm-unity/THIRD-PARTY-NOTICES.md",

@@ -54,7 +54,7 @@ in v0.14 and there are no Windows converter wheels.
 | Model | Gate it failed | Detail |
 | --- | --- | --- |
 | gemma-4-E2B, Gemma3-1B/270M, Qwen2.5-0.5B/1.5B, Qwen3-0.6B, LFM2.5-1.2B, FunctionGemma-270M | — passes | [`llm-details.md`](llm-details.md) |
-| Whisper, Silero VAD, Supertonic | not LiteRT-LM — runs on **LiteRT** with our driver | [`asr-details.md`](asr-details.md), [`tts-model-research.md`](tts-model-research.md) |
+| Whisper, Silero VAD, Supertonic | not LiteRT-LM — runs on **LiteRT** with our driver | [`asr-details.md`](asr-details.md), [`tts-details.md`](tts-details.md) |
 | **Kanana-2-1.3B** | 1 (custom `kanana2_tiny`, hybrid SWA + per-layer-type RoPE) and 2 (Kanana licence §4.1(ii) covers on-premise/SI delivery) | [`llm-details.md` §6](llm-details.md#6-evaluated-and-rejected) |
 | **Raon-Speech-9B(-AWQ-INT4)** | 1, 2 and 3 — all three | below |
 | Qwen3.5-0.8B-MTP | 1 — architecture unsupported; MTP is a llama.cpp feature | [`llm-details.md` §6](llm-details.md#6-evaluated-and-rejected) |
