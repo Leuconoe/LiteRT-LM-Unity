@@ -226,7 +226,7 @@ other — it is the same prefill/decode/KV-cache shape.
    | --- | --- |
    | Ship the licence with the weights | The LICENSE text and Attachment A go into the deliverable alongside the model files, not just into this repo |
    | Propagate the restrictions | OpenRAIL-M is a carry-forward licence: anyone we hand the model to must receive the same use restrictions, so they belong in the delivery terms |
-   | Clause (e) disclosure | Synthesized audio must be identifiable as machine-generated — a line in the UI or the operator manual, decided once and applied to every scene that speaks |
+   | Clause (e) disclosure | **Done.** `LiteRtLmTtsDisclosure` holds the Korean/English notice; the TTS test scene displays it and the smoke runner writes it into the status file beside the WAVs |
 
    The licensor claims no rights over generated audio, so output produced by the
    shipped product is unencumbered.

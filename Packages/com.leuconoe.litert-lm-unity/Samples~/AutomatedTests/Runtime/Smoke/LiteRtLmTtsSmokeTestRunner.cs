@@ -91,6 +91,11 @@ namespace LiteRTLM.Unity
                 $"seed={seed}, sentences={sentences?.Length ?? 0}, runsPerSentence={runsPerSentence}, " +
                 $"platform={Application.platform}");
 
+            // The WAVs this run leaves on the device are machine-generated, and
+            // OpenRAIL-M (e) wants that stated. Recording it in the status file
+            // keeps the disclosure attached to the artifacts themselves.
+            WriteStatus("DISCLOSURE", LiteRtLmTtsDisclosure.English);
+
 #if UNITY_ANDROID && !UNITY_EDITOR
             if (sentences == null || sentences.Length == 0)
             {

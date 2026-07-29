@@ -116,6 +116,15 @@ namespace LiteRTLM.Unity
             }
 
             GUILayout.Label($"Backend: {_tts.BackendName}", LiteRtLmUi.Mono);
+
+            // OpenRAIL-M use restriction (e): machine-generated audio has to be
+            // disclosed. Shown for every backend rather than only the one that
+            // carries the term — a notice that appears sometimes is worse than
+            // one that always does.
+            GUILayout.Label(
+                LiteRtLmTtsDisclosure.Notice(LanguageTags[selectedLanguageIndex]),
+                LiteRtLmUi.WrapLabel);
+
             if (selectedBackendIndex == 1)
             {
                 var steps = Mathf.RoundToInt(GUILayout.HorizontalSlider(supertonicSteps, 1f, 8f));

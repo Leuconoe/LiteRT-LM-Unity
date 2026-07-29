@@ -29,6 +29,12 @@ which is unchanged at v0.14.0; the suffix marks the package revision.
 - **TTS test scene** (interactive, backend toggle and flow-step slider) and a
   headless **TTS smoke scene** with an APK build entry that packages only the
   TTS model set.
+- `LiteRtLmTtsDisclosure` — the "this voice is synthesized" notice in Korean and
+  English, in one place. OpenRAIL-M use restriction (e) requires machine-generated
+  audio to be disclosed; the test scene shows it and the smoke runner records it
+  in the status file next to the WAVs. Shown for every backend, not only the one
+  that carries the term — a notice that appears sometimes is worse than one that
+  always does.
 
 ### Notes
 
