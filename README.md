@@ -164,6 +164,56 @@ applies the patch, builds in Docker and deploys to
 ⚠️ `-SkipImageBuild` builds the sources baked into the Docker image, so the
 image must be rebuilt after any patch change.
 
+## Upgrading LiteRT-LM: what broke at v0.17.1 (2026-09-17, reverted)
+
+The patch was rebased onto upstream v0.17.1, the AAR rebuilt and measured on
+kona, and then rolled back to v0.14.0. Read this before trying again.
+
+- **Stock v0.17.1 cannot run Qwen2.5-0.5B at all** — the project int4 export
+  and the official litert-community q8 export both fail on the first prompt
+  with `prefill work group size exceeds available state entries (2)`. The
+  runtime's KV-cache heuristic (`runtime/executor/litert/state.cc`,
+  `HeuristicBasedCreate`) reads the key tensor's `dims[2]` as the context
+  size, which is the head count (2) for ai-edge-torch's default
+  `[batch, seq, heads, dim]` layout. Still present on upstream `main`; a
+  one-line fix (`max(dims[1], dims[2])`) makes it run.
+- **Decode is slower on the Qwen CPU path** even with that fix (same device,
+  same day, each model started below 55 °C, 3-run averages):
+
+  | Model (CPU) | v0.14 prefill / decode tok/s | v0.17.1 prefill / decode tok/s | Δ decode |
+  | --- | ---: | ---: | ---: |
+  | qwen2.5-0.5b project int4 | 220.8 / 36.61 | 229.3 / 31.38 | −14 % |
+  | qwen2.5-0.5b official q8 | 230.9 / 23.20 | 240.6 / 20.93 | −10 % |
+  | qwen3-0.6b mixed int4 | 32.1 / 21.48 | 31.9 / 20.26 | −6 % |
+  | gemma-4-E2B QAT | 178.6 / 6.38 | 184.3 / 6.43 | +1 % |
+
+  Prefill gains 3–4 %, memory and init are unchanged. The cause was not
+  isolated (LiteRT pin `622f1f3c` → `9fe5be45` vs. the KV-state rewrite).
+- **Two Bazel breakages** in the JNI build: the umbrella target
+  `@litert//litert/cc:litert_api_with_dynamic_runtime` was removed (use the
+  granular `litert/cc:*` and `cc/options:*` targets), and nothing builds
+  `libLiteRt.so` any more (`@litert//litert/c:litert_runtime_c_api_so` must be
+  a build target). The Bazel build also needs the new `support/` directory,
+  `BUILD.espeak_ng` and `.bazeliskrc` copied into the build context.
+- Source changes the patch must absorb: `ASSIGN_OR_RETURN` /
+  `RETURN_IF_ERROR` are gone (use `ABSL_*`), `schema/capabilities/capabilities_c.h`
+  moved to `c/capabilities.h`, `.litertlm` format 1.5.0 → 1.6.0 (existing
+  models still load).
+- What upstream gained that would justify a retry: official ASR (`omni/asr`:
+  whisper, parakeet, moonshine, qwen3-asr) and TTS (`omni/tts`: Kokoro,
+  Qwen3-TTS, no Korean) pipelines, versioned C API prebuilts, and a
+  min-runtime-version field that newer Hugging Face models may require.
+- Not re-verified on v0.17.1: ASR, TTS, multimodal, function calling, GPU
+  backend, Windows CLI.
+
+Kept from the attempt: the device benchmark harness fixes (project-root path
+after the `Tools/Windows/Tests` move, PowerShell 7 guard, screen wake and
+notification-shade collapse before launch, force-stop after each run) and the
+`qwen2.5-0.5b-i4-cpu` / `qwen3-0.6b-int4-cpu` catalog entries.
+
+The rebased patch, the take4 AAR and the full handoff note were kept locally
+under `Builds/aar-backup/` (gitignored); they are not in the repository.
+
 ## Docs
 
 | Document | Contents |

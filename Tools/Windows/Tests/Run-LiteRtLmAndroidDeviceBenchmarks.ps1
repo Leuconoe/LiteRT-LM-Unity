@@ -13,9 +13,14 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+if ($PSVersionTable.PSVersion.Major -lt 7) {
+    # Windows PowerShell 5.1 promotes native stderr (adb shell stat on a missing file) to a
+    # terminating error under ErrorActionPreference=Stop, so every model push "fails". Use pwsh 7.
+    throw "Run this script with PowerShell 7 (pwsh). Windows PowerShell $($PSVersionTable.PSVersion) turns adb stderr into terminating errors."
+}
 
 $ScriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
-$ProjectRoot = Split-Path -Parent (Split-Path -Parent $ScriptDirectory)
+$ProjectRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $ScriptDirectory))
 $ApkDirectory = Join-Path $ProjectRoot "Builds\Android"
 $LogDirectory = Join-Path $ProjectRoot "Builds\Logs\AndroidDeviceRuns"
 $RunId = Get-Date -Format "yyyyMMdd-HHmmss"
@@ -521,6 +526,9 @@ foreach ($benchmark in $Benchmarks) {
         Invoke-AdbBestEffort $Serial @("shell", "am", "force-stop", $PackageName) "Pre-run force-stop failed"
         Invoke-AdbBestEffort $Serial @("shell", "rm", "-f", $deviceStatusPath) "Pre-run status cleanup failed"
         Invoke-Adb $Serial @("logcat", "-c")
+        # Unity only resumes with window focus: wake the screen and collapse the notification shade first.
+        Invoke-AdbBestEffort $Serial @("shell", "input", "keyevent", "KEYCODE_WAKEUP") "Pre-run wakeup failed"
+        Invoke-AdbBestEffort $Serial @("shell", "cmd", "statusbar", "collapse") "Pre-run statusbar collapse failed"
         Invoke-Adb $Serial @("shell", "monkey", "-p", $PackageName, "-c", "android.intent.category.LAUNCHER", "1")
 
         $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
@@ -576,6 +584,8 @@ foreach ($benchmark in $Benchmarks) {
         $thermalAfter = @(Get-DeviceThermalSnapshot $Serial)
         $thermalAfterMax = Get-MaxThermalCelsius $thermalAfter
         $thermalAfterSummary = Format-ThermalSnapshot $thermalAfter
+        # Stop the app so an idle smoke scene does not keep heating the device between runs.
+        Invoke-AdbBestEffort $Serial @("shell", "am", "force-stop", $PackageName) "Post-run force-stop failed"
 
         $Results.Add([pscustomobject]@{
             Name = $name

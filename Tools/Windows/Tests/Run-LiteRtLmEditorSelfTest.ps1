@@ -13,7 +13,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $ScriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
-$ProjectRoot = Split-Path -Parent (Split-Path -Parent $ScriptDirectory)
+$ProjectRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $ScriptDirectory))
 $RepoRoot = Split-Path -Parent $ProjectRoot
 $ProjectVersionFile = Join-Path $ProjectRoot "ProjectSettings\ProjectVersion.txt"
 $ExecutionProjectRoot = $ProjectRoot
