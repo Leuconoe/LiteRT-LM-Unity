@@ -61,6 +61,7 @@ Device runs need `-DeviceSerial 46a880a0` — an emulator is usually attached to
 | `Supertonic/` | Can Supertonic TTS run on LiteRT, and how fast? Conversion, quantization, bucketing, desktop/device comparison | `docs/tts-details.md` |
 | `Whisper/` | Can the Whisper tflite exports run on Windows? | `docs/benchmarks/whisper-windows-tflite.md` |
 | `Kanana/` | How does a candidate LLM score on our 20-case Korean routing set when LiteRT cannot run it yet? | `docs/llm-details.md` |
+| `Moonshine/` | Are the Moonshine Korean ASR models more accurate than the Whisper tiers we ship, before any conversion is spent? | `docs/benchmarks/moonshine-korean-eval.md` |
 
 Each has its own venv (gitignored) and its own `-Bootstrap` switch. They are
 independent — installing one does not disturb another, which matters because

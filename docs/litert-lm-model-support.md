@@ -61,6 +61,7 @@ in v0.14 and there are no Windows converter wheels.
 | Bonsai-1.7B ternary | 1 — LiteRT requantizes to int4/8, erasing the 1-bit advantage | same |
 | Hammer2.1-0.5b | 2 — CC-BY-NC | same |
 | VibeVoice-ASR | 3 — 8.7 B | same |
+| Moonshine tiny-ko / base-ko | 2 — Moonshine AI Community License (non-commercial); would run on LiteRT, but also loses to whisper-base on short Korean commands | [`benchmarks/moonshine-korean-eval.md`](benchmarks/moonshine-korean-eval.md) |
 
 ## Raon-Speech, specifically
 

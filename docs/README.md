@@ -35,6 +35,8 @@ numbers are reference only.
 - [Short-utterance ASR research](benchmarks/short-utterance-asr-research.md)
 - [Whisper tflite on Windows](benchmarks/whisper-windows-tflite.md) — desktop
   runs, 20/20, and the tier boundary on short clips reproducing off-device
+- [Moonshine Korean eval](benchmarks/moonshine-korean-eval.md) — tiny-ko/base-ko
+  vs stock Whisper on the same three buckets; rejected (licence + short commands)
 - [gemma-4 GGUF comparison](benchmarks/gemma4-gguf-vs-litertlm.md)
 - [v0.14 session report](benchmarks/session-final-report-20260723.md)
 
