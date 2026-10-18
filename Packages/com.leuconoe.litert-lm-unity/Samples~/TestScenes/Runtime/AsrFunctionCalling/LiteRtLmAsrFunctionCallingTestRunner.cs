@@ -54,6 +54,19 @@ namespace LiteRTLM.Unity
             TypedText,
         }
 
+        // FunctionGemma: the Korean fine-tune behind the app-side guard and clause split
+        // (LiteRtLmFunctionGemmaRouter). Generic: any LLM tier with the editable prompt and tools below.
+        private enum RouterKind
+        {
+            FunctionGemma,
+            GenericJson,
+        }
+
+        private static readonly string[] RouterLabels = { "FunctionGemma (fine-tuned)", "Generic JSON prompt" };
+
+        // The c256 bundle holds 256 tokens; a decl-none prompt is ~30-45 and a call ~20.
+        private const int FunctionGemmaMaxNumTokens = 256;
+
         private static readonly string[] InputSourceLabels = { "Audio clip", "Microphone", "Typed text" };
         private static readonly string[] BackendLabels = { "CPU", "GPU" };
         private static readonly string[] LanguageLabels = { "ko", "en", "auto" };
@@ -70,6 +83,8 @@ namespace LiteRTLM.Unity
         private int _languageIndex;
         private int _clipIndex;
         private InputSource _inputSource = InputSource.AudioClip;
+        private RouterKind _router = RouterKind.FunctionGemma;
+        private LiteRtLmFunctionGemmaRouter.ToolSchema _functionGemmaSchema;
 
         private string _systemPrompt = DefaultSystemPrompt;
         private string _toolsJson = DefaultToolsJson;
@@ -142,9 +157,17 @@ namespace LiteRTLM.Unity
             _asrModelIndex = LiteRtLmUi.Dropdown(
                 "ASR model", _asrModelIndex, LiteRtLmSampleAssets.Labels(LiteRtLmSampleAssets.AsrModels),
                 ref _asrModelExpanded, width, interactive);
-            _llmModelIndex = LiteRtLmUi.Dropdown(
-                "LLM router", _llmModelIndex, LiteRtLmSampleAssets.Labels(LiteRtLmSampleAssets.LlmModels),
-                ref _llmModelExpanded, width, interactive);
+            _router = (RouterKind)LiteRtLmUi.OptionRow("Router", (int)_router, RouterLabels, width, interactive);
+            if (_router == RouterKind.GenericJson)
+            {
+                _llmModelIndex = LiteRtLmUi.Dropdown(
+                    "LLM router", _llmModelIndex, LiteRtLmSampleAssets.Labels(LiteRtLmSampleAssets.LlmModels),
+                    ref _llmModelExpanded, width, interactive);
+            }
+            else
+            {
+                GUILayout.Label(LiteRtLmSampleAssets.FunctionGemmaRouterModel);
+            }
 
             // Backend and language are dropdowns, matching the ASR scene: they are
             // picked once per session, so they should not occupy a button row each.
@@ -176,11 +199,19 @@ namespace LiteRTLM.Unity
                     break;
             }
 
-            LiteRtLmUi.Section("System prompt");
-            _systemPrompt = LiteRtLmUi.TextArea(_systemPrompt, 84f);
+            if (_router == RouterKind.GenericJson)
+            {
+                LiteRtLmUi.Section("System prompt");
+                _systemPrompt = LiteRtLmUi.TextArea(_systemPrompt, 84f);
 
-            LiteRtLmUi.Section("Tools (JSON)");
-            _toolsJson = LiteRtLmUi.TextArea(_toolsJson, 130f);
+                LiteRtLmUi.Section("Tools (JSON)");
+                _toolsJson = LiteRtLmUi.TextArea(_toolsJson, 130f);
+            }
+            else
+            {
+                LiteRtLmUi.Section("Contract");
+                GUILayout.Label("Tools are baked into the fine-tune; Resources/functiongemma_tools.json drives the guard.");
+            }
 
             GUILayout.Space(6f);
             GUILayout.BeginHorizontal();
@@ -376,6 +407,12 @@ namespace LiteRTLM.Unity
 
             SetStatus("Routing to a tool...", LiteRtLmUi.StatusKind.Busy);
 
+            if (_router == RouterKind.FunctionGemma)
+            {
+                yield return RouteViaFunctionGemma(utterance);
+                yield break;
+            }
+
             string llmPath = null;
             yield return ResolveStreamingAsset(llmModel.ModelPath, p => llmPath = p);
             if (llmPath == null)
@@ -420,12 +457,110 @@ namespace LiteRTLM.Unity
             }
         }
 
+        /// <summary>
+        /// Fine-tuned FunctionGemma: the trigger sentence as the system turn, the bare utterance as the user
+        /// turn, one fresh conversation per inference, then the app-side guard and clause split. The result
+        /// is a contract call; DefaultResponse gets the utterance as its text.
+        /// </summary>
+        private IEnumerator RouteViaFunctionGemma(string utterance)
+        {
+            string modelPath = null;
+            yield return ResolveStreamingAsset(LiteRtLmSampleAssets.FunctionGemmaRouterModel, p => modelPath = p);
+            if (modelPath == null || !File.Exists(modelPath))
+            {
+                Fail($"FunctionGemma model not found: {LiteRtLmSampleAssets.FunctionGemmaRouterModel}");
+                yield break;
+            }
+
+            if (_functionGemmaSchema == null)
+            {
+                var asset = Resources.Load<TextAsset>(LiteRtLmSampleAssets.FunctionGemmaToolsResource);
+                if (asset == null)
+                {
+                    Fail($"Tool schema missing: Resources/{LiteRtLmSampleAssets.FunctionGemmaToolsResource}.json");
+                    yield break;
+                }
+
+                _functionGemmaSchema = LiteRtLmFunctionGemmaRouter.ToolSchema.FromOpenAiJson(asset.text);
+            }
+
+            var schema = _functionGemmaSchema;
+            var backend = BackendLabels[_llmBackendIndex];
+            var inferences = 0;
+            string firstRaw = null;
+            string Remember(string raw)
+            {
+                inferences++;
+                firstRaw ??= raw;
+                return raw;
+            }
+
+            LiteRtLmFunctionGemmaRouter.Call call;
+            if (!_client.IsAvailable)
+            {
+                var executable = WindowsCliExecutablePath();
+                if (!File.Exists(executable))
+                {
+                    Fail($"Windows CLI not found: {executable}");
+                    yield break;
+                }
+
+                // Stateless CLI: every inference is its own process, which is the fresh conversation the route needs.
+                var cli = new LiteRtLmWindowsCliClient();
+                var task = System.Threading.Tasks.Task.Run(() => LiteRtLmFunctionGemmaRouter.Route(
+                    utterance,
+                    text => Remember(cli.SendMessage(executable, modelPath, text, backend, LiteRtLmFunctionGemmaRouter.Trigger)),
+                    schema));
+
+                while (!task.IsCompleted)
+                {
+                    yield return null;
+                }
+
+                if (task.IsFaulted)
+                {
+                    Fail($"LLM failed: {task.Exception?.GetBaseException().Message}");
+                    yield break;
+                }
+
+                call = task.Result;
+            }
+            else
+            {
+                try
+                {
+                    _client.Dispose();
+                    _client = new LiteRtLmUnityClient();
+                    _client.Initialize(modelPath, backend, Application.temporaryCachePath,
+                        FunctionGemmaMaxNumTokens, 0, 0, false, LiteRtLmFunctionGemmaRouter.Trigger);
+                    call = LiteRtLmFunctionGemmaRouter.Route(utterance, text =>
+                    {
+                        _client.ResetConversation(LiteRtLmFunctionGemmaRouter.Trigger);
+                        return Remember(_client.SendMessage(text));
+                    }, schema);
+                }
+                catch (Exception ex)
+                {
+                    Fail($"LLM failed: {ex.Message}");
+                    yield break;
+                }
+            }
+
+            _rawResponse = firstRaw ?? string.Empty;
+            _toolCall = LiteRtLmFunctionGemmaRouter.WithRefusalText(call, utterance).ToJson();
+            Log($"tool call: {_toolCall} ({inferences} inference{(inferences == 1 ? "" : "s")})");
+            SetStatus(_client.IsAvailable ? "Done" : "Done (Windows CLI)", LiteRtLmUi.StatusKind.Idle);
+            _isBusy = false;
+        }
+
+        private static string WindowsCliExecutablePath() => Path.Combine(
+            Path.GetDirectoryName(Application.dataPath) ?? Directory.GetCurrentDirectory(),
+            "Tools/Windows/Bin/litert_lm_main.windows_x86_64.exe");
+
         /// <summary>Desktop routing step: the same tool contract through the Windows CLI.</summary>
         private IEnumerator RouteViaWindowsCli(string modelPath, string systemInstruction, string utterance)
         {
-            var executable = Path.Combine(
-                Path.GetDirectoryName(Application.dataPath) ?? Directory.GetCurrentDirectory(),
-                "Tools/Windows/Bin/litert_lm_main.windows_x86_64.exe");
+            var executable = WindowsCliExecutablePath();
 
             if (!File.Exists(executable))
             {

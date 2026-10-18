@@ -70,6 +70,16 @@ namespace LiteRTLM.Unity
             new() { Label = "gemma-4-E2B", ModelPath = "Multimodal/gemma-4-e2b/gemma-4-E2B-it.litertlm" },
         };
 
+        /// <summary>
+        /// The Korean voice-command FunctionGemma fine-tune (decl-mode none, int8, cache 256 / prefill 64·128).
+        /// Not a chat model, so it is not in <see cref="LlmModels"/>. Built by
+        /// Tools/Research/FunctionGemma (ft-functiongemma-none-v6e/litertlm-c256-p64/model.litertlm).
+        /// </summary>
+        public const string FunctionGemmaRouterModel = "LLM/functiongemma-270m-ko/functiongemma_270m_ko_v6e_c256_p64.litertlm";
+
+        /// <summary>Its tool contract (fg_common.load_tools of the WebServer ToolsPrompt.txt), under the sample's Resources.</summary>
+        public const string FunctionGemmaToolsResource = "functiongemma_tools";
+
         /// <summary>Multimodal models (image and audio input).</summary>
         public static readonly ModelOption[] MultimodalModels =
         {

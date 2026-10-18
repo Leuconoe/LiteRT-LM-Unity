@@ -12,6 +12,7 @@ namespace LiteRTLM.Unity
         private const string LogPrefix = "[LiteRT-LM AndroidSmoke]";
         private const string StatusFileName = "LiteRtLmAndroidSmokeTest.status.txt";
         private const string ConfigFileName = "LiteRtLmAndroidSmokeTest.config.json";
+        private const string ResultsFileName = "LiteRtLmAndroidSmokeTest.results.jsonl";
 
         [SerializeField] private string modelPath = "model.litertlm";
         [SerializeField] private string backend = "GPU";
@@ -25,6 +26,12 @@ namespace LiteRTLM.Unity
         [SerializeField] private string systemInstruction = "You are a concise Unity Android smoke test assistant.";
         [SerializeField] private bool resetConversationBeforeEachPrompt = true;
 
+        // Optional prompt set (runtime-config driven): a UTF-8 text file, one prompt
+        // per line, absolute or relative to persistentDataPath. Each prompt's full
+        // response and wall time go to ResultsFileName as one JSON line; a failing
+        // prompt is recorded and the run continues.
+        [SerializeField] private string promptsFile = "";
+
         // Optional multimodal smoke turns (runtime-config driven). Paths must be
         // absolute device paths (e.g. pushed via adb) or resolvable files.
         // visionBackend/audioBackend must be set (e.g. "CPU") for the engine to
@@ -37,7 +44,7 @@ namespace LiteRTLM.Unity
         [SerializeField] private string mediaAudioPath = "";
         [SerializeField] private string mediaAudioPrompt = "Transcribe the audio:";
 
-        private readonly string[] prompts =
+        private string[] prompts =
         {
             "Reply with exactly: Android LiteRT-LM smoke test turn one.",
             "Reply with exactly: Android LiteRT-LM smoke test turn two.",
@@ -143,8 +150,24 @@ namespace LiteRTLM.Unity
             }
         }
 
+        [Serializable]
+        private sealed class PromptResult
+        {
+            public int index;
+            public string prompt;
+            public string response;
+            public float wallMs;
+            public string error;
+        }
+
         private void RunPromptTurns()
         {
+            if (!string.IsNullOrWhiteSpace(promptsFile))
+            {
+                RunPromptSet();
+                return;
+            }
+
             for (var i = 0; i < prompts.Length; i++)
             {
                 var turn = i + 1;
@@ -169,6 +192,38 @@ namespace LiteRTLM.Unity
                     "RESPONSE",
                     $"{turn}/{prompts.Length}: elapsedSeconds={elapsedSeconds:0.###}, length={response.Length}, preview={OneLine(Truncate(response, 180))}");
             }
+        }
+
+        private void RunPromptSet()
+        {
+            var resultsPath = Path.Combine(Application.persistentDataPath, ResultsFileName);
+            File.WriteAllText(resultsPath, string.Empty);
+            var failures = 0;
+            for (var i = 0; i < prompts.Length; i++)
+            {
+                var result = new PromptResult { index = i, prompt = prompts[i], response = string.Empty, error = string.Empty };
+                try
+                {
+                    if (resetConversationBeforeEachPrompt)
+                    {
+                        client.ResetConversation(systemInstruction);
+                    }
+
+                    var startedAt = Time.realtimeSinceStartup;
+                    result.response = client.SendMessage(prompts[i]) ?? string.Empty;
+                    result.wallMs = (Time.realtimeSinceStartup - startedAt) * 1000f;
+                }
+                catch (Exception ex)
+                {
+                    failures++;
+                    result.error = ex.Message;
+                }
+
+                File.AppendAllText(resultsPath, JsonUtility.ToJson(result) + "\n");
+                WriteStatus("PROMPT", $"{i + 1}/{prompts.Length}: wallMs={result.wallMs:0}, error={result.error}, preview={OneLine(Truncate(result.response, 120))}");
+            }
+
+            WriteStatus("PROMPT_SET_DONE", $"prompts={prompts.Length}, failures={failures}, results={resultsPath}");
         }
 
         private void RunMediaTurns()
@@ -395,8 +450,14 @@ namespace LiteRTLM.Unity
                 {
                     mediaAudioPrompt = configuredMediaAudioPrompt;
                 }
+                if (TryGetJsonString(json, "promptsFile", out var configuredPromptsFile))
+                {
+                    promptsFile = configuredPromptsFile;
+                    var promptsPath = Path.IsPathRooted(promptsFile) ? promptsFile : Path.Combine(Application.persistentDataPath, promptsFile);
+                    prompts = Array.FindAll(File.ReadAllLines(promptsPath), line => !string.IsNullOrWhiteSpace(line));
+                }
 
-                WriteStatus("CONFIG", $"loaded={configPath}, model={modelPath}, backend={backend}, audioBackend={audioBackend}, skipTextTurns={skipTextTurns}, mediaImagePath={mediaImagePath}, mediaAudioPath={mediaAudioPath}");
+                WriteStatus("CONFIG", $"loaded={configPath}, model={modelPath}, backend={backend}, audioBackend={audioBackend}, skipTextTurns={skipTextTurns}, mediaImagePath={mediaImagePath}, mediaAudioPath={mediaAudioPath}, promptsFile={promptsFile}, prompts={prompts.Length}");
             }
             catch (Exception ex)
             {
