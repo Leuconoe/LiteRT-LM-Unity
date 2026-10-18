@@ -12,8 +12,7 @@ and [`../benchmarks/sensevoice-korean-eval.md`](../benchmarks/sensevoice-korean-
 | --- | --- |
 | Branch | `research/functiongemma-sensevoice-jev-rag` |
 | PR | [#2](https://github.com/Leuconoe/LiteRT-LM-Unity/pull/2) — the first 10 commits (`c327d91` … `8773ec1`) |
-| Committed, **not pushed** | `2ff3fa5` SenseVoice on the headset (AAR take20), `db9db32` confirmation policy |
-| Uncommitted, in progress | `fg_train.py` (per-epoch checkpoint + `--resume`), `make_dataset.py` (filter covers the locked sets), `asr_aug/`, `data_v7_empty/`, `locked/heldout6_*`, `locked/overlap_with_data_v6.json`, edits to `locked/make_h5_voice.py` and `locked/gen_heldout5b.py`, and the rebuild script (§4.2) |
+| Round 2 (after PR #2 opened) | SenseVoice on the headset (AAR take20), confirmation policy, this handoff, `fg_train.py` checkpoint + `--resume`, locked heldout6 + v7 data, the rebuild script (§4.2) |
 
 `git push` is refused by Claude Code's auto-mode classifier in this setup — ask the
 user to run `! git push` themselves; `gh pr create` worked once the branch existed.
@@ -33,8 +32,9 @@ reserialization churn (URP / ProjectSettings / `.slnx`), `External/`, `outputs/`
 | **AAR take20** | JNI: `nativeRunSenseVoiceAsr`, `nativeRunTextEncoder`, `nativeGetLastBenchmark`, `nativeRunJevTrunk`, `nativeRunSupertonicTts`, `nativeSendMessage`, whisper/qwen3. After any AAR change, rebuild **and reinstall** every APK (FC prompt-set, Jev, RAG, SenseVoice) and check the package id on disk is back to `com.Leuconoe.LiteRTLMUnity`. |
 
 The voicecommand-webserver session applied the same data recipe (no tool
-definitions) to EXAONE 3.5 2.4B LoRA: locked 5a/5b/6 correct 80.7 % → 91.5 %, wrong
-actions 16 % → ~4 %.
+definitions) to EXAONE 3.5 2.4B LoRA. Final, on locked 5a/5b/6 minus the 24 overlap
+cases (469): correct 80.4 % → 92.5 %, wrong actions 15.1 % → 5.8 % (WebServer
+`docs/04-report/ai-tactical-staff.handoff.md`).
 
 ## 3. The finding that drives the open work
 
@@ -85,8 +85,11 @@ confidence gate is weak and v7 is the main bet.
 
 ### 4.2 Retrain-on-contract-change script
 
-`Tools/Research/FunctionGemma/Rebuild-FunctionGemmaRouter.ps1` (being written; check
-its state before relying on it). Intended flow: contract diff vs
+`Tools/Research/FunctionGemma/Rebuild-FunctionGemmaRouter.ps1` — `-DryRun`, a fake
+contract (new tool + callsign → exit 2 with 4 to-dos) and `-Smoke` (CPU, train →
+convert → CLI parity 8/8) pass; a real GPU run, `-Stage`, `-Device` and
+`-RefreshParaphrases` have not run yet. Usage in
+[functiongemma-korean-fc.md](../benchmarks/functiongemma-korean-fc.md) §9. Flow: contract diff vs
 `FunctionGemmaBench/contract_snapshot.json` → **stop with a to-do list** when new
 tools lack templates, a callsign/filter name is missing from `CALLSIGN_KO` /
 `FILTER_NAMES` (in `fg_common.py` **and** the C# router), or eval labels went stale →
@@ -97,6 +100,13 @@ every eval set) → GPU guard → train with `--resume` retries → gate (0 wron
 Why it exists: with no declarations in the prompt, any change to tools, parameters
 or enum values (e.g. a new callsign) needs a retrain; mapping a call to a UI handler
 or editing the confirmation list does not.
+
+Found while writing it: the app's `functiongemma_tools.json` lags the current
+WebServer ToolsPrompt (CreateTeam teamType gained UGV · '유지비'), and
+`make_dataset.py` TEAM_TYPES has no '유지비' alias — decide whether the next rebuild
+trains it. Data it rebuilds is filtered against every eval set (0 hits); the old
+data_v6 holds 35 records of the 24 locked overlap cases, already covered by
+all/clean reporting.
 
 ## 5. Rules that keep the numbers honest
 

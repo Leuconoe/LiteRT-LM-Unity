@@ -201,6 +201,30 @@ artifacts, so its column is not a speaking-rate result.
 
 ## 9. Reproduce
 
+**When ToolsPrompt.txt changes, retrain with one command.** decl-mode none puts the
+contract in the weights, so a changed tool, parameter or enum value needs a new model.
+
+```powershell
+.\Tools\Research\FunctionGemma\Rebuild-FunctionGemmaRouter.ps1 -DryRun     # stage 1 only: what changed, what must be edited by hand
+.\Tools\Research\FunctionGemma\Rebuild-FunctionGemmaRouter.ps1 -Smoke      # CPU plumbing test of every stage (~200 records, nothing staged)
+.\Tools\Research\FunctionGemma\Rebuild-FunctionGemmaRouter.ps1 -WaitForGpu -Stage -Device   # the real run, ~1 h on the 4090
+```
+
+It diffs the contract against `FunctionGemmaBench/contract_snapshot.json`, rebuilds
+the v6 composition (v4 templates + the v5 paraphrases that still validate + the v6
+classes, filtered against every eval set incl. `locked/`), trains the v6e recipe
+behind a GPU guard with `--resume` retries, gates on eval_cases (0 wrong actions,
+≥ 98 %), converts (c256 / p64·128), checks Windows-CLI parity, and with `-Stage`
+writes the bundle, `FunctionGemmaRouterModel` and `functiongemma_tools.json`.
+Everything lands in `Builds/Logs/fg-rebuild-<label>/report.md`. It **stops** with a
+to-do list when code has to change first: a new tool or enum value without a
+`make_dataset.py` generator, or a callsign / filter name missing from `fg_common.py`
+and `LiteRtLmFunctionGemmaRouter.cs`. Eval cases whose label no longer validates are
+listed and left out of the gate until relabelled. `-RefreshParaphrases` regenerates
+v5 with vLLM instead of carrying it over (GPU, not exercised yet).
+
+The stages by hand:
+
 ```powershell
 .\Tools\Research\FunctionGemma\Run-FunctionGemmaEval.ps1 -Bootstrap
 py -3.13 Tools\Research\FunctionGemma\FunctionGemmaBench\make_dataset.py          # data_v6_empty (needs data_v5_empty)

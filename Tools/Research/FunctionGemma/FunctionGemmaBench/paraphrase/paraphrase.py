@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import os
 import random
 import re
 import subprocess
@@ -39,6 +40,9 @@ import fg_common as fg  # noqa: E402
 import make_dataset as md  # noqa: E402  (norm + slot vocab; module has a __main__ guard)
 
 OUT = HERE / "out"
+# Rebuild-FunctionGemmaRouter.ps1 -RefreshParaphrases points these at its data_rebuild_<label>/ dirs.
+V4 = Path(os.environ.get("FG_PARAPHRASE_V4") or BENCH / "data_v4_empty")
+V5 = Path(os.environ.get("FG_PARAPHRASE_V5") or BENCH / "data_v5_empty")
 URL = "http://127.0.0.1:8000/v1/chat/completions"
 IMAGE = "vllm/vllm-openai:v0.29.0"
 CONTAINER = "fg-vllm"
@@ -174,7 +178,7 @@ def cmd_stop(args) -> None:
 
 
 def cmd_seeds(args) -> None:
-    rows = read_jsonl(BENCH / "data_v4_empty" / "train.jsonl")
+    rows = read_jsonl(V4 / "train.jsonl")
     by_fn = defaultdict(list)
     for r in rows:
         by_fn[r["function"]].append(r)
@@ -201,7 +205,7 @@ def cmd_gen(args) -> None:
             return s, []
 
     keys, keys_ns = banned()
-    have = {md.norm(r["text"]) for r in read_jsonl(BENCH / "data_v4_empty" / "train.jsonl")}
+    have = {md.norm(r["text"]) for r in read_jsonl(V4 / "train.jsonl")}
     out, drops = [], Counter()
     with ThreadPoolExecutor(48) as ex:
         for s, rewrites in ex.map(one, seeds):
@@ -271,7 +275,7 @@ def cmd_build(args) -> None:
 
     keys, keys_ns = banned()
     hit = lambda r: md.norm(r["text"]) in keys or md.norm(r["text"]).replace(" ", "") in keys_ns  # noqa: E731
-    base_train, base_val = (read_jsonl(BENCH / "data_v4_empty" / f) for f in ("train.jsonl", "val.jsonl"))
+    base_train, base_val = (read_jsonl(V4 / f) for f in ("train.jsonl", "val.jsonl"))
     # v4's filter stopped at heldout3; heldout4 postdates it.
     print("base v4 rows colliding with eval/heldout1-4, dropped:", [r["text"] for r in base_train + base_val if hit(r)])
     base_train, base_val = [r for r in base_train if not hit(r)], [r for r in base_val if not hit(r)]
@@ -291,7 +295,7 @@ def cmd_build(args) -> None:
     val = base_val + [strip(r) for r in para if r["seed_id"] in val_seeds]
     assert not [r for r in train + val if hit(r)]
     rnd.shuffle(train)
-    out = BENCH / "data_v5_empty"
+    out = V5
     write_jsonl(out / "train.jsonl", train)
     write_jsonl(out / "val.jsonl", val)
     share = sum(r["function"] == "DefaultResponse" for r in train) / len(train)

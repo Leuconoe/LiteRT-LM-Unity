@@ -15,6 +15,7 @@ v2 adds heldout_cases.json, v3 heldout2_cases.json, v4 heldout3_cases.json.
     python make_dataset.py --version 2                      # → data_v2_empty/
     python make_dataset.py --v1                             # the first set → data/
     python make_dataset.py --stats                          # also print per-tool counts and samples
+    python make_dataset.py --version 4 --filter-all --out D # Rebuild-FunctionGemmaRouter.ps1: filter vs every eval set incl. locked/
 
 v2 adds what the v1-trained model missed on colloquial speech: a situational
 clause before ~15 % of records ('화면이 복잡하니까 …', '됐고, …') — positives and
@@ -998,6 +999,14 @@ def norm(text):
     return re.sub(r"\s+", " ", text).strip().rstrip(".,!?~ ").strip()
 
 
+FILTER_ALL = False   # main() sets it: --filter-all also ignores inner punctuation
+
+
+def flat(text):
+    """Second exact-text filter key: every space removed (and with --filter-all, punctuation too)."""
+    return re.sub(r"[\s.,!?~]+" if FILTER_ALL else " ", "", text)
+
+
 def finish(text, space_ok=True):
     """Add what ASR does to a command: STT confusions, fillers, a dropped space, a period."""
     stt = False
@@ -1105,10 +1114,10 @@ def g_stt_v6():
     return any_phrasing(tool)(form)[0], tool, args, code
 
 
-def build_v6(banned, banned_ns, show_stats):
-    load = lambda d, s: [json.loads(line) for line in open(HERE / d / f"{s}.jsonl", encoding="utf-8")]
-    base = {s: load("data_v5_empty", s) for s in ("train", "val")}
-    template = {r["text"] for s in ("train", "val") for r in load("data_v4_empty", s)}
+def build_v6(banned, banned_ns, show_stats, base_dir, template_dir, out):
+    load = lambda d, s: [json.loads(line) for line in open(d / f"{s}.jsonl", encoding="utf-8")]
+    base = {s: load(base_dir, s) for s in ("train", "val")}
+    template = {r["text"] for s in ("train", "val") for r in load(template_dir, s)}
     n_base = sum(len(v) for v in base.values())
 
     owner, filtered, duplicates = {}, 0, 0
@@ -1116,7 +1125,7 @@ def build_v6(banned, banned_ns, show_stats):
         kept = []
         for r in base[s]:
             key = norm(r["text"])
-            if key in banned or key.replace(" ", "") in banned_ns:
+            if key in banned or flat(key) in banned_ns:
                 filtered += 1
                 continue
             if key in owner:    # v5 carries one exact duplicate
@@ -1137,7 +1146,7 @@ def build_v6(banned, banned_ns, show_stats):
                 text = dress(text)
             text, _, _ = finish(text)
             key = norm(text)
-            if key in banned or key.replace(" ", "") in banned_ns or key in owner:
+            if key in banned or flat(key) in banned_ns or key in owner:
                 continue
             validate(name, text, fargs)
             owner[key] = name
@@ -1164,8 +1173,7 @@ def build_v6(banned, banned_ns, show_stats):
         train += recs[k:]
     R.shuffle(train)
     R.shuffle(val)
-    out = HERE / "data_v6_empty"
-    out.mkdir(exist_ok=True)
+    out.mkdir(parents=True, exist_ok=True)
     for fname, part in (("train.jsonl", train), ("val.jsonl", val)):
         with open(out / fname, "w", encoding="utf-8", newline="\n") as f:
             for r in part:
@@ -1200,6 +1208,12 @@ def main():
     ap.add_argument("--default-args", choices=["text", "empty"],
                     help="'empty' (default from v2 on) writes DefaultResponse with {} — the app fills text "
                          "with the transcript, so the model no longer spends decode steps copying it")
+    ap.add_argument("--out", type=Path, help="output directory (default: data_v<N>[_empty]/ here)")
+    ap.add_argument("--v5", type=Path, default=HERE / "data_v5_empty", help="v6: the v5 set it builds on")
+    ap.add_argument("--v4", type=Path, default=HERE / "data_v4_empty", help="v6: the template set inside --v5")
+    ap.add_argument("--filter-all", action="store_true",
+                    help="exact-text filter against every *_cases.json here and in locked/, spaces and punctuation "
+                         "ignored (Rebuild-FunctionGemmaRouter.ps1; off, v1-v6 reproduce byte for byte)")
     args = ap.parse_args()
     version = args.version
     default_args = args.default_args or ("text" if version == 1 else "empty")
@@ -1218,12 +1232,18 @@ def main():
 
     filters = ["eval_cases.json", "heldout_cases.json", "heldout2_cases.json", "heldout3_cases.json",
                "heldout4_cases.json"][:min(version, 5)]
-    banned = {norm(c["text"]) for f in filters
-              for c in json.loads((HERE / f).read_text(encoding="utf-8"))["cases"]}
-    banned_ns = {b.replace(" ", "") for b in banned}
+    global FILTER_ALL
+    if args.filter_all:
+        FILTER_ALL = True
+        filters = sorted(p.relative_to(HERE).as_posix() for p in [*HERE.glob("*_cases.json"), *HERE.glob("locked/*_cases.json")])
+    texts = {f: [c["text"] for c in json.loads((HERE / f).read_text(encoding="utf-8"))["cases"]] for f in filters}
+    banned = {norm(t) for ts in texts.values() for t in ts}
+    banned_ns = {flat(b) for b in banned}
+    if args.filter_all:
+        print(f"exact-text filter, {len(banned)} distinct texts: " + ", ".join(f"{f} {len(ts)}" for f, ts in texts.items()))
     if version == 6:
         print(f"exact-text filter: {' + '.join(filters)}")
-        return build_v6(banned, banned_ns, args.stats)
+        return build_v6(banned, banned_ns, args.stats, args.v5, args.v4, args.out or HERE / "data_v6_empty")
 
     owner, records, stt_texts, aug_texts = {}, defaultdict(list), set(), {}
     collisions, conflicts, shortfall = 0, [], {}
@@ -1261,7 +1281,7 @@ def main():
                 text += trail()
             text, stt, spaced = finish(text, aug_n[name, "spacing"] < SPACE_NOISE_P * target)
             key = norm(text)
-            if key in banned or key.replace(" ", "") in banned_ns:
+            if key in banned or flat(key) in banned_ns:
                 collisions += 1
                 continue
             if key in owner:
@@ -1309,8 +1329,8 @@ def main():
     R.shuffle(train)
     R.shuffle(val)
 
-    out = HERE / ("data" if version == 1 else f"data_v{version}" + ("_empty" if default_args == "empty" else ""))
-    out.mkdir(exist_ok=True)
+    out = args.out or HERE / ("data" if version == 1 else f"data_v{version}" + ("_empty" if default_args == "empty" else ""))
+    out.mkdir(parents=True, exist_ok=True)
     for fname, rows in (("train.jsonl", train), ("val.jsonl", val)):
         with open(out / fname, "w", encoding="utf-8", newline="\n") as f:
             for r in rows:

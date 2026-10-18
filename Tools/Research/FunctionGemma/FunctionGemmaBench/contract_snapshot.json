@@ -1,0 +1,983 @@
+{
+ "sha256": "803c21981ab6eae6f68c117e461cc15cd6bef7680d96ed7b603b333638fde439",
+ "filter_names": [
+  "드론 시야",
+  "배터리",
+  "팀 연결선",
+  "장애물",
+  "마커",
+  "전장의 안개",
+  "위협",
+  "적 은엄폐",
+  "아군 은엄폐",
+  "주요 지형지물",
+  "기동성",
+  "기동로"
+ ],
+ "tools": {
+  "SelectTeam": {
+   "required": [
+    "team"
+   ],
+   "params": {
+    "team": {
+     "type": "string",
+     "enum": [
+      "Alpha",
+      "Bravo",
+      "Charlie",
+      "Delta",
+      "Echo",
+      "Foxtrot",
+      "Golf",
+      "Hotel",
+      "India",
+      "Juliet",
+      "Kilo",
+      "Lima",
+      "Mike",
+      "November",
+      "Oscar",
+      "Papa",
+      "Quebec",
+      "Romeo",
+      "Sierra",
+      "Tango",
+      "Uniform",
+      "Victor",
+      "Whiskey",
+      "X-ray",
+      "Yankee",
+      "Zulu"
+     ]
+    }
+   }
+  },
+  "EnterTeamCreation": {
+   "required": [],
+   "params": {}
+  },
+  "CreateTeam": {
+   "required": [
+    "memberCount",
+    "teamType"
+   ],
+   "params": {
+    "teamType": {
+     "type": "string",
+     "enum": [
+      "UGV",
+      "공격",
+      "자폭",
+      "정찰"
+     ]
+    },
+    "memberCount": {
+     "type": "number"
+    }
+   }
+  },
+  "ReturnTeam": {
+   "required": [
+    "team"
+   ],
+   "params": {
+    "team": {
+     "type": "string",
+     "enum": [
+      "Alpha",
+      "Bravo",
+      "Charlie",
+      "Delta",
+      "Echo",
+      "Foxtrot",
+      "Golf",
+      "Hotel",
+      "India",
+      "Juliet",
+      "Kilo",
+      "Lima",
+      "Mike",
+      "November",
+      "Oscar",
+      "Papa",
+      "Quebec",
+      "Romeo",
+      "Sierra",
+      "Tango",
+      "Uniform",
+      "Victor",
+      "Whiskey",
+      "X-ray",
+      "Yankee",
+      "Zulu"
+     ]
+    }
+   }
+  },
+  "DisbandTeam": {
+   "required": [
+    "team"
+   ],
+   "params": {
+    "team": {
+     "type": "string",
+     "enum": [
+      "Alpha",
+      "Bravo",
+      "Charlie",
+      "Delta",
+      "Echo",
+      "Foxtrot",
+      "Golf",
+      "Hotel",
+      "India",
+      "Juliet",
+      "Kilo",
+      "Lima",
+      "Mike",
+      "November",
+      "Oscar",
+      "Papa",
+      "Quebec",
+      "Romeo",
+      "Sierra",
+      "Tango",
+      "Uniform",
+      "Victor",
+      "Whiskey",
+      "X-ray",
+      "Yankee",
+      "Zulu"
+     ]
+    }
+   }
+  },
+  "StartTeamTactics": {
+   "required": [
+    "team"
+   ],
+   "params": {
+    "team": {
+     "type": "string",
+     "enum": [
+      "Alpha",
+      "Bravo",
+      "Charlie",
+      "Delta",
+      "Echo",
+      "Foxtrot",
+      "Golf",
+      "Hotel",
+      "India",
+      "Juliet",
+      "Kilo",
+      "Lima",
+      "Mike",
+      "November",
+      "Oscar",
+      "Papa",
+      "Quebec",
+      "Romeo",
+      "Sierra",
+      "Tango",
+      "Uniform",
+      "Victor",
+      "Whiskey",
+      "X-ray",
+      "Yankee",
+      "Zulu"
+     ]
+    }
+   }
+  },
+  "EditTeamTactics": {
+   "required": [
+    "team"
+   ],
+   "params": {
+    "team": {
+     "type": "string",
+     "enum": [
+      "Alpha",
+      "Bravo",
+      "Charlie",
+      "Delta",
+      "Echo",
+      "Foxtrot",
+      "Golf",
+      "Hotel",
+      "India",
+      "Juliet",
+      "Kilo",
+      "Lima",
+      "Mike",
+      "November",
+      "Oscar",
+      "Papa",
+      "Quebec",
+      "Romeo",
+      "Sierra",
+      "Tango",
+      "Uniform",
+      "Victor",
+      "Whiskey",
+      "X-ray",
+      "Yankee",
+      "Zulu"
+     ]
+    }
+   }
+  },
+  "SelectDrone": {
+   "required": [
+    "droneNumber"
+   ],
+   "params": {
+    "droneNumber": {
+     "type": "number"
+    },
+    "team": {
+     "type": "string",
+     "enum": [
+      "Alpha",
+      "Bravo",
+      "Charlie",
+      "Delta",
+      "Echo",
+      "Foxtrot",
+      "Golf",
+      "Hotel",
+      "India",
+      "Juliet",
+      "Kilo",
+      "Lima",
+      "Mike",
+      "November",
+      "Oscar",
+      "Papa",
+      "Quebec",
+      "Romeo",
+      "Sierra",
+      "Tango",
+      "Uniform",
+      "Victor",
+      "Whiskey",
+      "X-ray",
+      "Yankee",
+      "Zulu"
+     ]
+    }
+   }
+  },
+  "EditDroneTactics": {
+   "required": [
+    "droneNumber"
+   ],
+   "params": {
+    "droneNumber": {
+     "type": "number"
+    },
+    "team": {
+     "type": "string",
+     "enum": [
+      "Alpha",
+      "Bravo",
+      "Charlie",
+      "Delta",
+      "Echo",
+      "Foxtrot",
+      "Golf",
+      "Hotel",
+      "India",
+      "Juliet",
+      "Kilo",
+      "Lima",
+      "Mike",
+      "November",
+      "Oscar",
+      "Papa",
+      "Quebec",
+      "Romeo",
+      "Sierra",
+      "Tango",
+      "Uniform",
+      "Victor",
+      "Whiskey",
+      "X-ray",
+      "Yankee",
+      "Zulu"
+     ]
+    }
+   }
+  },
+  "ReturnDrone": {
+   "required": [
+    "droneNumber"
+   ],
+   "params": {
+    "droneNumber": {
+     "type": "number"
+    },
+    "team": {
+     "type": "string",
+     "enum": [
+      "Alpha",
+      "Bravo",
+      "Charlie",
+      "Delta",
+      "Echo",
+      "Foxtrot",
+      "Golf",
+      "Hotel",
+      "India",
+      "Juliet",
+      "Kilo",
+      "Lima",
+      "Mike",
+      "November",
+      "Oscar",
+      "Papa",
+      "Quebec",
+      "Romeo",
+      "Sierra",
+      "Tango",
+      "Uniform",
+      "Victor",
+      "Whiskey",
+      "X-ray",
+      "Yankee",
+      "Zulu"
+     ]
+    }
+   }
+  },
+  "DetachDrone": {
+   "required": [
+    "droneNumber"
+   ],
+   "params": {
+    "droneNumber": {
+     "type": "number"
+    },
+    "team": {
+     "type": "string",
+     "enum": [
+      "Alpha",
+      "Bravo",
+      "Charlie",
+      "Delta",
+      "Echo",
+      "Foxtrot",
+      "Golf",
+      "Hotel",
+      "India",
+      "Juliet",
+      "Kilo",
+      "Lima",
+      "Mike",
+      "November",
+      "Oscar",
+      "Papa",
+      "Quebec",
+      "Romeo",
+      "Sierra",
+      "Tango",
+      "Uniform",
+      "Victor",
+      "Whiskey",
+      "X-ray",
+      "Yankee",
+      "Zulu"
+     ]
+    }
+   }
+  },
+  "StartManualFlight": {
+   "required": [
+    "droneNumber"
+   ],
+   "params": {
+    "droneNumber": {
+     "type": "number"
+    },
+    "team": {
+     "type": "string",
+     "enum": [
+      "Alpha",
+      "Bravo",
+      "Charlie",
+      "Delta",
+      "Echo",
+      "Foxtrot",
+      "Golf",
+      "Hotel",
+      "India",
+      "Juliet",
+      "Kilo",
+      "Lima",
+      "Mike",
+      "November",
+      "Oscar",
+      "Papa",
+      "Quebec",
+      "Romeo",
+      "Sierra",
+      "Tango",
+      "Uniform",
+      "Victor",
+      "Whiskey",
+      "X-ray",
+      "Yankee",
+      "Zulu"
+     ]
+    }
+   }
+  },
+  "AssignTeamControl": {
+   "required": [
+    "team"
+   ],
+   "params": {
+    "team": {
+     "type": "string",
+     "enum": [
+      "Alpha",
+      "Bravo",
+      "Charlie",
+      "Delta",
+      "Echo",
+      "Foxtrot",
+      "Golf",
+      "Hotel",
+      "India",
+      "Juliet",
+      "Kilo",
+      "Lima",
+      "Mike",
+      "November",
+      "Oscar",
+      "Papa",
+      "Quebec",
+      "Romeo",
+      "Sierra",
+      "Tango",
+      "Uniform",
+      "Victor",
+      "Whiskey",
+      "X-ray",
+      "Yankee",
+      "Zulu"
+     ]
+    },
+    "soldierName": {
+     "type": "string"
+    }
+   }
+  },
+  "RevokeTeamControl": {
+   "required": [
+    "team"
+   ],
+   "params": {
+    "team": {
+     "type": "string",
+     "enum": [
+      "Alpha",
+      "Bravo",
+      "Charlie",
+      "Delta",
+      "Echo",
+      "Foxtrot",
+      "Golf",
+      "Hotel",
+      "India",
+      "Juliet",
+      "Kilo",
+      "Lima",
+      "Mike",
+      "November",
+      "Oscar",
+      "Papa",
+      "Quebec",
+      "Romeo",
+      "Sierra",
+      "Tango",
+      "Uniform",
+      "Victor",
+      "Whiskey",
+      "X-ray",
+      "Yankee",
+      "Zulu"
+     ]
+    }
+   }
+  },
+  "RequestTeamControl": {
+   "required": [
+    "team"
+   ],
+   "params": {
+    "team": {
+     "type": "string",
+     "enum": [
+      "Alpha",
+      "Bravo",
+      "Charlie",
+      "Delta",
+      "Echo",
+      "Foxtrot",
+      "Golf",
+      "Hotel",
+      "India",
+      "Juliet",
+      "Kilo",
+      "Lima",
+      "Mike",
+      "November",
+      "Oscar",
+      "Papa",
+      "Quebec",
+      "Romeo",
+      "Sierra",
+      "Tango",
+      "Uniform",
+      "Victor",
+      "Whiskey",
+      "X-ray",
+      "Yankee",
+      "Zulu"
+     ]
+    }
+   }
+  },
+  "ReturnTeamControl": {
+   "required": [
+    "team"
+   ],
+   "params": {
+    "team": {
+     "type": "string",
+     "enum": [
+      "Alpha",
+      "Bravo",
+      "Charlie",
+      "Delta",
+      "Echo",
+      "Foxtrot",
+      "Golf",
+      "Hotel",
+      "India",
+      "Juliet",
+      "Kilo",
+      "Lima",
+      "Mike",
+      "November",
+      "Oscar",
+      "Papa",
+      "Quebec",
+      "Romeo",
+      "Sierra",
+      "Tango",
+      "Uniform",
+      "Victor",
+      "Whiskey",
+      "X-ray",
+      "Yankee",
+      "Zulu"
+     ]
+    }
+   }
+  },
+  "MoveToMarker": {
+   "required": [
+    "markerNumber"
+   ],
+   "params": {
+    "markerNumber": {
+     "type": "number"
+    }
+   }
+  },
+  "MoveToPreset": {
+   "required": [
+    "presetNumber"
+   ],
+   "params": {
+    "presetNumber": {
+     "type": "number"
+    }
+   }
+  },
+  "EnterMarkerCreation": {
+   "required": [],
+   "params": {}
+  },
+  "CreatePreset": {
+   "required": [],
+   "params": {}
+  },
+  "DeleteMarker": {
+   "required": [
+    "markerNumber"
+   ],
+   "params": {
+    "markerNumber": {
+     "type": "number"
+    }
+   }
+  },
+  "DeletePreset": {
+   "required": [
+    "presetNumber"
+   ],
+   "params": {
+    "presetNumber": {
+     "type": "number"
+    }
+   }
+  },
+  "RequestTacticsRecommendation": {
+   "required": [],
+   "params": {}
+  },
+  "CancelTacticsRecommendation": {
+   "required": [],
+   "params": {}
+  },
+  "OpenWindow": {
+   "required": [
+    "windowName"
+   ],
+   "params": {
+    "windowName": {
+     "type": "string",
+     "enum": [
+      "설정",
+      "알림 상세",
+      "전술 지도",
+      "필터"
+     ]
+    }
+   }
+  },
+  "CloseWindow": {
+   "required": [
+    "windowName"
+   ],
+   "params": {
+    "windowName": {
+     "type": "string",
+     "enum": [
+      "설정",
+      "알림 상세",
+      "전술 지도",
+      "필터"
+     ]
+    }
+   }
+  },
+  "ShowTeamCamera": {
+   "required": [
+    "team"
+   ],
+   "params": {
+    "team": {
+     "type": "string",
+     "enum": [
+      "Alpha",
+      "Bravo",
+      "Charlie",
+      "Delta",
+      "Echo",
+      "Foxtrot",
+      "Golf",
+      "Hotel",
+      "India",
+      "Juliet",
+      "Kilo",
+      "Lima",
+      "Mike",
+      "November",
+      "Oscar",
+      "Papa",
+      "Quebec",
+      "Romeo",
+      "Sierra",
+      "Tango",
+      "Uniform",
+      "Victor",
+      "Whiskey",
+      "X-ray",
+      "Yankee",
+      "Zulu"
+     ]
+    }
+   }
+  },
+  "ShowDroneCamera": {
+   "required": [
+    "droneNumber"
+   ],
+   "params": {
+    "droneNumber": {
+     "type": "number"
+    },
+    "team": {
+     "type": "string",
+     "enum": [
+      "Alpha",
+      "Bravo",
+      "Charlie",
+      "Delta",
+      "Echo",
+      "Foxtrot",
+      "Golf",
+      "Hotel",
+      "India",
+      "Juliet",
+      "Kilo",
+      "Lima",
+      "Mike",
+      "November",
+      "Oscar",
+      "Papa",
+      "Quebec",
+      "Romeo",
+      "Sierra",
+      "Tango",
+      "Uniform",
+      "Victor",
+      "Whiskey",
+      "X-ray",
+      "Yankee",
+      "Zulu"
+     ]
+    }
+   }
+  },
+  "ResetCameraGimbal": {
+   "required": [],
+   "params": {}
+  },
+  "EnlargeCameraWindow": {
+   "required": [],
+   "params": {}
+  },
+  "ShrinkCameraWindow": {
+   "required": [],
+   "params": {}
+  },
+  "ApplyDisplayFilters": {
+   "required": [
+    "filterNames"
+   ],
+   "params": {
+    "filterNames": {
+     "type": "string"
+    }
+   }
+  },
+  "ClearDisplayFilters": {
+   "required": [
+    "filterNames"
+   ],
+   "params": {
+    "filterNames": {
+     "type": "string"
+    }
+   }
+  },
+  "AcceptConfirmWindow": {
+   "required": [
+    "confirmName"
+   ],
+   "params": {
+    "confirmName": {
+     "type": "string",
+     "enum": [
+      "게임 종료",
+      "드론봇 팀 제외",
+      "시뮬레이션 종료",
+      "자폭 공격",
+      "전술 확정",
+      "제어권 반납",
+      "제어권 요청",
+      "제어권 회수",
+      "팀 해체",
+      "편집 취소"
+     ]
+    }
+   }
+  },
+  "RejectConfirmWindow": {
+   "required": [
+    "confirmName"
+   ],
+   "params": {
+    "confirmName": {
+     "type": "string",
+     "enum": [
+      "게임 종료",
+      "드론봇 팀 제외",
+      "시뮬레이션 종료",
+      "자폭 공격",
+      "전술 확정",
+      "제어권 반납",
+      "제어권 요청",
+      "제어권 회수",
+      "팀 해체",
+      "편집 취소"
+     ]
+    }
+   }
+  },
+  "EnableVideoThrough": {
+   "required": [],
+   "params": {}
+  },
+  "DisableVideoThrough": {
+   "required": [],
+   "params": {}
+  },
+  "MoveToTeamView": {
+   "required": [
+    "team"
+   ],
+   "params": {
+    "team": {
+     "type": "string",
+     "enum": [
+      "Alpha",
+      "Bravo",
+      "Charlie",
+      "Delta",
+      "Echo",
+      "Foxtrot",
+      "Golf",
+      "Hotel",
+      "India",
+      "Juliet",
+      "Kilo",
+      "Lima",
+      "Mike",
+      "November",
+      "Oscar",
+      "Papa",
+      "Quebec",
+      "Romeo",
+      "Sierra",
+      "Tango",
+      "Uniform",
+      "Victor",
+      "Whiskey",
+      "X-ray",
+      "Yankee",
+      "Zulu"
+     ]
+    }
+   }
+  },
+  "MoveToTeamOverview": {
+   "required": [
+    "team"
+   ],
+   "params": {
+    "team": {
+     "type": "string",
+     "enum": [
+      "Alpha",
+      "Bravo",
+      "Charlie",
+      "Delta",
+      "Echo",
+      "Foxtrot",
+      "Golf",
+      "Hotel",
+      "India",
+      "Juliet",
+      "Kilo",
+      "Lima",
+      "Mike",
+      "November",
+      "Oscar",
+      "Papa",
+      "Quebec",
+      "Romeo",
+      "Sierra",
+      "Tango",
+      "Uniform",
+      "Victor",
+      "Whiskey",
+      "X-ray",
+      "Yankee",
+      "Zulu"
+     ]
+    }
+   }
+  },
+  "MoveToDroneView": {
+   "required": [
+    "droneNumber"
+   ],
+   "params": {
+    "droneNumber": {
+     "type": "number"
+    },
+    "team": {
+     "type": "string",
+     "enum": [
+      "Alpha",
+      "Bravo",
+      "Charlie",
+      "Delta",
+      "Echo",
+      "Foxtrot",
+      "Golf",
+      "Hotel",
+      "India",
+      "Juliet",
+      "Kilo",
+      "Lima",
+      "Mike",
+      "November",
+      "Oscar",
+      "Papa",
+      "Quebec",
+      "Romeo",
+      "Sierra",
+      "Tango",
+      "Uniform",
+      "Victor",
+      "Whiskey",
+      "X-ray",
+      "Yankee",
+      "Zulu"
+     ]
+    }
+   }
+  },
+  "ResetPanelPositions": {
+   "required": [],
+   "params": {}
+  },
+  "StartRecording": {
+   "required": [],
+   "params": {}
+  },
+  "StopRecording": {
+   "required": [],
+   "params": {}
+  },
+  "DefaultResponse": {
+   "required": [
+    "text"
+   ],
+   "params": {
+    "text": {
+     "type": "string"
+    }
+   }
+  }
+ }
+}
