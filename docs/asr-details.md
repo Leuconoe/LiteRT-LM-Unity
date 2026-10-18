@@ -340,6 +340,19 @@ Tokenizers are the per-tier
 [openai/whisper-*](https://huggingface.co/openai/whisper-tiny) files.
 Qwen3-ASR is the official tflite with a project JNI port.
 
+### Converted, device port pending
+
+**SenseVoice-Small** (FunAudioLLM, ~234 M, non-autoregressive CTC) — encodes the
+actual utterance length instead of a fixed window, ranks between turbo-acft and
+base-acft on the gate at a quarter of turbo's size, and reads the quiet 0.79 s
+`볼륨 업`. Converted to fixed-shape LiteRT buckets (w8 231 MB, 5 s window 172 ms on
+desktop) and published as
+[litert-community/SenseVoiceSmall](https://huggingface.co/litert-community/SenseVoiceSmall)
+plus a Zeroth fine-tune
+([…-ko-zeroth](https://huggingface.co/litert-community/SenseVoiceSmall-ko-zeroth)).
+Not on the device yet: it needs a JNI entry, the fbank/LFR/CMVN front end and CTC
+decoding in the AAR. Detail: [benchmarks/sensevoice-korean-eval.md](benchmarks/sensevoice-korean-eval.md).
+
 ### Screened and rejected
 
 Candidates that were looked at and not adopted, so the search is not repeated.
