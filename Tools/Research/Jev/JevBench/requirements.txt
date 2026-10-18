@@ -1,0 +1,12 @@
+# Install torch first, from the CUDA index — the PyPI wheel is CPU-only:
+#   pip install --index-url https://download.pytorch.org/whl/cu128 torch
+# Run-JevHead.ps1 -Bootstrap does this for you.
+#
+# Same transformers as FunctionGemmaBench (Gemma3 hidden states must match what
+# the fine-tuned router sees); ai-edge-litert only runs the exported trunk.
+transformers==5.20.0
+safetensors>=0.4
+sentencepiece>=0.2
+huggingface_hub[hf_xet]>=0.30
+ai-edge-litert>=2.0
+numpy>=2.0
