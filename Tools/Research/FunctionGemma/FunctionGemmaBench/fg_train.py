@@ -13,12 +13,16 @@ save). After every epoch the model greedy-generates on the first --select-n
 val records and the epoch with the best exact match (tie-break: function name)
 is the one saved, as <out>/merged — a plain HF checkpoint (safetensors,
 tokenizer, chat template, generation config) for fg_eval.py and litert-torch.
+Full FT rewrites merged/ as soon as an epoch beats the best so far, and every
+epoch leaves a full trainer checkpoint: after a crash, rerun the same command
+with --resume to continue from the last finished epoch.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import shutil
 from pathlib import Path
 
 import torch
@@ -51,10 +55,18 @@ def to_dataset(records: list[dict], tok, render) -> Dataset:
 class BestEpochByGeneration(TrainerCallback):
     """Exact match by generation, not eval loss, decides which epoch ships."""
 
-    def __init__(self, tok, render, parse, tool_index, records):
+    def __init__(self, tok, render, parse, tool_index, records, state_dir: Path, resume: bool, on_best=None):
         self.tok, self.parse, self.tool_index, self.records = tok, parse, tool_index, records
         self.prompts = [render(tok, r["text"]) for r in records]
-        self.best_key, self.best_state, self.history = None, None, []
+        self.best_key, self.best_state, self.history, self.on_best = None, None, [], on_best
+        # Persisted every epoch, before the trainer's own epoch checkpoint, so --resume keeps the scores.
+        self.sel_path, self.best_path = state_dir / "select.json", state_dir / "best_state.pt"
+        if resume:
+            s = json.loads(self.sel_path.read_text(encoding="utf-8"))
+            self.history, self.best_key = s["history"], tuple(s["best"]) if s["best"] else None
+        else:  # a fresh run must not inherit another run's epoch scores
+            self.sel_path.unlink(missing_ok=True)
+            self.best_path.unlink(missing_ok=True)
 
     def on_epoch_end(self, args, state, control, model=None, **kwargs):
         model.eval()
@@ -69,6 +81,13 @@ class BestEpochByGeneration(TrainerCallback):
             self.best_key = (exact, fn_ok)
             # ponytail: a CPU copy of the whole state (~0.5 GB for 270M); stream to disk if the model grows.
             self.best_state = {k: v.detach().to("cpu", copy=True) for k, v in model.state_dict().items()}
+            torch.save(self.best_state, self.best_path)
+            if self.on_best:  # a crash later never loses a finished epoch
+                self.on_best(model, self)
+        self.sel_path.write_text(json.dumps({"history": self.history, "best": self.best_key}), encoding="utf-8")
+
+    def best(self) -> dict:
+        return self.best_state if self.best_state is not None else torch.load(self.best_path)
 
 
 def main() -> int:
@@ -88,6 +107,7 @@ def main() -> int:
     ap.add_argument("--select-n", type=int, default=300, help="val records generated after each epoch")
     ap.add_argument("--tools-prompt", default=str(fg.DEFAULT_TOOLS_PROMPT))
     ap.add_argument("--webserver-root", default=str(fg.DEFAULT_WEBSERVER_ROOT))
+    ap.add_argument("--resume", action="store_true", help="continue a crashed run from its last epoch checkpoint in <out>")
     args = ap.parse_args()
 
     model_id = args.model or fg.DEFAULT_MODELS[args.format]
@@ -121,14 +141,32 @@ def main() -> int:
         gradient_accumulation_steps=args.grad_accum,
         gradient_checkpointing=args.decl_mode != "none",  # 4-7k-token prompts; `none` is ~30 tokens
         bf16=True,
+        use_cpu=not torch.cuda.is_available(),  # CPU smoke runs: CUDA_VISIBLE_DEVICES=-1 ("" still reports CUDA on Windows)
         max_length=None,  # never truncate the declarations
         completion_only_loss=True,
         eval_strategy="epoch",
-        save_strategy="no",
+        save_strategy="epoch",  # model, optimizer, scheduler, RNG, step — what --resume continues from
+        save_total_limit=1,
         logging_steps=10,
         report_to="none",
     )
-    selector = BestEpochByGeneration(tok, render, parse, {t["function"]["name"]: t for t in tools}, val_records[: args.select_n])
+    out.mkdir(parents=True, exist_ok=True)
+    merged = out / "merged"
+    if args.resume and not any(out.glob("checkpoint-*")):
+        raise SystemExit(f"--resume: no epoch checkpoint in {out}")
+    if not args.resume and any(out.glob("checkpoint-*")):
+        raise SystemExit(f"{out} holds checkpoints of an unfinished run: pass --resume, or delete them to start over")
+
+    def save_merged(model, sel) -> None:
+        model.save_pretrained(str(merged))
+        tok.save_pretrained(str(merged))
+        (merged / "fg_train_args.json").write_text(json.dumps(
+            {**vars(args), "model": model_id, "selection": sel.history, "best": sel.best_key},
+            ensure_ascii=False, indent=2), encoding="utf-8")
+
+    # LoRA weights are only mergeable once training is over, so that arm still saves at the end only.
+    selector = BestEpochByGeneration(tok, render, parse, {t["function"]["name"]: t for t in tools}, val_records[: args.select_n],
+                                     out, args.resume, None if args.lora else save_merged)
     trainer = SFTTrainer(model=model, args=config, train_dataset=train, eval_dataset=val, processing_class=tok,
                          peft_config=peft_config, callbacks=[selector])
 
@@ -138,18 +176,18 @@ def main() -> int:
     assert (ids == tok.bos_token_id).sum() == 1, "double <bos> in training input"
     print("trained tokens:", repr(tok.decode(ids[labels != -100])))
 
-    trainer.train()
+    if args.resume:
+        print(f"resuming from the last epoch checkpoint in {out}; scored so far: {selector.history}")
+    trainer.train(resume_from_checkpoint=args.resume or None)
     best = trainer.model
-    best.load_state_dict(selector.best_state)
+    best.load_state_dict(selector.best())
     if args.lora:
         best = best.merge_and_unload()
-    merged = out / "merged"
-    best.save_pretrained(str(merged))
-    tok.save_pretrained(str(merged))
-    (merged / "fg_train_args.json").write_text(json.dumps(
-        {**vars(args), "model": model_id, "selection": selector.history, "best": selector.best_key},
-        ensure_ascii=False, indent=2), encoding="utf-8")
+    save_merged(best, selector)
     print(f"saved {merged}  best (exact, function) = {selector.best_key}  history = {selector.history}")
+    for ck in out.glob("checkpoint-*"):  # resume state only (~3 GB each); merged/ is the deliverable
+        shutil.rmtree(ck)
+    selector.best_path.unlink(missing_ok=True)
     return 0
 
 
