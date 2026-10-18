@@ -48,6 +48,14 @@ REFUSE_KINDS = {
 SCHEMA = {"type": "object", "properties": {"utterances": {"type": "array", "items": {"type": "string"}}}, "required": ["utterances"]}
 EVAL_SETS = ["eval_cases.json", "heldout_cases.json", "heldout2_cases.json", "heldout3_cases.json", "heldout4_cases.json"]
 
+# `--name heldout6`: same pipeline, written later for the v7 verdict. heldout5b showed Qwen bunching on 알파~델타 and
+# Arabic digits, so heldout6 asks for Hangul numbers and hands every tool its own callsign subset.
+NAME = sys.argv[sys.argv.index("--name") + 1] if "--name" in sys.argv else "heldout5b"
+H6 = NAME == "heldout6"
+CALLSIGNS = "알파 브라보 찰리 델타 에코 폭스트롯 골프 호텔 인디아 줄리엣 킬로 리마 마이크 노벰버 오스카 파파 퀘벡 로미오 시에라 탱고 유니폼 빅터 위스키 엑스레이 양키 줄루".split()
+H6_RULES = """- 숫자는 반드시 한글로 쓴다(삼 번, 사 호기, 두 대, 열한 번째). 아라비아 숫자를 쓰지 않는다.
+- 실제 무전처럼: 짧게 끊거나, 상황을 먼저 말하거나, '오버'·'바람'·'빨리' 같은 말을 붙이기도 한다."""
+
 
 def tool_blocks(text: str) -> dict[str, str]:
     """Each tool's `/** … */ Name: (...) => void;` block, verbatim from ToolsPrompt.txt."""
@@ -73,15 +81,22 @@ def main() -> None:
     assert len(tools) == 43, len(tools)
     summary = "\n".join(f"- {t['function']['name']}: {t['function']['description'].split('.')[0]}"
                         for t in fg.load_tools() if t["function"]["name"] != "DefaultResponse")
-    jobs = [("exec", n, GEN_SYSTEM, f"{CONVENTIONS}\n\n기능 선언:\n{blocks[n]}\n\n이 기능을 시키는 말 4개.") for n in tools]
-    jobs += [("refuse", k, REFUSE_SYSTEM, f"{CONVENTIONS}\n\n실행 가능한 기능 목록:\n{summary}\n\n유형: {desc}\n이 유형의 말 {8 if k in ('unsupported', 'two_actions') else 7}개.")
-             for k, desc in REFUSE_KINDS.items()]
+    if H6:
+        conv = lambda i: f"{CONVENTIONS}\n{H6_RULES}\n- 팀이 필요하면 이번에는 {', '.join(CALLSIGNS[(i * 5) % 26:(i * 5) % 26 + 4] or CALLSIGNS[:4])} 중에서 고른다."
+        jobs = [("exec", n, GEN_SYSTEM, f"{conv(i)}\n\n기능 선언:\n{blocks[n]}\n\n이 기능을 시키는 말 5개.") for i, n in enumerate(tools)]
+        jobs += [("refuse", k, REFUSE_SYSTEM, f"{conv(i)}\n\n실행 가능한 기능 목록:\n{summary}\n\n유형: {desc}\n이 유형의 말 11개.")
+                 for i, (k, desc) in enumerate(REFUSE_KINDS.items())]
+    else:
+        jobs = [("exec", n, GEN_SYSTEM, f"{CONVENTIONS}\n\n기능 선언:\n{blocks[n]}\n\n이 기능을 시키는 말 4개.") for n in tools]
+        jobs += [("refuse", k, REFUSE_SYSTEM, f"{CONVENTIONS}\n\n실행 가능한 기능 목록:\n{summary}\n\n유형: {desc}\n이 유형의 말 {8 if k in ('unsupported', 'two_actions') else 7}개.")
+                 for k, desc in REFUSE_KINDS.items()]
     with ThreadPoolExecutor(8) as pool:
         results = list(pool.map(lambda j: utterances(j[2], j[3]), jobs))
 
     seen = [norm(c["text"]) for f in EVAL_SETS for c in json.loads((HERE.parent / f).read_text(encoding="utf-8"))["cases"]]
-    if (HERE / "heldout5a_cases.json").exists():
-        seen += [norm(c["text"]) for c in json.loads((HERE / "heldout5a_cases.json").read_text(encoding="utf-8"))["cases"]]
+    for f in ["heldout5a_cases.json"] + (["heldout5b_cases.json"] if H6 else []):
+        if (HERE / f).exists():
+            seen += [norm(c["text"]) for c in json.loads((HERE / f).read_text(encoding="utf-8"))["cases"]]
     rows, mine, dropped = [], [], {"exact": 0, "near": 0, "self": 0}
     for (kind, hint, _, _), utts in zip(jobs, results):
         for u in utts:
@@ -95,14 +110,14 @@ def main() -> None:
             else:
                 mine.append(n)
                 rows.append({"kind": kind, "hint": hint, "text": u})
-    (HERE / "heldout5b_raw.jsonl").write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows), encoding="utf-8")
+    (HERE / f"{NAME}_raw.jsonl").write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows), encoding="utf-8")
     print(f"raw kept {len(rows)}; dropped {dropped}; exec {sum(r['kind'] == 'exec' for r in rows)}, refuse {sum(r['kind'] == 'refuse' for r in rows)}")
 
 
 def build() -> None:
     """heldout5b_raw.jsonl + hand labels (heldout5b_labels.json) -> heldout5b_cases.json, every label validated."""
-    raw = [json.loads(l) for l in (HERE / "heldout5b_raw.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
-    lab = json.loads((HERE / "heldout5b_labels.json").read_text(encoding="utf-8"))
+    raw = [json.loads(l) for l in (HERE / f"{NAME}_raw.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
+    lab = json.loads((HERE / f"{NAME}_labels.json").read_text(encoding="utf-8"))
     keep, dropped = lab["keep"], lab["dropped"]
     lines = {str(i) for i in range(1, len(raw) + 1)}
     assert set(keep) | set(dropped) == lines and not set(keep) & set(dropped), "every raw line must be kept or dropped, once"
@@ -115,13 +130,15 @@ def build() -> None:
             args = {"text": text}
         else:
             assert fg.validate({"function": fn, "arguments": args}, idx, text)["function"] == fn, (i, text, fn, args)
-        cases.append({"id": f"p5b{len(cases) + 1:03d}", "suite": "qwen-refuse" if fn == "DefaultResponse" else "qwen-exec",
+        cases.append({"id": f"{'p6' if H6 else 'p5b'}{len(cases) + 1:03d}", "suite": "qwen-refuse" if fn == "DefaultResponse" else "qwen-exec",
                       "text": text, "function": fn, "arguments": args, "qwen_hint": raw[int(i) - 1]["hint"]})
     template = json.loads((HERE.parent / "heldout4_cases.json").read_text(encoding="utf-8"))
     out = {"source": "Qwen2.5-14B-Instruct-AWQ generated, labelled independently", "grading": template["grading"],
            "suites": {"qwen-exec": "Qwen-written commands that the contract executes", "qwen-refuse": "Qwen-written utterances the contract refuses"},
            "locked": "Score only. Never use these cases or their failures to design training data.", "cases": cases}
-    (HERE / "heldout5b_cases.json").write_text(json.dumps(out, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    if H6:
+        out["source"] = "Qwen2.5-14B-Instruct-AWQ generated (Hangul numbers, spread callsigns), labelled independently before any v7 data existed"
+    (HERE / f"{NAME}_cases.json").write_text(json.dumps(out, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     print(f"kept {len(cases)} (exec {sum(c['suite'] == 'qwen-exec' for c in cases)}, refuse {sum(c['suite'] == 'qwen-refuse' for c in cases)}), dropped {len(dropped)}")
 
 

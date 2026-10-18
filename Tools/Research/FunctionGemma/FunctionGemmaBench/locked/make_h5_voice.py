@@ -29,14 +29,19 @@ ROOT = HERE.parents[4]
 OUT = ROOT / "External" / "fg-voice-h5"
 PROJECT = ROOT.parent / "UnityAiTts"
 CASES = [HERE / "heldout5a_cases.json", HERE / "heldout5b_cases.json"]
-VOICES = {  # name -> (engine, engine voice id); Unity AI costs points, the rest are free Korean-native baselines
+VOICES = {  # name -> (engine, engine voice id[, edge rate]); Unity AI costs points, the rest are free Korean-native baselines
     "alice": ("unity", "Alice"), "george": ("unity", "George"),
     "sunhi": ("edge", "ko-KR-SunHiNeural"), "injoon": ("edge", "ko-KR-InJoonNeural"),
     "hyunsu": ("edge", "ko-KR-HyunsuMultilingualNeural"),
     "st-f1": ("supertonic", "F1.json"), "st-m1": ("supertonic", "M1.json"),
+    # engine-native speaking rate (the phase-vocoder speed augmentation was artifact-dominated)
+    "sunhi-fast": ("edge", "ko-KR-SunHiNeural", "+12%"), "hyunsu-slow": ("edge", "ko-KR-HyunsuMultilingualNeural", "-10%"),
 }
 RAW_EXT = {"unity": ".wav", "edge": ".mp3", "supertonic": ".wav"}
-ST = ROOT / "Assets" / "StreamingAssets" / "TTS" / "supertonic-litert"
+# Android APK builds stash StreamingAssets folders away mid-build, so prefer a private copy when one exists.
+ST = OUT / "_supertonic-litert"
+if not ST.exists():
+    ST = ROOT / "Assets" / "StreamingAssets" / "TTS" / "supertonic-litert"
 ST_STYLES = OUT / "supertonic_styles"  # F1 from the deployed assets, M1 from HF Supertone/supertonic voice_styles
 ST_PY = ROOT / "Tools" / "Research" / "SenseVoice" / "SenseVoiceBench" / ".venv" / "Scripts" / "python.exe"  # has ai_edge_litert
 # edge-tts < 7.3 gets HTTP 403 from the service (stale client token); point this at a newer copy
@@ -119,16 +124,16 @@ def wav16_path(voice: str, cid: str) -> Path:
     return OUT / "tts16k" / voice / f"{cid}.wav"
 
 
-def build() -> None:
+def build(voices: list[str], per_case: int = 0) -> None:
+    """Every case x every voice, or with per_case=k each case gets k voices in rotation (training-scale sets)."""
     rows = []
-    for v in VOICES:
-        for c in cases():
+    for i, c in enumerate(cases()):
+        for v in (voices if not per_case else [voices[(i + j) % len(voices)] for j in range(per_case)]):
             rows.append({"id": c["id"], "voice": v, "kind": VOICES[v][0], "text": c["text"], "spoken_text": spoken(c["text"]),
                          "path16k": str(wav16_path(v, c["id"]))})
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "manifest.jsonl").write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows), encoding="utf-8")
-    changed = sum(r["text"] != r["spoken_text"] for r in rows) // len(VOICES)
-    print(f"manifest: {len(rows)} rows ({len(rows) // len(VOICES)} cases x {len(VOICES)} voices), {changed} spoken texts normalised")
+    print(f"manifest: {len(rows)} rows over {len(cases())} cases, voices {voices}" + (f" ({per_case} per case)" if per_case else ""))
 
 
 def unity_eval(code: str) -> str:
@@ -158,9 +163,9 @@ def run(voice: str, redo: Path | None, floor: int) -> None:
         print(f"{voice}: nothing to generate")
         return
     raw_path(voice, "x").parent.mkdir(parents=True, exist_ok=True)
-    engine, vid = VOICES[voice]
+    engine, vid = VOICES[voice][:2]
     if engine == "edge":
-        synth_edge(vid, todo, voice)
+        synth_edge(vid, todo, voice, VOICES[voice][2] if len(VOICES[voice]) > 2 else "+0%")
     elif engine == "supertonic":
         synth_supertonic(vid, todo, voice)
     else:
@@ -168,20 +173,20 @@ def run(voice: str, redo: Path | None, floor: int) -> None:
     convert(todo, voice, force=True)
 
 
-def synth_edge(vid: str, todo: list[dict], voice: str) -> None:
+def synth_edge(vid: str, todo: list[dict], voice: str, rate: str = "+0%") -> None:
     import asyncio
     if EDGE_LIB.exists():
         sys.path.insert(0, str(EDGE_LIB))
     import edge_tts
 
     async def go():
-        gate = asyncio.Semaphore(4)
+        gate = asyncio.Semaphore(6)
 
         async def one(r):
             async with gate:
                 for attempt in range(3):
                     try:
-                        await edge_tts.Communicate(r["spoken_text"], vid).save(str(raw_path(voice, r["id"])))
+                        await edge_tts.Communicate(r["spoken_text"], vid, rate=rate).save(str(raw_path(voice, r["id"])))
                         if have(voice, r["id"]):
                             return
                         raise RuntimeError("empty audio")
@@ -290,9 +295,18 @@ def main() -> int:
     ap.add_argument("--redo", type=Path, help="qc flags json: regenerate those ids once")
     ap.add_argument("--floor", type=int, default=1500, help="never let the org balance drop below this")
     ap.add_argument("--asr", type=Path, help="qc: SenseVoice ASR jsonl (fg_voice_e2e asr --arm svw8) for the STT gate")
+    ap.add_argument("--cases", default="", help="comma-separated case files (default: locked heldout5a/5b)")
+    ap.add_argument("--out", type=Path, help="output dir (default External/fg-voice-h5)")
+    ap.add_argument("--voices", default="", help="build: comma-separated subset of voices (default all)")
+    ap.add_argument("--per-case", type=int, default=0, help="build: voices per case in rotation (default: every voice)")
     a = ap.parse_args()
+    global CASES, OUT
+    if a.cases:
+        CASES = [Path(p) if Path(p).is_absolute() else HERE.parent / p for p in a.cases.split(",")]
+    if a.out:
+        OUT = a.out  # supertonic styles and the edge-tts lib stay in the default dir
     if a.stage == "build":
-        build()
+        build(a.voices.split(",") if a.voices else list(VOICES), a.per_case)
     elif a.stage == "qc":
         qc(a.asr)
     else:

@@ -1,0 +1,1908 @@
+{
+ "source": "Qwen2.5-14B-Instruct-AWQ generated (Hangul numbers, spread callsigns), labelled independently before any v7 data existed",
+ "grading": "function name exact; arguments exact after: filterNames split on ',' and compared as a set; DefaultResponse graded on function name only (text is the raw input, the app can fill it).",
+ "suites": {
+  "qwen-exec": "Qwen-written commands that the contract executes",
+  "qwen-refuse": "Qwen-written utterances the contract refuses"
+ },
+ "locked": "Score only. Never use these cases or their failures to design training data.",
+ "cases": [
+  {
+   "id": "p6001",
+   "suite": "qwen-exec",
+   "text": "브라보 선택 좀",
+   "function": "SelectTeam",
+   "arguments": {
+    "team": "Bravo"
+   },
+   "qwen_hint": "SelectTeam"
+  },
+  {
+   "id": "p6002",
+   "suite": "qwen-exec",
+   "text": "팀 선택, 찰리",
+   "function": "SelectTeam",
+   "arguments": {
+    "team": "Charlie"
+   },
+   "qwen_hint": "SelectTeam"
+  },
+  {
+   "id": "p6003",
+   "suite": "qwen-exec",
+   "text": "델타 팀!",
+   "function": "SelectTeam",
+   "arguments": {
+    "team": "Delta"
+   },
+   "qwen_hint": "SelectTeam"
+  },
+  {
+   "id": "p6004",
+   "suite": "qwen-exec",
+   "text": "새 팀 만들어",
+   "function": "EnterTeamCreation",
+   "arguments": {},
+   "qwen_hint": "EnterTeamCreation"
+  },
+  {
+   "id": "p6005",
+   "suite": "qwen-exec",
+   "text": "팀 생성해",
+   "function": "EnterTeamCreation",
+   "arguments": {},
+   "qwen_hint": "EnterTeamCreation"
+  },
+  {
+   "id": "p6006",
+   "suite": "qwen-exec",
+   "text": "팀 만드라고",
+   "function": "EnterTeamCreation",
+   "arguments": {},
+   "qwen_hint": "EnterTeamCreation"
+  },
+  {
+   "id": "p6007",
+   "suite": "qwen-exec",
+   "text": "팀 편성 화면 가",
+   "function": "EnterTeamCreation",
+   "arguments": {},
+   "qwen_hint": "EnterTeamCreation"
+  },
+  {
+   "id": "p6008",
+   "suite": "qwen-exec",
+   "text": "리마팀, 자폭드론 네 대로 팀 만들어줘",
+   "function": "CreateTeam",
+   "arguments": {
+    "teamType": "자폭",
+    "memberCount": 4
+   },
+   "qwen_hint": "CreateTeam"
+  },
+  {
+   "id": "p6009",
+   "suite": "qwen-exec",
+   "text": "로미오팀 돌아와",
+   "function": "ReturnTeam",
+   "arguments": {
+    "team": "Romeo"
+   },
+   "qwen_hint": "ReturnTeam"
+  },
+  {
+   "id": "p6010",
+   "suite": "qwen-exec",
+   "text": "유니폼팀 해산하자",
+   "function": "DisbandTeam",
+   "arguments": {
+    "team": "Uniform"
+   },
+   "qwen_hint": "DisbandTeam"
+  },
+  {
+   "id": "p6011",
+   "suite": "qwen-exec",
+   "text": "위스키팀 해체",
+   "function": "DisbandTeam",
+   "arguments": {
+    "team": "Whiskey"
+   },
+   "qwen_hint": "DisbandTeam"
+  },
+  {
+   "id": "p6012",
+   "suite": "qwen-exec",
+   "text": "알파팀 전술 시작 빠리",
+   "function": "StartTeamTactics",
+   "arguments": {
+    "team": "Alpha"
+   },
+   "qwen_hint": "StartTeamTactics"
+  },
+  {
+   "id": "p6013",
+   "suite": "qwen-exec",
+   "text": "브라보팀 전술 작동!",
+   "function": "StartTeamTactics",
+   "arguments": {
+    "team": "Bravo"
+   },
+   "qwen_hint": "StartTeamTactics"
+  },
+  {
+   "id": "p6014",
+   "suite": "qwen-exec",
+   "text": "찰리팀 전술 시작하자",
+   "function": "StartTeamTactics",
+   "arguments": {
+    "team": "Charlie"
+   },
+   "qwen_hint": "StartTeamTactics"
+  },
+  {
+   "id": "p6015",
+   "suite": "qwen-exec",
+   "text": "델타팀 전술 시작 오버",
+   "function": "StartTeamTactics",
+   "arguments": {
+    "team": "Delta"
+   },
+   "qwen_hint": "StartTeamTactics"
+  },
+  {
+   "id": "p6016",
+   "suite": "qwen-exec",
+   "text": "브라보팀 전략 바꿔봐 오버",
+   "function": "EditTeamTactics",
+   "arguments": {
+    "team": "Bravo"
+   },
+   "qwen_hint": "EditTeamTactics"
+  },
+  {
+   "id": "p6017",
+   "suite": "qwen-exec",
+   "text": "골프팀 전술 수정하자",
+   "function": "EditTeamTactics",
+   "arguments": {
+    "team": "Golf"
+   },
+   "qwen_hint": "EditTeamTactics"
+  },
+  {
+   "id": "p6018",
+   "suite": "qwen-exec",
+   "text": "셋 번 드론 선택",
+   "function": "SelectDrone",
+   "arguments": {
+    "droneNumber": 3
+   },
+   "qwen_hint": "SelectDrone"
+  },
+  {
+   "id": "p6019",
+   "suite": "qwen-exec",
+   "text": "킬로 팀 두 번 드론 선택하자",
+   "function": "SelectDrone",
+   "arguments": {
+    "droneNumber": 2,
+    "team": "Kilo"
+   },
+   "qwen_hint": "SelectDrone"
+  },
+  {
+   "id": "p6020",
+   "suite": "qwen-exec",
+   "text": "마이크 팀 일곱 번 드론 선택해",
+   "function": "SelectDrone",
+   "arguments": {
+    "droneNumber": 7,
+    "team": "Mike"
+   },
+   "qwen_hint": "SelectDrone"
+  },
+  {
+   "id": "p6021",
+   "suite": "qwen-exec",
+   "text": "세 번째 드론 선택해봐",
+   "function": "SelectDrone",
+   "arguments": {
+    "droneNumber": 3
+   },
+   "qwen_hint": "SelectDrone"
+  },
+  {
+   "id": "p6022",
+   "suite": "qwen-exec",
+   "text": "세 번 드론 전술 편집",
+   "function": "EditDroneTactics",
+   "arguments": {
+    "droneNumber": 3
+   },
+   "qwen_hint": "EditDroneTactics"
+  },
+  {
+   "id": "p6023",
+   "suite": "qwen-exec",
+   "text": "네 번째 드론 전술 수정 빠르게",
+   "function": "EditDroneTactics",
+   "arguments": {
+    "droneNumber": 4
+   },
+   "qwen_hint": "EditDroneTactics"
+  },
+  {
+   "id": "p6024",
+   "suite": "qwen-exec",
+   "text": "로미오팀 6호기 전술 변경 바람",
+   "function": "EditDroneTactics",
+   "arguments": {
+    "droneNumber": 6,
+    "team": "Romeo"
+   },
+   "qwen_hint": "EditDroneTactics"
+  },
+  {
+   "id": "p6025",
+   "suite": "qwen-exec",
+   "text": "시에라 팀 두 번째 드론 전략 수정 오버",
+   "function": "EditDroneTactics",
+   "arguments": {
+    "droneNumber": 2,
+    "team": "Sierra"
+   },
+   "qwen_hint": "EditDroneTactics"
+  },
+  {
+   "id": "p6026",
+   "suite": "qwen-exec",
+   "text": "10번째 드론 전술 편집",
+   "function": "EditDroneTactics",
+   "arguments": {
+    "droneNumber": 10
+   },
+   "qwen_hint": "EditDroneTactics"
+  },
+  {
+   "id": "p6027",
+   "suite": "qwen-exec",
+   "text": "삼호기 복귀",
+   "function": "ReturnDrone",
+   "arguments": {
+    "droneNumber": 3
+   },
+   "qwen_hint": "ReturnDrone"
+  },
+  {
+   "id": "p6028",
+   "suite": "qwen-exec",
+   "text": "팀 탱고 2호기 돌아와",
+   "function": "ReturnDrone",
+   "arguments": {
+    "droneNumber": 2,
+    "team": "Tango"
+   },
+   "qwen_hint": "ReturnDrone"
+  },
+  {
+   "id": "p6029",
+   "suite": "qwen-exec",
+   "text": "브라보 5호기 귀환 오버",
+   "function": "ReturnDrone",
+   "arguments": {
+    "droneNumber": 5,
+    "team": "Bravo"
+   },
+   "qwen_hint": "ReturnDrone"
+  },
+  {
+   "id": "p6030",
+   "suite": "qwen-exec",
+   "text": "둘째 드론 바로 돌아와 바람",
+   "function": "ReturnDrone",
+   "arguments": {
+    "droneNumber": 2
+   },
+   "qwen_hint": "ReturnDrone"
+  },
+  {
+   "id": "p6031",
+   "suite": "qwen-exec",
+   "text": "Uniform 7호기 지금 복귀",
+   "function": "ReturnDrone",
+   "arguments": {
+    "droneNumber": 7,
+    "team": "Uniform"
+   },
+   "qwen_hint": "ReturnDrone"
+  },
+  {
+   "id": "p6032",
+   "suite": "qwen-exec",
+   "text": "삼 번 드론 팀에서 빼줘",
+   "function": "DetachDrone",
+   "arguments": {
+    "droneNumber": 3
+   },
+   "qwen_hint": "DetachDrone"
+  },
+  {
+   "id": "p6033",
+   "suite": "qwen-exec",
+   "text": "브라보 세 번 빼",
+   "function": "DetachDrone",
+   "arguments": {
+    "droneNumber": 3,
+    "team": "Bravo"
+   },
+   "qwen_hint": "DetachDrone"
+  },
+  {
+   "id": "p6034",
+   "suite": "qwen-exec",
+   "text": "델타 다섯 번 내보내",
+   "function": "DetachDrone",
+   "arguments": {
+    "droneNumber": 5,
+    "team": "Delta"
+   },
+   "qwen_hint": "DetachDrone"
+  },
+  {
+   "id": "p6035",
+   "suite": "qwen-exec",
+   "text": "칠 번 드론 팀에서 나가게 해줘",
+   "function": "DetachDrone",
+   "arguments": {
+    "droneNumber": 7
+   },
+   "qwen_hint": "DetachDrone"
+  },
+  {
+   "id": "p6036",
+   "suite": "qwen-exec",
+   "text": "델타 세 번째 드론 개별제어",
+   "function": "StartManualFlight",
+   "arguments": {
+    "droneNumber": 3,
+    "team": "Delta"
+   },
+   "qwen_hint": "StartManualFlight"
+  },
+  {
+   "id": "p6037",
+   "suite": "qwen-exec",
+   "text": "세 번 드론 개별제어 좀 해봐",
+   "function": "StartManualFlight",
+   "arguments": {
+    "droneNumber": 3
+   },
+   "qwen_hint": "StartManualFlight"
+  },
+  {
+   "id": "p6038",
+   "suite": "qwen-exec",
+   "text": "삼 번 드론 개별로 해",
+   "function": "StartManualFlight",
+   "arguments": {
+    "droneNumber": 3
+   },
+   "qwen_hint": "StartManualFlight"
+  },
+  {
+   "id": "p6039",
+   "suite": "qwen-exec",
+   "text": "세 번째 드론 개별제어 바람",
+   "function": "StartManualFlight",
+   "arguments": {
+    "droneNumber": 3
+   },
+   "qwen_hint": "StartManualFlight"
+  },
+  {
+   "id": "p6040",
+   "suite": "qwen-exec",
+   "text": "삼호기 개별제어 해줘",
+   "function": "StartManualFlight",
+   "arguments": {
+    "droneNumber": 3
+   },
+   "qwen_hint": "StartManualFlight"
+  },
+  {
+   "id": "p6041",
+   "suite": "qwen-exec",
+   "text": "킬로팀 김병장한테 제어권 넘겨줘",
+   "function": "AssignTeamControl",
+   "arguments": {
+    "team": "Kilo",
+    "soldierName": "김병장"
+   },
+   "qwen_hint": "AssignTeamControl"
+  },
+  {
+   "id": "p6042",
+   "suite": "qwen-exec",
+   "text": "리마팀 제어권 이양해",
+   "function": "AssignTeamControl",
+   "arguments": {
+    "team": "Lima"
+   },
+   "qwen_hint": "AssignTeamControl"
+  },
+  {
+   "id": "p6043",
+   "suite": "qwen-refuse",
+   "text": "킬로팀 제어권 이거 누가 받나?",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "킬로팀 제어권 이거 누가 받나?"
+   },
+   "qwen_hint": "AssignTeamControl"
+  },
+  {
+   "id": "p6044",
+   "suite": "qwen-refuse",
+   "text": "팀 제어권 빠르게 회수해",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "팀 제어권 빠르게 회수해"
+   },
+   "qwen_hint": "RevokeTeamControl"
+  },
+  {
+   "id": "p6045",
+   "suite": "qwen-exec",
+   "text": "제어권 회수 오스카팀",
+   "function": "RevokeTeamControl",
+   "arguments": {
+    "team": "Oscar"
+   },
+   "qwen_hint": "RevokeTeamControl"
+  },
+  {
+   "id": "p6046",
+   "suite": "qwen-exec",
+   "text": "제어권 돌려받자, November 팀",
+   "function": "RevokeTeamControl",
+   "arguments": {
+    "team": "November"
+   },
+   "qwen_hint": "RevokeTeamControl"
+  },
+  {
+   "id": "p6047",
+   "suite": "qwen-exec",
+   "text": "시에라 팀 제어권 바람",
+   "function": "RequestTeamControl",
+   "arguments": {
+    "team": "Sierra"
+   },
+   "qwen_hint": "RequestTeamControl"
+  },
+  {
+   "id": "p6048",
+   "suite": "qwen-exec",
+   "text": "유니폼 팀 제어권 빨리",
+   "function": "RequestTeamControl",
+   "arguments": {
+    "team": "Uniform"
+   },
+   "qwen_hint": "RequestTeamControl"
+  },
+  {
+   "id": "p6049",
+   "suite": "qwen-exec",
+   "text": "빅터 팀 제어권 주세요",
+   "function": "RequestTeamControl",
+   "arguments": {
+    "team": "Victor"
+   },
+   "qwen_hint": "RequestTeamControl"
+  },
+  {
+   "id": "p6050",
+   "suite": "qwen-exec",
+   "text": "제어권 반환, 알파팀",
+   "function": "ReturnTeamControl",
+   "arguments": {
+    "team": "Alpha"
+   },
+   "qwen_hint": "ReturnTeamControl"
+  },
+  {
+   "id": "p6051",
+   "suite": "qwen-exec",
+   "text": "마커 두 이동",
+   "function": "MoveToMarker",
+   "arguments": {
+    "markerNumber": 2
+   },
+   "qwen_hint": "MoveToMarker"
+  },
+  {
+   "id": "p6052",
+   "suite": "qwen-exec",
+   "text": "마커 오 시점으로 바람",
+   "function": "MoveToMarker",
+   "arguments": {
+    "markerNumber": 5
+   },
+   "qwen_hint": "MoveToMarker"
+  },
+  {
+   "id": "p6053",
+   "suite": "qwen-exec",
+   "text": "두 번째 마커로 가 줘",
+   "function": "MoveToMarker",
+   "arguments": {
+    "markerNumber": 2
+   },
+   "qwen_hint": "MoveToMarker"
+  },
+  {
+   "id": "p6054",
+   "suite": "qwen-exec",
+   "text": "마커 사 이동",
+   "function": "MoveToMarker",
+   "arguments": {
+    "markerNumber": 4
+   },
+   "qwen_hint": "MoveToMarker"
+  },
+  {
+   "id": "p6055",
+   "suite": "qwen-exec",
+   "text": "마커 이로 가",
+   "function": "MoveToMarker",
+   "arguments": {
+    "markerNumber": 2
+   },
+   "qwen_hint": "MoveToMarker"
+  },
+  {
+   "id": "p6056",
+   "suite": "qwen-exec",
+   "text": "셋 프리셋 보여줘 빨리",
+   "function": "MoveToPreset",
+   "arguments": {
+    "presetNumber": 3
+   },
+   "qwen_hint": "MoveToPreset"
+  },
+  {
+   "id": "p6057",
+   "suite": "qwen-exec",
+   "text": "프리셋 두 번 이동",
+   "function": "MoveToPreset",
+   "arguments": {
+    "presetNumber": 2
+   },
+   "qwen_hint": "MoveToPreset"
+  },
+  {
+   "id": "p6058",
+   "suite": "qwen-exec",
+   "text": "프리셋 원 이동 바람",
+   "function": "MoveToPreset",
+   "arguments": {
+    "presetNumber": 1
+   },
+   "qwen_hint": "MoveToPreset"
+  },
+  {
+   "id": "p6059",
+   "suite": "qwen-exec",
+   "text": "마커 만들어",
+   "function": "EnterMarkerCreation",
+   "arguments": {},
+   "qwen_hint": "EnterMarkerCreation"
+  },
+  {
+   "id": "p6060",
+   "suite": "qwen-exec",
+   "text": "마커 추가해줘 빨리",
+   "function": "EnterMarkerCreation",
+   "arguments": {},
+   "qwen_hint": "EnterMarkerCreation"
+  },
+  {
+   "id": "p6061",
+   "suite": "qwen-exec",
+   "text": "마커 생성해",
+   "function": "EnterMarkerCreation",
+   "arguments": {},
+   "qwen_hint": "EnterMarkerCreation"
+  },
+  {
+   "id": "p6062",
+   "suite": "qwen-exec",
+   "text": "팀, 마커 추가",
+   "function": "EnterMarkerCreation",
+   "arguments": {},
+   "qwen_hint": "EnterMarkerCreation"
+  },
+  {
+   "id": "p6063",
+   "suite": "qwen-exec",
+   "text": "지금 상태 프리셋 만들어",
+   "function": "CreatePreset",
+   "arguments": {},
+   "qwen_hint": "CreatePreset"
+  },
+  {
+   "id": "p6064",
+   "suite": "qwen-exec",
+   "text": "프리셋 추가하고",
+   "function": "CreatePreset",
+   "arguments": {},
+   "qwen_hint": "CreatePreset"
+  },
+  {
+   "id": "p6065",
+   "suite": "qwen-exec",
+   "text": "현재 설정 프리셋 저장해",
+   "function": "CreatePreset",
+   "arguments": {},
+   "qwen_hint": "CreatePreset"
+  },
+  {
+   "id": "p6066",
+   "suite": "qwen-exec",
+   "text": "프리셋으로 지금 상태 저장",
+   "function": "CreatePreset",
+   "arguments": {},
+   "qwen_hint": "CreatePreset"
+  },
+  {
+   "id": "p6067",
+   "suite": "qwen-exec",
+   "text": "마커 이 지우줘",
+   "function": "DeleteMarker",
+   "arguments": {
+    "markerNumber": 2
+   },
+   "qwen_hint": "DeleteMarker"
+  },
+  {
+   "id": "p6068",
+   "suite": "qwen-exec",
+   "text": "마커 사 지워",
+   "function": "DeleteMarker",
+   "arguments": {
+    "markerNumber": 4
+   },
+   "qwen_hint": "DeleteMarker"
+  },
+  {
+   "id": "p6069",
+   "suite": "qwen-exec",
+   "text": "세 번째 프리셋 지우라고",
+   "function": "DeletePreset",
+   "arguments": {
+    "presetNumber": 3
+   },
+   "qwen_hint": "DeletePreset"
+  },
+  {
+   "id": "p6070",
+   "suite": "qwen-exec",
+   "text": "두 번 프리셋 삭제",
+   "function": "DeletePreset",
+   "arguments": {
+    "presetNumber": 2
+   },
+   "qwen_hint": "DeletePreset"
+  },
+  {
+   "id": "p6071",
+   "suite": "qwen-exec",
+   "text": "셋째 프리셋 지워줘",
+   "function": "DeletePreset",
+   "arguments": {
+    "presetNumber": 3
+   },
+   "qwen_hint": "DeletePreset"
+  },
+  {
+   "id": "p6072",
+   "suite": "qwen-exec",
+   "text": "네 번째 프리셋 삭제 좀",
+   "function": "DeletePreset",
+   "arguments": {
+    "presetNumber": 4
+   },
+   "qwen_hint": "DeletePreset"
+  },
+  {
+   "id": "p6073",
+   "suite": "qwen-exec",
+   "text": "전술 추천 좀",
+   "function": "RequestTacticsRecommendation",
+   "arguments": {},
+   "qwen_hint": "RequestTacticsRecommendation"
+  },
+  {
+   "id": "p6074",
+   "suite": "qwen-exec",
+   "text": "골프 팀 전술 다시 추천해 줘",
+   "function": "RequestTacticsRecommendation",
+   "arguments": {},
+   "qwen_hint": "RequestTacticsRecommendation"
+  },
+  {
+   "id": "p6075",
+   "suite": "qwen-exec",
+   "text": "AI로 다른 전술 추천 해",
+   "function": "RequestTacticsRecommendation",
+   "arguments": {},
+   "qwen_hint": "RequestTacticsRecommendation"
+  },
+  {
+   "id": "p6076",
+   "suite": "qwen-exec",
+   "text": "전술 재추천 바람",
+   "function": "RequestTacticsRecommendation",
+   "arguments": {},
+   "qwen_hint": "RequestTacticsRecommendation"
+  },
+  {
+   "id": "p6077",
+   "suite": "qwen-exec",
+   "text": "추천 그만",
+   "function": "CancelTacticsRecommendation",
+   "arguments": {},
+   "qwen_hint": "CancelTacticsRecommendation"
+  },
+  {
+   "id": "p6078",
+   "suite": "qwen-exec",
+   "text": "추천 취소해",
+   "function": "CancelTacticsRecommendation",
+   "arguments": {},
+   "qwen_hint": "CancelTacticsRecommendation"
+  },
+  {
+   "id": "p6079",
+   "suite": "qwen-exec",
+   "text": "전술지도 열어줘 빨리",
+   "function": "OpenWindow",
+   "arguments": {
+    "windowName": "전술 지도"
+   },
+   "qwen_hint": "OpenWindow"
+  },
+  {
+   "id": "p6080",
+   "suite": "qwen-exec",
+   "text": "알림 상세 창 불러",
+   "function": "OpenWindow",
+   "arguments": {
+    "windowName": "알림 상세"
+   },
+   "qwen_hint": "OpenWindow"
+  },
+  {
+   "id": "p6081",
+   "suite": "qwen-exec",
+   "text": "전술 지도 닫아 놓고",
+   "function": "CloseWindow",
+   "arguments": {
+    "windowName": "전술 지도"
+   },
+   "qwen_hint": "CloseWindow"
+  },
+  {
+   "id": "p6082",
+   "suite": "qwen-exec",
+   "text": "알림 상세 닫혀",
+   "function": "CloseWindow",
+   "arguments": {
+    "windowName": "알림 상세"
+   },
+   "qwen_hint": "CloseWindow"
+  },
+  {
+   "id": "p6083",
+   "suite": "qwen-exec",
+   "text": "설정 닫아 놓으라",
+   "function": "CloseWindow",
+   "arguments": {
+    "windowName": "설정"
+   },
+   "qwen_hint": "CloseWindow"
+  },
+  {
+   "id": "p6084",
+   "suite": "qwen-exec",
+   "text": "필터 창 끄줘",
+   "function": "CloseWindow",
+   "arguments": {
+    "windowName": "필터"
+   },
+   "qwen_hint": "CloseWindow"
+  },
+  {
+   "id": "p6085",
+   "suite": "qwen-exec",
+   "text": "브라보팀 카메라 보여줘 빨리!",
+   "function": "ShowTeamCamera",
+   "arguments": {
+    "team": "Bravo"
+   },
+   "qwen_hint": "ShowTeamCamera"
+  },
+  {
+   "id": "p6086",
+   "suite": "qwen-exec",
+   "text": "찰리 팀 카메라 나오게 해",
+   "function": "ShowTeamCamera",
+   "arguments": {
+    "team": "Charlie"
+   },
+   "qwen_hint": "ShowTeamCamera"
+  },
+  {
+   "id": "p6087",
+   "suite": "qwen-exec",
+   "text": "델타팀 카메라 보여!",
+   "function": "ShowTeamCamera",
+   "arguments": {
+    "team": "Delta"
+   },
+   "qwen_hint": "ShowTeamCamera"
+  },
+  {
+   "id": "p6088",
+   "suite": "qwen-exec",
+   "text": "삼호기 카메라 보여줘 빨리",
+   "function": "ShowDroneCamera",
+   "arguments": {
+    "droneNumber": 3
+   },
+   "qwen_hint": "ShowDroneCamera"
+  },
+  {
+   "id": "p6089",
+   "suite": "qwen-exec",
+   "text": "삼 번째 드론 카메라 보여줘",
+   "function": "ShowDroneCamera",
+   "arguments": {
+    "droneNumber": 3
+   },
+   "qwen_hint": "ShowDroneCamera"
+  },
+  {
+   "id": "p6090",
+   "suite": "qwen-exec",
+   "text": "짐벌 영점 맞추라고",
+   "function": "ResetCameraGimbal",
+   "arguments": {},
+   "qwen_hint": "ResetCameraGimbal"
+  },
+  {
+   "id": "p6091",
+   "suite": "qwen-exec",
+   "text": "카메라 똑바로 바람",
+   "function": "ResetCameraGimbal",
+   "arguments": {},
+   "qwen_hint": "ResetCameraGimbal"
+  },
+  {
+   "id": "p6092",
+   "suite": "qwen-exec",
+   "text": "카메라 정면으로 해줘 빨리",
+   "function": "ResetCameraGimbal",
+   "arguments": {},
+   "qwen_hint": "ResetCameraGimbal"
+  },
+  {
+   "id": "p6093",
+   "suite": "qwen-exec",
+   "text": "팀 파파, 카메라창 확대 바람",
+   "function": "EnlargeCameraWindow",
+   "arguments": {},
+   "qwen_hint": "EnlargeCameraWindow"
+  },
+  {
+   "id": "p6094",
+   "suite": "qwen-exec",
+   "text": "영상창 크게 놔",
+   "function": "EnlargeCameraWindow",
+   "arguments": {},
+   "qwen_hint": "EnlargeCameraWindow"
+  },
+  {
+   "id": "p6095",
+   "suite": "qwen-exec",
+   "text": "파파팀, 카메라창 확대 해줘",
+   "function": "EnlargeCameraWindow",
+   "arguments": {},
+   "qwen_hint": "EnlargeCameraWindow"
+  },
+  {
+   "id": "p6096",
+   "suite": "qwen-exec",
+   "text": "팀 퀘벡, 카메라창 확대 빨리",
+   "function": "EnlargeCameraWindow",
+   "arguments": {},
+   "qwen_hint": "EnlargeCameraWindow"
+  },
+  {
+   "id": "p6097",
+   "suite": "qwen-exec",
+   "text": "영상 창 축소 좀",
+   "function": "ShrinkCameraWindow",
+   "arguments": {},
+   "qwen_hint": "ShrinkCameraWindow"
+  },
+  {
+   "id": "p6098",
+   "suite": "qwen-exec",
+   "text": "영상창 크기 작게 바람",
+   "function": "ShrinkCameraWindow",
+   "arguments": {},
+   "qwen_hint": "ShrinkCameraWindow"
+  },
+  {
+   "id": "p6099",
+   "suite": "qwen-exec",
+   "text": "영상 창 줄여줘",
+   "function": "ShrinkCameraWindow",
+   "arguments": {},
+   "qwen_hint": "ShrinkCameraWindow"
+  },
+  {
+   "id": "p6100",
+   "suite": "qwen-exec",
+   "text": "영상 창 줄여 오버",
+   "function": "ShrinkCameraWindow",
+   "arguments": {},
+   "qwen_hint": "ShrinkCameraWindow"
+  },
+  {
+   "id": "p6101",
+   "suite": "qwen-exec",
+   "text": "드론 시야, 배터리 표시 오버",
+   "function": "ApplyDisplayFilters",
+   "arguments": {
+    "filterNames": "드론 시야, 배터리"
+   },
+   "qwen_hint": "ApplyDisplayFilters"
+  },
+  {
+   "id": "p6102",
+   "suite": "qwen-exec",
+   "text": "전장의 안개, 위협 켜줘 빨리",
+   "function": "ApplyDisplayFilters",
+   "arguments": {
+    "filterNames": "전장의 안개, 위협"
+   },
+   "qwen_hint": "ApplyDisplayFilters"
+  },
+  {
+   "id": "p6103",
+   "suite": "qwen-exec",
+   "text": "마커, 기동성, 주요 지형지물 표시",
+   "function": "ApplyDisplayFilters",
+   "arguments": {
+    "filterNames": "마커, 기동성, 주요 지형지물"
+   },
+   "qwen_hint": "ApplyDisplayFilters"
+  },
+  {
+   "id": "p6104",
+   "suite": "qwen-exec",
+   "text": "드론 시야 숨겨",
+   "function": "ClearDisplayFilters",
+   "arguments": {
+    "filterNames": "드론 시야"
+   },
+   "qwen_hint": "ClearDisplayFilters"
+  },
+  {
+   "id": "p6105",
+   "suite": "qwen-exec",
+   "text": "팀 연결선 꺼 줘",
+   "function": "ClearDisplayFilters",
+   "arguments": {
+    "filterNames": "팀 연결선"
+   },
+   "qwen_hint": "ClearDisplayFilters"
+  },
+  {
+   "id": "p6106",
+   "suite": "qwen-exec",
+   "text": "장애물, 배터리 숨겨",
+   "function": "ClearDisplayFilters",
+   "arguments": {
+    "filterNames": "장애물, 배터리"
+   },
+   "qwen_hint": "ClearDisplayFilters"
+  },
+  {
+   "id": "p6107",
+   "suite": "qwen-exec",
+   "text": "드론 시야 해제",
+   "function": "ClearDisplayFilters",
+   "arguments": {
+    "filterNames": "드론 시야"
+   },
+   "qwen_hint": "ClearDisplayFilters"
+  },
+  {
+   "id": "p6108",
+   "suite": "qwen-exec",
+   "text": "팀 해체 확인해",
+   "function": "AcceptConfirmWindow",
+   "arguments": {
+    "confirmName": "팀 해체"
+   },
+   "qwen_hint": "AcceptConfirmWindow"
+  },
+  {
+   "id": "p6109",
+   "suite": "qwen-exec",
+   "text": "드론봇 팀 제외 수락",
+   "function": "AcceptConfirmWindow",
+   "arguments": {
+    "confirmName": "드론봇 팀 제외"
+   },
+   "qwen_hint": "AcceptConfirmWindow"
+  },
+  {
+   "id": "p6110",
+   "suite": "qwen-exec",
+   "text": "거부야, 제어권 회수 안 돼",
+   "function": "RejectConfirmWindow",
+   "arguments": {
+    "confirmName": "제어권 회수"
+   },
+   "qwen_hint": "RejectConfirmWindow"
+  },
+  {
+   "id": "p6111",
+   "suite": "qwen-exec",
+   "text": "패스스루 설정해",
+   "function": "EnableVideoThrough",
+   "arguments": {},
+   "qwen_hint": "EnableVideoThrough"
+  },
+  {
+   "id": "p6112",
+   "suite": "qwen-exec",
+   "text": "비디오 패스스루 켜",
+   "function": "EnableVideoThrough",
+   "arguments": {},
+   "qwen_hint": "EnableVideoThrough"
+  },
+  {
+   "id": "p6113",
+   "suite": "qwen-exec",
+   "text": "비디오 패스스루 꺼",
+   "function": "DisableVideoThrough",
+   "arguments": {},
+   "qwen_hint": "DisableVideoThrough"
+  },
+  {
+   "id": "p6114",
+   "suite": "qwen-exec",
+   "text": "비디오 쓰루 끝내",
+   "function": "DisableVideoThrough",
+   "arguments": {},
+   "qwen_hint": "DisableVideoThrough"
+  },
+  {
+   "id": "p6115",
+   "suite": "qwen-exec",
+   "text": "델타 팀뷰 빨리",
+   "function": "MoveToTeamView",
+   "arguments": {
+    "team": "Delta"
+   },
+   "qwen_hint": "MoveToTeamView"
+  },
+  {
+   "id": "p6116",
+   "suite": "qwen-exec",
+   "text": "에코 팀뷰!",
+   "function": "MoveToTeamView",
+   "arguments": {
+    "team": "Echo"
+   },
+   "qwen_hint": "MoveToTeamView"
+  },
+  {
+   "id": "p6117",
+   "suite": "qwen-exec",
+   "text": "골프팀 뷰 오버",
+   "function": "MoveToTeamView",
+   "arguments": {
+    "team": "Golf"
+   },
+   "qwen_hint": "MoveToTeamView"
+  },
+  {
+   "id": "p6118",
+   "suite": "qwen-exec",
+   "text": "인디아 팀 전체 뷰 빠르게",
+   "function": "MoveToTeamOverview",
+   "arguments": {
+    "team": "India"
+   },
+   "qwen_hint": "MoveToTeamOverview"
+  },
+  {
+   "id": "p6119",
+   "suite": "qwen-exec",
+   "text": "줄리엣 팀 전부 보여줘 바람",
+   "function": "MoveToTeamOverview",
+   "arguments": {
+    "team": "Juliet"
+   },
+   "qwen_hint": "MoveToTeamOverview"
+  },
+  {
+   "id": "p6120",
+   "suite": "qwen-exec",
+   "text": "킬로 팀 전체 보이게 해줘",
+   "function": "MoveToTeamOverview",
+   "arguments": {
+    "team": "Kilo"
+   },
+   "qwen_hint": "MoveToTeamOverview"
+  },
+  {
+   "id": "p6121",
+   "suite": "qwen-exec",
+   "text": "리마 팀 전체 보기로 이동",
+   "function": "MoveToTeamOverview",
+   "arguments": {
+    "team": "Lima"
+   },
+   "qwen_hint": "MoveToTeamOverview"
+  },
+  {
+   "id": "p6122",
+   "suite": "qwen-exec",
+   "text": "인디아 팀 전체 보여",
+   "function": "MoveToTeamOverview",
+   "arguments": {
+    "team": "India"
+   },
+   "qwen_hint": "MoveToTeamOverview"
+  },
+  {
+   "id": "p6123",
+   "suite": "qwen-exec",
+   "text": "삼 번 드론 뷰 바람",
+   "function": "MoveToDroneView",
+   "arguments": {
+    "droneNumber": 3
+   },
+   "qwen_hint": "MoveToDroneView"
+  },
+  {
+   "id": "p6124",
+   "suite": "qwen-exec",
+   "text": "델타 4호기 드론 시점",
+   "function": "MoveToDroneView",
+   "arguments": {
+    "droneNumber": 4,
+    "team": "Delta"
+   },
+   "qwen_hint": "MoveToDroneView"
+  },
+  {
+   "id": "p6125",
+   "suite": "qwen-exec",
+   "text": "팀 오스카 2호기 뷰",
+   "function": "MoveToDroneView",
+   "arguments": {
+    "droneNumber": 2,
+    "team": "Oscar"
+   },
+   "qwen_hint": "MoveToDroneView"
+  },
+  {
+   "id": "p6126",
+   "suite": "qwen-exec",
+   "text": "브라보 세 번째 드론 뷰",
+   "function": "MoveToDroneView",
+   "arguments": {
+    "droneNumber": 3,
+    "team": "Bravo"
+   },
+   "qwen_hint": "MoveToDroneView"
+  },
+  {
+   "id": "p6127",
+   "suite": "qwen-exec",
+   "text": "패널 원위치 초기화",
+   "function": "ResetPanelPositions",
+   "arguments": {},
+   "qwen_hint": "ResetPanelPositions"
+  },
+  {
+   "id": "p6128",
+   "suite": "qwen-exec",
+   "text": "패널 위치 처음 상태로 바꿔",
+   "function": "ResetPanelPositions",
+   "arguments": {},
+   "qwen_hint": "ResetPanelPositions"
+  },
+  {
+   "id": "p6129",
+   "suite": "qwen-exec",
+   "text": "패널 원래 자리로 돌리셈",
+   "function": "ResetPanelPositions",
+   "arguments": {},
+   "qwen_hint": "ResetPanelPositions"
+  },
+  {
+   "id": "p6130",
+   "suite": "qwen-exec",
+   "text": "녹화 시작해",
+   "function": "StartRecording",
+   "arguments": {},
+   "qwen_hint": "StartRecording"
+  },
+  {
+   "id": "p6131",
+   "suite": "qwen-exec",
+   "text": "녹화 시작 바람",
+   "function": "StartRecording",
+   "arguments": {},
+   "qwen_hint": "StartRecording"
+  },
+  {
+   "id": "p6132",
+   "suite": "qwen-exec",
+   "text": "녹화 중지 바람",
+   "function": "StopRecording",
+   "arguments": {},
+   "qwen_hint": "StopRecording"
+  },
+  {
+   "id": "p6133",
+   "suite": "qwen-refuse",
+   "text": "드론 십이호 고도 두천 메터 유지 오버",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "드론 십이호 고도 두천 메터 유지 오버"
+   },
+   "qwen_hint": "unsupported"
+  },
+  {
+   "id": "p6134",
+   "suite": "qwen-refuse",
+   "text": "팀 알파 속도 일천 오백 킬로 줄리엣",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "팀 알파 속도 일천 오백 킬로 줄리엣"
+   },
+   "qwen_hint": "unsupported"
+  },
+  {
+   "id": "p6135",
+   "suite": "qwen-refuse",
+   "text": "맵 확대 오버",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "맵 확대 오버"
+   },
+   "qwen_hint": "unsupported"
+  },
+  {
+   "id": "p6136",
+   "suite": "qwen-refuse",
+   "text": "라이트 다운 바람",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "라이트 다운 바람"
+   },
+   "qwen_hint": "unsupported"
+  },
+  {
+   "id": "p6137",
+   "suite": "qwen-refuse",
+   "text": "볼륨 높여줘 빨리",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "볼륨 높여줘 빨리"
+   },
+   "qwen_hint": "unsupported"
+  },
+  {
+   "id": "p6138",
+   "suite": "qwen-refuse",
+   "text": "드론 십삼호 공격 대상 서쪽 산 정상",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "드론 십삼호 공격 대상 서쪽 산 정상"
+   },
+   "qwen_hint": "unsupported"
+  },
+  {
+   "id": "p6139",
+   "suite": "qwen-refuse",
+   "text": "드론 십사호 방향 동쪽으로 바꿔줘 빨리",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "드론 십사호 방향 동쪽으로 바꿔줘 빨리"
+   },
+   "qwen_hint": "unsupported"
+  },
+  {
+   "id": "p6140",
+   "suite": "qwen-refuse",
+   "text": "지도 확대 오버",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "지도 확대 오버"
+   },
+   "qwen_hint": "unsupported"
+  },
+  {
+   "id": "p6141",
+   "suite": "qwen-refuse",
+   "text": "드론 십오호 줌 아웃 바람",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "드론 십오호 줌 아웃 바람"
+   },
+   "qwen_hint": "unsupported"
+  },
+  {
+   "id": "p6142",
+   "suite": "qwen-refuse",
+   "text": "팀 브라보 밝기 올림 오버",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "팀 브라보 밝기 올림 오버"
+   },
+   "qwen_hint": "unsupported"
+  },
+  {
+   "id": "p6143",
+   "suite": "qwen-refuse",
+   "text": "드론 십육호 공격 대상 남서방향 건물",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "드론 십육호 공격 대상 남서방향 건물"
+   },
+   "qwen_hint": "unsupported"
+  },
+  {
+   "id": "p6144",
+   "suite": "qwen-refuse",
+   "text": "골프 3호기 내보내고 호텔 7호기 복귀 오버",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "골프 3호기 내보내고 호텔 7호기 복귀 오버"
+   },
+   "qwen_hint": "two_actions"
+  },
+  {
+   "id": "p6145",
+   "suite": "qwen-refuse",
+   "text": "골프 팀 시작하고 폭스트롯 팀 해체 바람",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "골프 팀 시작하고 폭스트롯 팀 해체 바람"
+   },
+   "qwen_hint": "two_actions"
+  },
+  {
+   "id": "p6146",
+   "suite": "qwen-refuse",
+   "text": "킬로 1호기 선택하고 양키 1호기 복귀 빨리",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "킬로 1호기 선택하고 양키 1호기 복귀 빨리"
+   },
+   "qwen_hint": "two_actions"
+  },
+  {
+   "id": "p6147",
+   "suite": "qwen-refuse",
+   "text": "팀 세븐 오버 폭스트롯 오버",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "팀 세븐 오버 폭스트롯 오버"
+   },
+   "qwen_hint": "two_actions"
+  },
+  {
+   "id": "p6148",
+   "suite": "qwen-refuse",
+   "text": "골프 1호기 편집하고 폭스트롯 1호기 복귀 오버",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "골프 1호기 편집하고 폭스트롯 1호기 복귀 오버"
+   },
+   "qwen_hint": "two_actions"
+  },
+  {
+   "id": "p6149",
+   "suite": "qwen-refuse",
+   "text": "킬로 2호기 제어하고 인디아 2호기 복귀 오버",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "킬로 2호기 제어하고 인디아 2호기 복귀 오버"
+   },
+   "qwen_hint": "two_actions"
+  },
+  {
+   "id": "p6150",
+   "suite": "qwen-refuse",
+   "text": "킬로 3호기 제어하고 호텔 3호기 복귀 오버",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "킬로 3호기 제어하고 호텔 3호기 복귀 오버"
+   },
+   "qwen_hint": "two_actions"
+  },
+  {
+   "id": "p6151",
+   "suite": "qwen-refuse",
+   "text": "골프 4호기 내보내고 폭스트롯 4호기 복귀 오버",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "골프 4호기 내보내고 폭스트롯 4호기 복귀 오버"
+   },
+   "qwen_hint": "two_actions"
+  },
+  {
+   "id": "p6152",
+   "suite": "qwen-refuse",
+   "text": "골프 5호기 편집하고 폭스트ROT 5호기 복귀 오버",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "골프 5호기 편집하고 폭스트ROT 5호기 복귀 오버"
+   },
+   "qwen_hint": "two_actions"
+  },
+  {
+   "id": "p6153",
+   "suite": "qwen-refuse",
+   "text": "골프 6호기 제어하고 인디아 6호기 복귀 오버",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "골프 6호기 제어하고 인디아 6호기 복귀 오버"
+   },
+   "qwen_hint": "two_actions"
+  },
+  {
+   "id": "p6154",
+   "suite": "qwen-refuse",
+   "text": "골프 7호기 내보내고 호텔 7호기 복귀 오버",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "골프 7호기 내보내고 호텔 7호기 복귀 오버"
+   },
+   "qwen_hint": "two_actions"
+  },
+  {
+   "id": "p6155",
+   "suite": "qwen-refuse",
+   "text": "팀 상태는 어떻게 돼?",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "팀 상태는 어떻게 돼?"
+   },
+   "qwen_hint": "question"
+  },
+  {
+   "id": "p6156",
+   "suite": "qwen-refuse",
+   "text": "킬로 팀 지금 어디야?",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "킬로 팀 지금 어디야?"
+   },
+   "qwen_hint": "question"
+  },
+  {
+   "id": "p6157",
+   "suite": "qwen-refuse",
+   "text": "킬로 3호기 아직도 비행중이야?",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "킬로 3호기 아직도 비행중이야?"
+   },
+   "qwen_hint": "question"
+  },
+  {
+   "id": "p6158",
+   "suite": "qwen-refuse",
+   "text": "리마 5호기 현재 상태 확인 좀",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "리마 5호기 현재 상태 확인 좀"
+   },
+   "qwen_hint": "question"
+  },
+  {
+   "id": "p6159",
+   "suite": "qwen-refuse",
+   "text": "노벰버 7호기 아직 팀에 있나?",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "노벰버 7호기 아직 팀에 있나?"
+   },
+   "qwen_hint": "question"
+  },
+  {
+   "id": "p6160",
+   "suite": "qwen-refuse",
+   "text": "마이크 팀 지금 어디 있는지 알려줘",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "마이크 팀 지금 어디 있는지 알려줘"
+   },
+   "qwen_hint": "question"
+  },
+  {
+   "id": "p6161",
+   "suite": "qwen-refuse",
+   "text": "킬로 1호기 아직 전투 준비 중이야?",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "킬로 1호기 아직 전투 준비 중이야?"
+   },
+   "qwen_hint": "question"
+  },
+  {
+   "id": "p6162",
+   "suite": "qwen-refuse",
+   "text": "리마 팀 지금 어디서 활동 중이지?",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "리마 팀 지금 어디서 활동 중이지?"
+   },
+   "qwen_hint": "question"
+  },
+  {
+   "id": "p6163",
+   "suite": "qwen-refuse",
+   "text": "마이크 2호기 아직 작전 중이야?",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "마이크 2호기 아직 작전 중이야?"
+   },
+   "qwen_hint": "question"
+  },
+  {
+   "id": "p6164",
+   "suite": "qwen-refuse",
+   "text": "킬로 4호기 지금 어디 있는지 확인해봐",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "킬로 4호기 지금 어디 있는지 확인해봐"
+   },
+   "qwen_hint": "question"
+  },
+  {
+   "id": "p6165",
+   "suite": "qwen-refuse",
+   "text": "노벰버 6호기 아직 훈련 중이야?",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "노벰버 6호기 아직 훈련 중이야?"
+   },
+   "qwen_hint": "question"
+  },
+  {
+   "id": "p6166",
+   "suite": "qwen-refuse",
+   "text": "팀 생성 안 함",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "팀 생성 안 함"
+   },
+   "qwen_hint": "negation"
+  },
+  {
+   "id": "p6167",
+   "suite": "qwen-refuse",
+   "text": "팀 해체 안 함",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "팀 해체 안 함"
+   },
+   "qwen_hint": "negation"
+  },
+  {
+   "id": "p6168",
+   "suite": "qwen-refuse",
+   "text": "드론 복귀 안 함",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "드론 복귀 안 함"
+   },
+   "qwen_hint": "negation"
+  },
+  {
+   "id": "p6169",
+   "suite": "qwen-refuse",
+   "text": "드론 내보내기 안 함",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "드론 내보내기 안 함"
+   },
+   "qwen_hint": "negation"
+  },
+  {
+   "id": "p6170",
+   "suite": "qwen-refuse",
+   "text": "드론 선택 안 함",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "드론 선택 안 함"
+   },
+   "qwen_hint": "negation"
+  },
+  {
+   "id": "p6171",
+   "suite": "qwen-refuse",
+   "text": "팀 제어권 회수 안 함",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "팀 제어권 회수 안 함"
+   },
+   "qwen_hint": "negation"
+  },
+  {
+   "id": "p6172",
+   "suite": "qwen-refuse",
+   "text": "팀 제어권 지급 안 함",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "팀 제어권 지급 안 함"
+   },
+   "qwen_hint": "negation"
+  },
+  {
+   "id": "p6173",
+   "suite": "qwen-refuse",
+   "text": "팀 제어권 요청 안 함",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "팀 제어권 요청 안 함"
+   },
+   "qwen_hint": "negation"
+  },
+  {
+   "id": "p6174",
+   "suite": "qwen-refuse",
+   "text": "팀 제어권 반납 안 함",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "팀 제어권 반납 안 함"
+   },
+   "qwen_hint": "negation"
+  },
+  {
+   "id": "p6175",
+   "suite": "qwen-refuse",
+   "text": "비디오 쓰루 켜지 않음",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "비디오 쓰루 켜지 않음"
+   },
+   "qwen_hint": "negation"
+  },
+  {
+   "id": "p6176",
+   "suite": "qwen-refuse",
+   "text": "팀 유니폼 아직 준비 안 됐네",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "팀 유니폼 아직 준비 안 됐네"
+   },
+   "qwen_hint": "smalltalk"
+  },
+  {
+   "id": "p6177",
+   "suite": "qwen-refuse",
+   "text": "빅터가 오늘 좀 늦었네",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "빅터가 오늘 좀 늦었네"
+   },
+   "qwen_hint": "smalltalk"
+  },
+  {
+   "id": "p6178",
+   "suite": "qwen-refuse",
+   "text": "위스키 드론 너무 잘 작동해",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "위스키 드론 너무 잘 작동해"
+   },
+   "qwen_hint": "smalltalk"
+  },
+  {
+   "id": "p6179",
+   "suite": "qwen-refuse",
+   "text": "엑스레이가 오늘은 참 조용하네",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "엑스레이가 오늘은 참 조용하네"
+   },
+   "qwen_hint": "smalltalk"
+  },
+  {
+   "id": "p6180",
+   "suite": "qwen-refuse",
+   "text": "이런 건 내가 직접 해야겠네",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "이런 건 내가 직접 해야겠네"
+   },
+   "qwen_hint": "smalltalk"
+  },
+  {
+   "id": "p6181",
+   "suite": "qwen-refuse",
+   "text": "드론 상태 확인해야겠다",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "드론 상태 확인해야겠다"
+   },
+   "qwen_hint": "smalltalk"
+  },
+  {
+   "id": "p6182",
+   "suite": "qwen-refuse",
+   "text": "팀 구성 끝났네",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "팀 구성 끝났네"
+   },
+   "qwen_hint": "smalltalk"
+  },
+  {
+   "id": "p6183",
+   "suite": "qwen-refuse",
+   "text": "이번 작전은 좀 복잡하네",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "이번 작전은 좀 복잡하네"
+   },
+   "qwen_hint": "smalltalk"
+  },
+  {
+   "id": "p6184",
+   "suite": "qwen-refuse",
+   "text": "드론 작동 상태 좋아보여",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "드론 작동 상태 좋아보여"
+   },
+   "qwen_hint": "smalltalk"
+  },
+  {
+   "id": "p6185",
+   "suite": "qwen-refuse",
+   "text": "팀 리더가 되어야겠네",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "팀 리더가 되어야겠네"
+   },
+   "qwen_hint": "smalltalk"
+  },
+  {
+   "id": "p6186",
+   "suite": "qwen-refuse",
+   "text": "전술 연습 좀 더 해야겠네",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "전술 연습 좀 더 해야겠네"
+   },
+   "qwen_hint": "smalltalk"
+  },
+  {
+   "id": "p6187",
+   "suite": "qwen-refuse",
+   "text": "팀 선택하자",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "팀 선택하자"
+   },
+   "qwen_hint": "missing"
+  },
+  {
+   "id": "p6188",
+   "suite": "qwen-refuse",
+   "text": "팀 해체해야겠네",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "팀 해체해야겠네"
+   },
+   "qwen_hint": "missing"
+  },
+  {
+   "id": "p6189",
+   "suite": "qwen-refuse",
+   "text": "팀 복귀해야 함",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "팀 복귀해야 함"
+   },
+   "qwen_hint": "missing"
+  },
+  {
+   "id": "p6190",
+   "suite": "qwen-refuse",
+   "text": "팀 전술 수정해야 함",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "팀 전술 수정해야 함"
+   },
+   "qwen_hint": "missing"
+  },
+  {
+   "id": "p6191",
+   "suite": "qwen-refuse",
+   "text": "드론 선택하자",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "드론 선택하자"
+   },
+   "qwen_hint": "missing"
+  },
+  {
+   "id": "p6192",
+   "suite": "qwen-refuse",
+   "text": "드론 전술 수정해야 함",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "드론 전술 수정해야 함"
+   },
+   "qwen_hint": "missing"
+  },
+  {
+   "id": "p6193",
+   "suite": "qwen-refuse",
+   "text": "드론 복귀해야 함",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "드론 복귀해야 함"
+   },
+   "qwen_hint": "missing"
+  },
+  {
+   "id": "p6194",
+   "suite": "qwen-refuse",
+   "text": "드론 내보내야 함",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "드론 내보내야 함"
+   },
+   "qwen_hint": "missing"
+  },
+  {
+   "id": "p6195",
+   "suite": "qwen-refuse",
+   "text": "드론 개별 제어 시작",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "드론 개별 제어 시작"
+   },
+   "qwen_hint": "missing"
+  },
+  {
+   "id": "p6196",
+   "suite": "qwen-refuse",
+   "text": "팀 제어권 지정해야 함",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "팀 제어권 지정해야 함"
+   },
+   "qwen_hint": "missing"
+  }
+ ]
+}

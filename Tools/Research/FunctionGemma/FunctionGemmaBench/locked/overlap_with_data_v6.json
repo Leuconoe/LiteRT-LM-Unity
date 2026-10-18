@@ -1,0 +1,36 @@
+{
+ "note": "Locked-set cases whose text (spaces/punctuation ignored) also occurs in data_v6_empty — written after the fact; report scores with and without them. Ids only, no labels or failures.",
+ "training_data": "data_v6_empty (train+val)",
+ "ids": {
+  "heldout5a": [
+   "p5a029",
+   "p5a033",
+   "p5a073",
+   "p5a121",
+   "p5a134",
+   "p5a138"
+  ],
+  "heldout5b": [
+   "p5b002",
+   "p5b063",
+   "p5b077",
+   "p5b081",
+   "p5b092",
+   "p5b097",
+   "p5b102"
+  ],
+  "heldout6": [
+   "p6005",
+   "p6049",
+   "p6059",
+   "p6077",
+   "p6078",
+   "p6109",
+   "p6111",
+   "p6116",
+   "p6130",
+   "p6131",
+   "p6132"
+  ]
+ }
+}
