@@ -50,6 +50,9 @@ numbers are reference only.
 
 Kept for traceability and continuation.
 
+- [Voice-command research](handoffs/voice-command-research-handoff.md) — 2026-10-18
+  state of the FunctionGemma router, SenseVoice, Jev and RAG work: what shipped, the
+  in-progress v7 and retrain script, the locked-set rules and GPU etiquette
 - [ASR training program](handoffs/asr-training-program-handoff.md) — clean ACFT
   recipe, the abandoned kspon program (artifacts deleted; this is the only
   surviving record), and the rules for any future retraining
