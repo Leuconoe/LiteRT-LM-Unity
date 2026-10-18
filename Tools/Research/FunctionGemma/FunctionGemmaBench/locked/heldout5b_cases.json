@@ -1,0 +1,1393 @@
+{
+ "source": "Qwen2.5-14B-Instruct-AWQ generated, labelled independently",
+ "grading": "function name exact; arguments exact after: filterNames split on ',' and compared as a set; DefaultResponse graded on function name only (text is the raw input, the app can fill it).",
+ "suites": {
+  "qwen-exec": "Qwen-written commands that the contract executes",
+  "qwen-refuse": "Qwen-written utterances the contract refuses"
+ },
+ "locked": "Score only. Never use these cases or their failures to design training data.",
+ "cases": [
+  {
+   "id": "p5b001",
+   "suite": "qwen-exec",
+   "text": "알파팀 선택하자",
+   "function": "SelectTeam",
+   "arguments": {
+    "team": "Alpha"
+   },
+   "qwen_hint": "SelectTeam"
+  },
+  {
+   "id": "p5b002",
+   "suite": "qwen-exec",
+   "text": "팀생성하자",
+   "function": "EnterTeamCreation",
+   "arguments": {},
+   "qwen_hint": "EnterTeamCreation"
+  },
+  {
+   "id": "p5b003",
+   "suite": "qwen-exec",
+   "text": "새팀만들어야지",
+   "function": "EnterTeamCreation",
+   "arguments": {},
+   "qwen_hint": "EnterTeamCreation"
+  },
+  {
+   "id": "p5b004",
+   "suite": "qwen-exec",
+   "text": "팀편성화면으로",
+   "function": "EnterTeamCreation",
+   "arguments": {},
+   "qwen_hint": "EnterTeamCreation"
+  },
+  {
+   "id": "p5b005",
+   "suite": "qwen-exec",
+   "text": "정찰 드론 4기로 팀 만들어줘",
+   "function": "CreateTeam",
+   "arguments": {
+    "teamType": "정찰",
+    "memberCount": 4
+   },
+   "qwen_hint": "CreateTeam"
+  },
+  {
+   "id": "p5b006",
+   "suite": "qwen-exec",
+   "text": "공격 드론 세 대로 팀 생성",
+   "function": "CreateTeam",
+   "arguments": {
+    "teamType": "공격",
+    "memberCount": 3
+   },
+   "qwen_hint": "CreateTeam"
+  },
+  {
+   "id": "p5b007",
+   "suite": "qwen-exec",
+   "text": "자폭 드론 일곱 대로 팀 만들어 줘",
+   "function": "CreateTeam",
+   "arguments": {
+    "teamType": "자폭",
+    "memberCount": 7
+   },
+   "qwen_hint": "CreateTeam"
+  },
+  {
+   "id": "p5b008",
+   "suite": "qwen-exec",
+   "text": "UGV 드론 여섯 대로 팀 만들어",
+   "function": "CreateTeam",
+   "arguments": {
+    "teamType": "UGV",
+    "memberCount": 6
+   },
+   "qwen_hint": "CreateTeam"
+  },
+  {
+   "id": "p5b009",
+   "suite": "qwen-exec",
+   "text": "브라보 팀 귀환",
+   "function": "ReturnTeam",
+   "arguments": {
+    "team": "Bravo"
+   },
+   "qwen_hint": "ReturnTeam"
+  },
+  {
+   "id": "p5b010",
+   "suite": "qwen-exec",
+   "text": "찰리팀 복귀해",
+   "function": "ReturnTeam",
+   "arguments": {
+    "team": "Charlie"
+   },
+   "qwen_hint": "ReturnTeam"
+  },
+  {
+   "id": "p5b011",
+   "suite": "qwen-exec",
+   "text": "델타팀 돌아와",
+   "function": "ReturnTeam",
+   "arguments": {
+    "team": "Delta"
+   },
+   "qwen_hint": "ReturnTeam"
+  },
+  {
+   "id": "p5b012",
+   "suite": "qwen-exec",
+   "text": "알파팀 해체하자",
+   "function": "DisbandTeam",
+   "arguments": {
+    "team": "Alpha"
+   },
+   "qwen_hint": "DisbandTeam"
+  },
+  {
+   "id": "p5b013",
+   "suite": "qwen-exec",
+   "text": "브라보 팀 해산해",
+   "function": "DisbandTeam",
+   "arguments": {
+    "team": "Bravo"
+   },
+   "qwen_hint": "DisbandTeam"
+  },
+  {
+   "id": "p5b014",
+   "suite": "qwen-exec",
+   "text": "찰리팀 접고 대기팀으로 바꿔",
+   "function": "DisbandTeam",
+   "arguments": {
+    "team": "Charlie"
+   },
+   "qwen_hint": "DisbandTeam"
+  },
+  {
+   "id": "p5b015",
+   "suite": "qwen-exec",
+   "text": "델타팀 정리하고 예비로 보내",
+   "function": "DisbandTeam",
+   "arguments": {
+    "team": "Delta"
+   },
+   "qwen_hint": "DisbandTeam"
+  },
+  {
+   "id": "p5b016",
+   "suite": "qwen-exec",
+   "text": "브라보팀 작전 개시",
+   "function": "StartTeamTactics",
+   "arguments": {
+    "team": "Bravo"
+   },
+   "qwen_hint": "StartTeamTactics"
+  },
+  {
+   "id": "p5b017",
+   "suite": "qwen-exec",
+   "text": "찰리팀 작전 시작해",
+   "function": "StartTeamTactics",
+   "arguments": {
+    "team": "Charlie"
+   },
+   "qwen_hint": "StartTeamTactics"
+  },
+  {
+   "id": "p5b018",
+   "suite": "qwen-exec",
+   "text": "델타팀 전략 실행",
+   "function": "StartTeamTactics",
+   "arguments": {
+    "team": "Delta"
+   },
+   "qwen_hint": "StartTeamTactics"
+  },
+  {
+   "id": "p5b019",
+   "suite": "qwen-exec",
+   "text": "알파팀 전략 수정하자",
+   "function": "EditTeamTactics",
+   "arguments": {
+    "team": "Alpha"
+   },
+   "qwen_hint": "EditTeamTactics"
+  },
+  {
+   "id": "p5b020",
+   "suite": "qwen-exec",
+   "text": "호텔팀 전술 바꿔줘",
+   "function": "EditTeamTactics",
+   "arguments": {
+    "team": "Hotel"
+   },
+   "qwen_hint": "EditTeamTactics"
+  },
+  {
+   "id": "p5b021",
+   "suite": "qwen-exec",
+   "text": "팀 델타 전략 좀 바꿔",
+   "function": "EditTeamTactics",
+   "arguments": {
+    "team": "Delta"
+   },
+   "qwen_hint": "EditTeamTactics"
+  },
+  {
+   "id": "p5b022",
+   "suite": "qwen-exec",
+   "text": "시에라팀 전술 수정",
+   "function": "EditTeamTactics",
+   "arguments": {
+    "team": "Sierra"
+   },
+   "qwen_hint": "EditTeamTactics"
+  },
+  {
+   "id": "p5b023",
+   "suite": "qwen-exec",
+   "text": "세 번째 드론 고르자",
+   "function": "SelectDrone",
+   "arguments": {
+    "droneNumber": 3
+   },
+   "qwen_hint": "SelectDrone"
+  },
+  {
+   "id": "p5b024",
+   "suite": "qwen-exec",
+   "text": "네번째 드론 선택해",
+   "function": "SelectDrone",
+   "arguments": {
+    "droneNumber": 4
+   },
+   "qwen_hint": "SelectDrone"
+  },
+  {
+   "id": "p5b025",
+   "suite": "qwen-exec",
+   "text": "삼호기 전술 바꿔",
+   "function": "EditDroneTactics",
+   "arguments": {
+    "droneNumber": 3
+   },
+   "qwen_hint": "EditDroneTactics"
+  },
+  {
+   "id": "p5b026",
+   "suite": "qwen-exec",
+   "text": "네 번째 드론 전술 바꾸기",
+   "function": "EditDroneTactics",
+   "arguments": {
+    "droneNumber": 4
+   },
+   "qwen_hint": "EditDroneTactics"
+  },
+  {
+   "id": "p5b027",
+   "suite": "qwen-exec",
+   "text": "네번째 드론 전술 편집 좀",
+   "function": "EditDroneTactics",
+   "arguments": {
+    "droneNumber": 4
+   },
+   "qwen_hint": "EditDroneTactics"
+  },
+  {
+   "id": "p5b028",
+   "suite": "qwen-exec",
+   "text": "3호기 돌아와",
+   "function": "ReturnDrone",
+   "arguments": {
+    "droneNumber": 3
+   },
+   "qwen_hint": "ReturnDrone"
+  },
+  {
+   "id": "p5b029",
+   "suite": "qwen-exec",
+   "text": "삼호기 귀환해",
+   "function": "ReturnDrone",
+   "arguments": {
+    "droneNumber": 3
+   },
+   "qwen_hint": "ReturnDrone"
+  },
+  {
+   "id": "p5b030",
+   "suite": "qwen-exec",
+   "text": "브라보 2호기 복귀",
+   "function": "ReturnDrone",
+   "arguments": {
+    "droneNumber": 2,
+    "team": "Bravo"
+   },
+   "qwen_hint": "ReturnDrone"
+  },
+  {
+   "id": "p5b031",
+   "suite": "qwen-exec",
+   "text": "삼호기 개별비행",
+   "function": "StartManualFlight",
+   "arguments": {
+    "droneNumber": 3
+   },
+   "qwen_hint": "StartManualFlight"
+  },
+  {
+   "id": "p5b032",
+   "suite": "qwen-exec",
+   "text": "델타 세번째 개별비행 들어가",
+   "function": "StartManualFlight",
+   "arguments": {
+    "droneNumber": 3,
+    "team": "Delta"
+   },
+   "qwen_hint": "StartManualFlight"
+  },
+  {
+   "id": "p5b033",
+   "suite": "qwen-exec",
+   "text": "세 번째 드론 개별제어 시작해",
+   "function": "StartManualFlight",
+   "arguments": {
+    "droneNumber": 3
+   },
+   "qwen_hint": "StartManualFlight"
+  },
+  {
+   "id": "p5b034",
+   "suite": "qwen-exec",
+   "text": "알파팀 제어권 넘겨",
+   "function": "AssignTeamControl",
+   "arguments": {
+    "team": "Alpha"
+   },
+   "qwen_hint": "AssignTeamControl"
+  },
+  {
+   "id": "p5b035",
+   "suite": "qwen-exec",
+   "text": "브라보팀 제어권 이양하자",
+   "function": "AssignTeamControl",
+   "arguments": {
+    "team": "Bravo"
+   },
+   "qwen_hint": "AssignTeamControl"
+  },
+  {
+   "id": "p5b036",
+   "suite": "qwen-exec",
+   "text": "델타팀 김대위 제어권 넘겨줘",
+   "function": "AssignTeamControl",
+   "arguments": {
+    "team": "Delta",
+    "soldierName": "김대위"
+   },
+   "qwen_hint": "AssignTeamControl"
+  },
+  {
+   "id": "p5b037",
+   "suite": "qwen-exec",
+   "text": "델타팀 제어권 다시 잡아",
+   "function": "RevokeTeamControl",
+   "arguments": {
+    "team": "Delta"
+   },
+   "qwen_hint": "RevokeTeamControl"
+  },
+  {
+   "id": "p5b038",
+   "suite": "qwen-exec",
+   "text": "제어권 회수, 알파팀",
+   "function": "RevokeTeamControl",
+   "arguments": {
+    "team": "Alpha"
+   },
+   "qwen_hint": "RevokeTeamControl"
+  },
+  {
+   "id": "p5b039",
+   "suite": "qwen-refuse",
+   "text": "제어권 회수해, 카리브팀",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "제어권 회수해, 카리브팀"
+   },
+   "qwen_hint": "RevokeTeamControl"
+  },
+  {
+   "id": "p5b040",
+   "suite": "qwen-exec",
+   "text": "제어권 받고 싶네 브라보 팀",
+   "function": "RequestTeamControl",
+   "arguments": {
+    "team": "Bravo"
+   },
+   "qwen_hint": "RequestTeamControl"
+  },
+  {
+   "id": "p5b041",
+   "suite": "qwen-exec",
+   "text": "마커 2로 이동하자",
+   "function": "MoveToMarker",
+   "arguments": {
+    "markerNumber": 2
+   },
+   "qwen_hint": "MoveToMarker"
+  },
+  {
+   "id": "p5b042",
+   "suite": "qwen-exec",
+   "text": "이번엔 마커 4로 가봐",
+   "function": "MoveToMarker",
+   "arguments": {
+    "markerNumber": 4
+   },
+   "qwen_hint": "MoveToMarker"
+  },
+  {
+   "id": "p5b043",
+   "suite": "qwen-exec",
+   "text": "마커 다섯 위치로 갈래",
+   "function": "MoveToMarker",
+   "arguments": {
+    "markerNumber": 5
+   },
+   "qwen_hint": "MoveToMarker"
+  },
+  {
+   "id": "p5b044",
+   "suite": "qwen-exec",
+   "text": "preset 1 가",
+   "function": "MoveToPreset",
+   "arguments": {
+    "presetNumber": 1
+   },
+   "qwen_hint": "MoveToPreset"
+  },
+  {
+   "id": "p5b045",
+   "suite": "qwen-exec",
+   "text": "세번째 프리셋으로 이동해",
+   "function": "MoveToPreset",
+   "arguments": {
+    "presetNumber": 3
+   },
+   "qwen_hint": "MoveToPreset"
+  },
+  {
+   "id": "p5b046",
+   "suite": "qwen-exec",
+   "text": "마커생성하자",
+   "function": "EnterMarkerCreation",
+   "arguments": {},
+   "qwen_hint": "EnterMarkerCreation"
+  },
+  {
+   "id": "p5b047",
+   "suite": "qwen-exec",
+   "text": "마커추가해야겠다",
+   "function": "EnterMarkerCreation",
+   "arguments": {},
+   "qwen_hint": "EnterMarkerCreation"
+  },
+  {
+   "id": "p5b048",
+   "suite": "qwen-exec",
+   "text": "마커 더 만들래",
+   "function": "EnterMarkerCreation",
+   "arguments": {},
+   "qwen_hint": "EnterMarkerCreation"
+  },
+  {
+   "id": "p5b049",
+   "suite": "qwen-exec",
+   "text": "지금 상태 프리셋저장",
+   "function": "CreatePreset",
+   "arguments": {},
+   "qwen_hint": "CreatePreset"
+  },
+  {
+   "id": "p5b050",
+   "suite": "qwen-exec",
+   "text": "이거 지금 프리셋으로 저장해",
+   "function": "CreatePreset",
+   "arguments": {},
+   "qwen_hint": "CreatePreset"
+  },
+  {
+   "id": "p5b051",
+   "suite": "qwen-exec",
+   "text": "2번 마커 지워줘",
+   "function": "DeleteMarker",
+   "arguments": {
+    "markerNumber": 2
+   },
+   "qwen_hint": "DeleteMarker"
+  },
+  {
+   "id": "p5b052",
+   "suite": "qwen-refuse",
+   "text": "이 마커 삭제해봐",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "이 마커 삭제해봐"
+   },
+   "qwen_hint": "DeleteMarker"
+  },
+  {
+   "id": "p5b053",
+   "suite": "qwen-refuse",
+   "text": "마커 두 개 없애",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "마커 두 개 없애"
+   },
+   "qwen_hint": "DeleteMarker"
+  },
+  {
+   "id": "p5b054",
+   "suite": "qwen-exec",
+   "text": "두 번째 마커 지워",
+   "function": "DeleteMarker",
+   "arguments": {
+    "markerNumber": 2
+   },
+   "qwen_hint": "DeleteMarker"
+  },
+  {
+   "id": "p5b055",
+   "suite": "qwen-exec",
+   "text": "이번 프리셋 지우봐",
+   "function": "DeletePreset",
+   "arguments": {
+    "presetNumber": 2
+   },
+   "qwen_hint": "DeletePreset"
+  },
+  {
+   "id": "p5b056",
+   "suite": "qwen-exec",
+   "text": "두 번째 프리셋 삭제해",
+   "function": "DeletePreset",
+   "arguments": {
+    "presetNumber": 2
+   },
+   "qwen_hint": "DeletePreset"
+  },
+  {
+   "id": "p5b057",
+   "suite": "qwen-exec",
+   "text": "추천 다시 받아",
+   "function": "RequestTacticsRecommendation",
+   "arguments": {},
+   "qwen_hint": "RequestTacticsRecommendation"
+  },
+  {
+   "id": "p5b058",
+   "suite": "qwen-exec",
+   "text": "다른 전술 알려줘",
+   "function": "RequestTacticsRecommendation",
+   "arguments": {},
+   "qwen_hint": "RequestTacticsRecommendation"
+  },
+  {
+   "id": "p5b059",
+   "suite": "qwen-exec",
+   "text": "추천 끝내",
+   "function": "CancelTacticsRecommendation",
+   "arguments": {},
+   "qwen_hint": "CancelTacticsRecommendation"
+  },
+  {
+   "id": "p5b060",
+   "suite": "qwen-exec",
+   "text": "전술지도 불러줘",
+   "function": "OpenWindow",
+   "arguments": {
+    "windowName": "전술 지도"
+   },
+   "qwen_hint": "OpenWindow"
+  },
+  {
+   "id": "p5b061",
+   "suite": "qwen-exec",
+   "text": "알림 상세 창 띄워줘",
+   "function": "OpenWindow",
+   "arguments": {
+    "windowName": "알림 상세"
+   },
+   "qwen_hint": "OpenWindow"
+  },
+  {
+   "id": "p5b062",
+   "suite": "qwen-exec",
+   "text": "필터 창 좀 불러",
+   "function": "OpenWindow",
+   "arguments": {
+    "windowName": "필터"
+   },
+   "qwen_hint": "OpenWindow"
+  },
+  {
+   "id": "p5b063",
+   "suite": "qwen-exec",
+   "text": "필터 창 없애줘",
+   "function": "CloseWindow",
+   "arguments": {
+    "windowName": "필터"
+   },
+   "qwen_hint": "CloseWindow"
+  },
+  {
+   "id": "p5b064",
+   "suite": "qwen-exec",
+   "text": "셋팅 창 닫아",
+   "function": "CloseWindow",
+   "arguments": {
+    "windowName": "설정"
+   },
+   "qwen_hint": "CloseWindow"
+  },
+  {
+   "id": "p5b065",
+   "suite": "qwen-exec",
+   "text": "전술 지도 닫아주",
+   "function": "CloseWindow",
+   "arguments": {
+    "windowName": "전술 지도"
+   },
+   "qwen_hint": "CloseWindow"
+  },
+  {
+   "id": "p5b066",
+   "suite": "qwen-exec",
+   "text": "Alpha팀 카메라 좀 띄워",
+   "function": "ShowTeamCamera",
+   "arguments": {
+    "team": "Alpha"
+   },
+   "qwen_hint": "ShowTeamCamera"
+  },
+  {
+   "id": "p5b067",
+   "suite": "qwen-exec",
+   "text": "Alpha팀 카메라 보이게 해줘",
+   "function": "ShowTeamCamera",
+   "arguments": {
+    "team": "Alpha"
+   },
+   "qwen_hint": "ShowTeamCamera"
+  },
+  {
+   "id": "p5b068",
+   "suite": "qwen-exec",
+   "text": "삼호기 카메라 보여줘",
+   "function": "ShowDroneCamera",
+   "arguments": {
+    "droneNumber": 3
+   },
+   "qwen_hint": "ShowDroneCamera"
+  },
+  {
+   "id": "p5b069",
+   "suite": "qwen-exec",
+   "text": "3호기 카메라 띄워",
+   "function": "ShowDroneCamera",
+   "arguments": {
+    "droneNumber": 3
+   },
+   "qwen_hint": "ShowDroneCamera"
+  },
+  {
+   "id": "p5b070",
+   "suite": "qwen-exec",
+   "text": "세 번째 드론 뷰",
+   "function": "MoveToDroneView",
+   "arguments": {
+    "droneNumber": 3
+   },
+   "qwen_hint": "ShowDroneCamera"
+  },
+  {
+   "id": "p5b071",
+   "suite": "qwen-exec",
+   "text": "카메라 영점 다시 세워줘",
+   "function": "ResetCameraGimbal",
+   "arguments": {},
+   "qwen_hint": "ResetCameraGimbal"
+  },
+  {
+   "id": "p5b072",
+   "suite": "qwen-exec",
+   "text": "짐벌 영점으로 돌려",
+   "function": "ResetCameraGimbal",
+   "arguments": {},
+   "qwen_hint": "ResetCameraGimbal"
+  },
+  {
+   "id": "p5b073",
+   "suite": "qwen-exec",
+   "text": "찍는 각도 초기화해",
+   "function": "ResetCameraGimbal",
+   "arguments": {},
+   "qwen_hint": "ResetCameraGimbal"
+  },
+  {
+   "id": "p5b074",
+   "suite": "qwen-exec",
+   "text": "영상 창 크게 해줘",
+   "function": "EnlargeCameraWindow",
+   "arguments": {},
+   "qwen_hint": "EnlargeCameraWindow"
+  },
+  {
+   "id": "p5b075",
+   "suite": "qwen-exec",
+   "text": "1920x1080 크기로 카메라 창 확대해",
+   "function": "EnlargeCameraWindow",
+   "arguments": {},
+   "qwen_hint": "EnlargeCameraWindow"
+  },
+  {
+   "id": "p5b076",
+   "suite": "qwen-exec",
+   "text": "영상 창 크기를 늘려줘",
+   "function": "EnlargeCameraWindow",
+   "arguments": {},
+   "qwen_hint": "EnlargeCameraWindow"
+  },
+  {
+   "id": "p5b077",
+   "suite": "qwen-exec",
+   "text": "카메라창 줄여",
+   "function": "ShrinkCameraWindow",
+   "arguments": {},
+   "qwen_hint": "ShrinkCameraWindow"
+  },
+  {
+   "id": "p5b078",
+   "suite": "qwen-exec",
+   "text": "영상창 작게 해",
+   "function": "ShrinkCameraWindow",
+   "arguments": {},
+   "qwen_hint": "ShrinkCameraWindow"
+  },
+  {
+   "id": "p5b079",
+   "suite": "qwen-exec",
+   "text": "캠창 축소하자",
+   "function": "ShrinkCameraWindow",
+   "arguments": {},
+   "qwen_hint": "ShrinkCameraWindow"
+  },
+  {
+   "id": "p5b080",
+   "suite": "qwen-exec",
+   "text": "캠 크기 작게",
+   "function": "ShrinkCameraWindow",
+   "arguments": {},
+   "qwen_hint": "ShrinkCameraWindow"
+  },
+  {
+   "id": "p5b081",
+   "suite": "qwen-exec",
+   "text": "전장의 안개 켜줘",
+   "function": "ApplyDisplayFilters",
+   "arguments": {
+    "filterNames": "전장의 안개"
+   },
+   "qwen_hint": "ApplyDisplayFilters"
+  },
+  {
+   "id": "p5b082",
+   "suite": "qwen-exec",
+   "text": "팀 연결선, 드론 시야 표시",
+   "function": "ApplyDisplayFilters",
+   "arguments": {
+    "filterNames": "팀 연결선, 드론 시야"
+   },
+   "qwen_hint": "ApplyDisplayFilters"
+  },
+  {
+   "id": "p5b083",
+   "suite": "qwen-exec",
+   "text": "장애물 설정",
+   "function": "ApplyDisplayFilters",
+   "arguments": {
+    "filterNames": "장애물"
+   },
+   "qwen_hint": "ApplyDisplayFilters"
+  },
+  {
+   "id": "p5b084",
+   "suite": "qwen-exec",
+   "text": "드론 시야, 배터리 숨겨",
+   "function": "ClearDisplayFilters",
+   "arguments": {
+    "filterNames": "드론 시야, 배터리"
+   },
+   "qwen_hint": "ClearDisplayFilters"
+  },
+  {
+   "id": "p5b085",
+   "suite": "qwen-exec",
+   "text": "팀 연결선 해제 좀 해줘",
+   "function": "ClearDisplayFilters",
+   "arguments": {
+    "filterNames": "팀 연결선"
+   },
+   "qwen_hint": "ClearDisplayFilters"
+  },
+  {
+   "id": "p5b086",
+   "suite": "qwen-exec",
+   "text": "장애물, 마커 꺼줘",
+   "function": "ClearDisplayFilters",
+   "arguments": {
+    "filterNames": "장애물, 마커"
+   },
+   "qwen_hint": "ClearDisplayFilters"
+  },
+  {
+   "id": "p5b087",
+   "suite": "qwen-exec",
+   "text": "네, 제어권 요청 확인해",
+   "function": "AcceptConfirmWindow",
+   "arguments": {
+    "confirmName": "제어권 요청"
+   },
+   "qwen_hint": "AcceptConfirmWindow"
+  },
+  {
+   "id": "p5b088",
+   "suite": "qwen-exec",
+   "text": "팀 해체 승인해",
+   "function": "AcceptConfirmWindow",
+   "arguments": {
+    "confirmName": "팀 해체"
+   },
+   "qwen_hint": "AcceptConfirmWindow"
+  },
+  {
+   "id": "p5b089",
+   "suite": "qwen-exec",
+   "text": "자폭 공격 수락해",
+   "function": "AcceptConfirmWindow",
+   "arguments": {
+    "confirmName": "자폭 공격"
+   },
+   "qwen_hint": "AcceptConfirmWindow"
+  },
+  {
+   "id": "p5b090",
+   "suite": "qwen-exec",
+   "text": "드론봇 팀 제외 취소하자",
+   "function": "RejectConfirmWindow",
+   "arguments": {
+    "confirmName": "드론봇 팀 제외"
+   },
+   "qwen_hint": "RejectConfirmWindow"
+  },
+  {
+   "id": "p5b091",
+   "suite": "qwen-exec",
+   "text": "자폭 공격 거부야",
+   "function": "RejectConfirmWindow",
+   "arguments": {
+    "confirmName": "자폭 공격"
+   },
+   "qwen_hint": "RejectConfirmWindow"
+  },
+  {
+   "id": "p5b092",
+   "suite": "qwen-exec",
+   "text": "패스스루 활성화",
+   "function": "EnableVideoThrough",
+   "arguments": {},
+   "qwen_hint": "EnableVideoThrough"
+  },
+  {
+   "id": "p5b093",
+   "suite": "qwen-exec",
+   "text": "비디오 쓰루 끄셈",
+   "function": "DisableVideoThrough",
+   "arguments": {},
+   "qwen_hint": "DisableVideoThrough"
+  },
+  {
+   "id": "p5b094",
+   "suite": "qwen-exec",
+   "text": "패스스루 꺼 줄게",
+   "function": "DisableVideoThrough",
+   "arguments": {},
+   "qwen_hint": "DisableVideoThrough"
+  },
+  {
+   "id": "p5b095",
+   "suite": "qwen-exec",
+   "text": "비디오 쓰루 꺼버려",
+   "function": "DisableVideoThrough",
+   "arguments": {},
+   "qwen_hint": "DisableVideoThrough"
+  },
+  {
+   "id": "p5b096",
+   "suite": "qwen-exec",
+   "text": "비디오 패스스루 끄셈",
+   "function": "DisableVideoThrough",
+   "arguments": {},
+   "qwen_hint": "DisableVideoThrough"
+  },
+  {
+   "id": "p5b097",
+   "suite": "qwen-exec",
+   "text": "알파팀뷰",
+   "function": "MoveToTeamView",
+   "arguments": {
+    "team": "Alpha"
+   },
+   "qwen_hint": "MoveToTeamView"
+  },
+  {
+   "id": "p5b098",
+   "suite": "qwen-exec",
+   "text": "브라보팀 전체보기 해",
+   "function": "MoveToTeamOverview",
+   "arguments": {
+    "team": "Bravo"
+   },
+   "qwen_hint": "MoveToTeamOverview"
+  },
+  {
+   "id": "p5b099",
+   "suite": "qwen-exec",
+   "text": "델타팀 전부 보이게 해줘",
+   "function": "MoveToTeamOverview",
+   "arguments": {
+    "team": "Delta"
+   },
+   "qwen_hint": "MoveToTeamOverview"
+  },
+  {
+   "id": "p5b100",
+   "suite": "qwen-exec",
+   "text": "삼호기 드론 뷰 바꿔",
+   "function": "MoveToDroneView",
+   "arguments": {
+    "droneNumber": 3
+   },
+   "qwen_hint": "MoveToDroneView"
+  },
+  {
+   "id": "p5b101",
+   "suite": "qwen-exec",
+   "text": "에코 1호기 뷰 바꾸세요",
+   "function": "MoveToDroneView",
+   "arguments": {
+    "droneNumber": 1,
+    "team": "Echo"
+   },
+   "qwen_hint": "MoveToDroneView"
+  },
+  {
+   "id": "p5b102",
+   "suite": "qwen-exec",
+   "text": "녹화켜",
+   "function": "StartRecording",
+   "arguments": {},
+   "qwen_hint": "StartRecording"
+  },
+  {
+   "id": "p5b103",
+   "suite": "qwen-exec",
+   "text": "전술 녹화 중지하자",
+   "function": "StopRecording",
+   "arguments": {},
+   "qwen_hint": "StopRecording"
+  },
+  {
+   "id": "p5b104",
+   "suite": "qwen-refuse",
+   "text": "드론 고도를 3000으로 설정해줘",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "드론 고도를 3000으로 설정해줘"
+   },
+   "qwen_hint": "unsupported"
+  },
+  {
+   "id": "p5b105",
+   "suite": "qwen-refuse",
+   "text": "전체 팀을 2배 크기로 확대해줘",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "전체 팀을 2배 크기로 확대해줘"
+   },
+   "qwen_hint": "unsupported"
+  },
+  {
+   "id": "p5b106",
+   "suite": "qwen-refuse",
+   "text": "드론의 속도를 2배로 높여줘",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "드론의 속도를 2배로 높여줘"
+   },
+   "qwen_hint": "unsupported"
+  },
+  {
+   "id": "p5b107",
+   "suite": "qwen-refuse",
+   "text": "볼륨 좀 줄여줘",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "볼륨 좀 줄여줘"
+   },
+   "qwen_hint": "unsupported"
+  },
+  {
+   "id": "p5b108",
+   "suite": "qwen-refuse",
+   "text": "지도를 좀 크게 해줘",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "지도를 좀 크게 해줘"
+   },
+   "qwen_hint": "unsupported"
+  },
+  {
+   "id": "p5b109",
+   "suite": "qwen-refuse",
+   "text": "지도의 밝기를 좀 올려줘",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "지도의 밝기를 좀 올려줘"
+   },
+   "qwen_hint": "unsupported"
+  },
+  {
+   "id": "p5b110",
+   "suite": "qwen-refuse",
+   "text": "공격 대상 지정해줘",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "공격 대상 지정해줘"
+   },
+   "qwen_hint": "unsupported"
+  },
+  {
+   "id": "p5b111",
+   "suite": "qwen-refuse",
+   "text": "드론의 방향을 북쪽으로 돌려줘",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "드론의 방향을 북쪽으로 돌려줘"
+   },
+   "qwen_hint": "unsupported"
+  },
+  {
+   "id": "p5b112",
+   "suite": "qwen-refuse",
+   "text": "팀 A 선택하고 전술 시작",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "팀 A 선택하고 전술 시작"
+   },
+   "qwen_hint": "two_actions"
+  },
+  {
+   "id": "p5b113",
+   "suite": "qwen-refuse",
+   "text": "팀 C 복귀시키고 드론 1호기 선택",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "팀 C 복귀시키고 드론 1호기 선택"
+   },
+   "qwen_hint": "two_actions"
+  },
+  {
+   "id": "p5b114",
+   "suite": "qwen-refuse",
+   "text": "드론 3호기 내보내고 마커 M 삭제",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "드론 3호기 내보내고 마커 M 삭제"
+   },
+   "qwen_hint": "two_actions"
+  },
+  {
+   "id": "p5b115",
+   "suite": "qwen-refuse",
+   "text": "팀 B 해체하고 드론 2호기 복귀",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "팀 B 해체하고 드론 2호기 복귀"
+   },
+   "qwen_hint": "two_actions"
+  },
+  {
+   "id": "p5b116",
+   "suite": "qwen-refuse",
+   "text": "드론 5호기 전투원 수동 제어 시작하고 팀 E 복귀",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "드론 5호기 전투원 수동 제어 시작하고 팀 E 복귀"
+   },
+   "qwen_hint": "two_actions"
+  },
+  {
+   "id": "p5b117",
+   "suite": "qwen-refuse",
+   "text": "팀 F 제어권 지휘관에게 넘기고 팀 F 제어권 회수",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "팀 F 제어권 지휘관에게 넘기고 팀 F 제어권 회수"
+   },
+   "qwen_hint": "two_actions"
+  },
+  {
+   "id": "p5b118",
+   "suite": "qwen-refuse",
+   "text": "마커 P 생성 모드 진입하고 프리셋 Q 삭제",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "마커 P 생성 모드 진입하고 프리셋 Q 삭제"
+   },
+   "qwen_hint": "two_actions"
+  },
+  {
+   "id": "p5b119",
+   "suite": "qwen-refuse",
+   "text": "팀 G 리더 카메라 창 표시하고 팀 H 전체 보기",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "팀 G 리더 카메라 창 표시하고 팀 H 전체 보기"
+   },
+   "qwen_hint": "two_actions"
+  },
+  {
+   "id": "p5b120",
+   "suite": "qwen-refuse",
+   "text": "팀 상태는?",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "팀 상태는?"
+   },
+   "qwen_hint": "question"
+  },
+  {
+   "id": "p5b121",
+   "suite": "qwen-refuse",
+   "text": "내가 지금 어떤 팀을 지휘하는지 알려줘",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "내가 지금 어떤 팀을 지휘하는지 알려줘"
+   },
+   "qwen_hint": "question"
+  },
+  {
+   "id": "p5b122",
+   "suite": "qwen-refuse",
+   "text": "드론 3호기 지금 어디 있지?",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "드론 3호기 지금 어디 있지?"
+   },
+   "qwen_hint": "question"
+  },
+  {
+   "id": "p5b123",
+   "suite": "qwen-refuse",
+   "text": "지금 몇 번째 프리셋인가요?",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "지금 몇 번째 프리셋인가요?"
+   },
+   "qwen_hint": "question"
+  },
+  {
+   "id": "p5b124",
+   "suite": "qwen-refuse",
+   "text": "현재 창이 어떤 창인지 알려줘",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "현재 창이 어떤 창인지 알려줘"
+   },
+   "qwen_hint": "question"
+  },
+  {
+   "id": "p5b125",
+   "suite": "qwen-refuse",
+   "text": "드론 7호기 현재 작동 상태는?",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "드론 7호기 현재 작동 상태는?"
+   },
+   "qwen_hint": "question"
+  },
+  {
+   "id": "p5b126",
+   "suite": "qwen-refuse",
+   "text": "팀 생성 안 해",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "팀 생성 안 해"
+   },
+   "qwen_hint": "negation"
+  },
+  {
+   "id": "p5b127",
+   "suite": "qwen-refuse",
+   "text": "드론 복귀 하지마",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "드론 복귀 하지마"
+   },
+   "qwen_hint": "negation"
+  },
+  {
+   "id": "p5b128",
+   "suite": "qwen-refuse",
+   "text": "팀 선택 안함",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "팀 선택 안함"
+   },
+   "qwen_hint": "negation"
+  },
+  {
+   "id": "p5b129",
+   "suite": "qwen-refuse",
+   "text": "팀 해체 안해",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "팀 해체 안해"
+   },
+   "qwen_hint": "negation"
+  },
+  {
+   "id": "p5b130",
+   "suite": "qwen-refuse",
+   "text": "드론 내보내지마",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "드론 내보내지마"
+   },
+   "qwen_hint": "negation"
+  },
+  {
+   "id": "p5b131",
+   "suite": "qwen-refuse",
+   "text": "오늘 날씨 참 좋은 것 같네",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "오늘 날씨 참 좋은 것 같네"
+   },
+   "qwen_hint": "smalltalk"
+  },
+  {
+   "id": "p5b132",
+   "suite": "qwen-refuse",
+   "text": "이런 것도 가능하다니 신기하네",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "이런 것도 가능하다니 신기하네"
+   },
+   "qwen_hint": "smalltalk"
+  },
+  {
+   "id": "p5b133",
+   "suite": "qwen-refuse",
+   "text": "이번 작전 성공할 것 같아",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "이번 작전 성공할 것 같아"
+   },
+   "qwen_hint": "smalltalk"
+  },
+  {
+   "id": "p5b134",
+   "suite": "qwen-refuse",
+   "text": "드론 상태는 다 좋네",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "드론 상태는 다 좋네"
+   },
+   "qwen_hint": "smalltalk"
+  },
+  {
+   "id": "p5b135",
+   "suite": "qwen-refuse",
+   "text": "팀원들 잘 따라와",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "팀원들 잘 따라와"
+   },
+   "qwen_hint": "smalltalk"
+  },
+  {
+   "id": "p5b136",
+   "suite": "qwen-refuse",
+   "text": "이런 건 내가 좋아하는 작업이야",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "이런 건 내가 좋아하는 작업이야"
+   },
+   "qwen_hint": "smalltalk"
+  },
+  {
+   "id": "p5b137",
+   "suite": "qwen-refuse",
+   "text": "오늘 하루도 열심히 해야겠네",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "오늘 하루도 열심히 해야겠네"
+   },
+   "qwen_hint": "smalltalk"
+  },
+  {
+   "id": "p5b138",
+   "suite": "qwen-refuse",
+   "text": "팀 리셋",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "팀 리셋"
+   },
+   "qwen_hint": "missing"
+  },
+  {
+   "id": "p5b139",
+   "suite": "qwen-refuse",
+   "text": "팀 세트",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "팀 세트"
+   },
+   "qwen_hint": "missing"
+  },
+  {
+   "id": "p5b140",
+   "suite": "qwen-refuse",
+   "text": "팀 3 리셋",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "팀 3 리셋"
+   },
+   "qwen_hint": "missing"
+  },
+  {
+   "id": "p5b141",
+   "suite": "qwen-refuse",
+   "text": "드론 5 시작",
+   "function": "DefaultResponse",
+   "arguments": {
+    "text": "드론 5 시작"
+   },
+   "qwen_hint": "missing"
+  },
+  {
+   "id": "p5b142",
+   "suite": "qwen-exec",
+   "text": "드론 2 복귀",
+   "function": "ReturnDrone",
+   "arguments": {
+    "droneNumber": 2
+   },
+   "qwen_hint": "missing"
+  },
+  {
+   "id": "p5b143",
+   "suite": "qwen-exec",
+   "text": "드론 4 내보내기",
+   "function": "DetachDrone",
+   "arguments": {
+    "droneNumber": 4
+   },
+   "qwen_hint": "missing"
+  }
+ ]
+}

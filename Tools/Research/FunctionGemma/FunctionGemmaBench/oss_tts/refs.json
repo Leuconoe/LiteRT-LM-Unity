@@ -1,0 +1,8 @@
+[
+  {"variant": "cosy-m1", "sex": "M", "f0_hz": 101, "wav": "External/sensevoice-work/data/wav/zeroth_train/000722.wav", "text": "눈 주변에는 부종과 검붉은 반점이 피어 있고 볼과 이마는 딱딱하게 굳어 마치 가면을 쓴 듯했다"},
+  {"variant": "cosy-m2", "sex": "M", "f0_hz": 107, "wav": "External/sensevoice-work/data/wav/zeroth_train/005724.wav", "text": "민주주의자라면 그리고 좋은 지도자라면 계파나 개인이 아닌 정당이 집권해야 한다고 생각해야 한다"},
+  {"variant": "cosy-m3", "sex": "M", "f0_hz": 115, "wav": "External/sensevoice-work/data/wav/zeroth_train/013122.wav", "text": "그리고 마드리드 지역의 광범위한 왕실 소유지는 결국 이 도시의 주요 공원들과 휴양지가 되었습니다"},
+  {"variant": "cosy-f1", "sex": "F", "f0_hz": 306, "wav": "External/sensevoice-work/data/wav/zeroth_train/014842.wav", "text": "그러지 않을 경우에는 삼백 만 원 이하의 과태료 처분을 받게 됩니다"},
+  {"variant": "cosy-f2", "sex": "F", "f0_hz": 288, "wav": "External/sensevoice-work/data/wav/zeroth_train/021909.wav", "text": "당시 주유소가 내건 휘발유 가격은 리터당 일 천 삼백 오십 칠 원"},
+  {"variant": "cosy-f3", "sex": "F", "f0_hz": 292, "wav": "External/sensevoice-work/data/wav/zeroth_train/020398.wav", "text": "어린아이들보다 더 깡마른 팔다리는 서 있는 모습이 위태로워 보일 정도다"}
+]

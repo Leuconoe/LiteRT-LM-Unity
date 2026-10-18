@@ -1,0 +1,905 @@
+{"text": "브라보팀 제어권 넘겨", "function": "AssignTeamControl", "arguments": {"team": "Bravo"}}
+{"text": "빨리빨리, 추천 창 닫아 줘 그 다음 여기 마커 찍어 줘", "function": "DefaultResponse", "arguments": {}}
+{"text": "음소거해줘", "function": "DefaultResponse", "arguments": {}}
+{"text": "지형이 복잡한데 알림 상세 화면 닫아, 지금", "function": "CloseWindow", "arguments": {"windowName": "알림 상세"}}
+{"text": "그럼, 편집 취소 거절하자", "function": "RejectConfirmWindow", "arguments": {"confirmName": "편집 취소"}}
+{"text": "현재 4호기 수동 조작 요망, 엄브라, 지금 바로 처리해", "function": "StartManualFlight", "arguments": {"droneNumber": 4}}
+{"text": "9번 드론 수동으로 몰게", "function": "StartManualFlight", "arguments": {"droneNumber": 9}}
+{"text": "화면이 잘 안 보여, 호텔 소속 10번 드론 영상 틀어 줘.", "function": "ShowDroneCamera", "arguments": {"droneNumber": 10, "team": "Hotel"}}
+{"text": "오케이, 지금 바로 녹화 중단해", "function": "StopRecording", "arguments": {}}
+{"text": "응, 엑스레이팀 9번 드론 전술 수정해 주세요", "function": "EditDroneTactics", "arguments": {"droneNumber": 9, "team": "X-ray"}}
+{"text": "퀘벡팀 다 보이게 해 줘", "function": "MoveToTeamOverview", "arguments": {"team": "Quebec"}}
+{"text": "음량 낮추는 건 안 될 것 같아, 지금 가능한 조치 알려줘 상황 확인 빨리", "function": "DefaultResponse", "arguments": {}}
+{"text": "오스카팀 제어권 반납할게,방해돼", "function": "ReturnTeamControl", "arguments": {"team": "Oscar"}}
+{"text": "알파팀 제어권 요청할게 그리고 양키 골라 줘", "function": "DefaultResponse", "arguments": {}}
+{"text": "에코팀 드론 칠번 골라", "function": "SelectDrone", "arguments": {"droneNumber": 7, "team": "Echo"}}
+{"text": "그쪽 팀 리더 시점", "function": "DefaultResponse", "arguments": {}}
+{"text": "사오기 숄더뷰", "function": "MoveToDroneView", "arguments": {"droneNumber": 4}}
+{"text": "시야가 가려졌어, 에코 한대위 제어권 넘기자, 지금 당장", "function": "AssignTeamControl", "arguments": {"team": "Echo", "soldierName": "한대위"}}
+{"text": "시야 개선 위해 비디오 쓰루 온, 서둘러", "function": "EnableVideoThrough", "arguments": {}}
+{"text": "패널 초기화해줘", "function": "ResetPanelPositions", "arguments": {}}
+{"text": "엑스레이팀 카메라 띄워 줘, 너무 커", "function": "ShowTeamCamera", "arguments": {"team": "X-ray"}}
+{"text": "적 숨을 잘 찾아봐, 드론 시야 필터 적용하고 적 은엄폐 표시 설정, 서둘러", "function": "ApplyDisplayFilters", "arguments": {"filterNames": "드론 시야, 적 은엄폐"}}
+{"text": "프리셋 7 이동 부탁해", "function": "MoveToPreset", "arguments": {"presetNumber": 7}}
+{"text": "지형 복잡해서 혼란스러운데, 탱고팀 작전 시작해줘 즉시", "function": "StartTeamTactics", "arguments": {"team": "Tango"}}
+{"text": "칠호기 카메라 화면 꺼내", "function": "ShowDroneCamera", "arguments": {"droneNumber": 7}}
+{"text": "그 빅터 팀 소속 칠 번 드론 뷰", "function": "MoveToDroneView", "arguments": {"droneNumber": 7, "team": "Victor"}}
+{"text": "브릿지, 당장 비디오쓰루 켜자", "function": "EnableVideoThrough", "arguments": {}}
+{"text": "카메라 창 축소하자", "function": "ShrinkCameraWindow", "arguments": {}}
+{"text": "유니폼팀 드론 7 번 은 전술 수정해줘", "function": "EditDroneTactics", "arguments": {"droneNumber": 7, "team": "Uniform"}}
+{"text": "델타 팀 다 나오 게 화면 맞춰 줘", "function": "MoveToTeamOverview", "arguments": {"team": "Delta"}}
+{"text": "팔호기 전술 손봐 줘, 그리고 패스스루 모드 켜", "function": "DefaultResponse", "arguments": {}}
+{"text": "12번 프리셋 이동합니다.", "function": "MoveToPreset", "arguments": {"presetNumber": 12}}
+{"text": "화면 밝 기 올려 줘", "function": "DefaultResponse", "arguments": {}}
+{"text": "폭스트롯 5호기 즉시 복귀 해 줘", "function": "ReturnDrone", "arguments": {"droneNumber": 5, "team": "Foxtrot"}}
+{"text": "시에라팀 해산시켜 줘, 카메라가 엉뚱한 데를 보고 있어", "function": "DisbandTeam", "arguments": {"team": "Sierra"}}
+{"text": "노벰버팀 제어권 돌려 드립니다, 전력이 얼마 안 남았어", "function": "ReturnTeamControl", "arguments": {"team": "November"}}
+{"text": "아 오스카팀 전술고칠게", "function": "EditTeamTactics", "arguments": {"team": "Oscar"}}
+{"text": "지금 탱고팀 제어건 요청 후에 킬로팀 전술 좀 손볼게, 빨리", "function": "DefaultResponse", "arguments": {}}
+{"text": "빅터팀 카메라 창 열고 알림 상세 화면 열어줘, 상황 파악하려고 오버", "function": "DefaultResponse", "arguments": {}}
+{"text": "저기 드론 2 번은 복구해", "function": "ReturnDrone", "arguments": {"droneNumber": 2}}
+{"text": "음, 카메라 기울임 초기화해, 지금", "function": "ResetCameraGimbal", "arguments": {}}
+{"text": "프리셋 삭제", "function": "DefaultResponse", "arguments": {}}
+{"text": "마커 하나를 지워줘, 영상이 좀 흔들리네", "function": "DefaultResponse", "arguments": {}}
+{"text": "피해 상황 심각해, 알파 팀 복귀하라, 서둘러", "function": "ReturnTeam", "arguments": {"team": "Alpha"}}
+{"text": "정찰 드론 5대 팀 편성 좀 해 줘 방해돼", "function": "CreateTeam", "arguments": {"teamType": "정찰", "memberCount": 5}}
+{"text": "카메라 크기 조정해, 납작하게, 바람", "function": "ShrinkCameraWindow", "arguments": {}}
+{"text": "게임 종료를 승인 바람", "function": "AcceptConfirmWindow", "arguments": {"confirmName": "게임 종료"}}
+{"text": "시계가 얄팍하다, 알림 상세창 펼쳐 봐, 오버", "function": "OpenWindow", "arguments": {"windowName": "알림 상세"}}
+{"text": "델타 팀 관측 중, 드론 1번 카메라 작동 시켜줘, 서둘러", "function": "ShowDroneCamera", "arguments": {"droneNumber": 1, "team": "Delta"}}
+{"text": "마커 8 지워", "function": "DeleteMarker", "arguments": {"markerNumber": 8}}
+{"text": "탱고 모드 실행 중, 인디아 복귀 요청 불가, 정확한 위치 재확인해, 바람", "function": "DefaultResponse", "arguments": {}}
+{"text": "팀 꾸리기 시작해, 지금 당장 필요해", "function": "EnterTeamCreation", "arguments": {}}
+{"text": "팀 연결선 표시 켜줘", "function": "ApplyDisplayFilters", "arguments": {"filterNames": "팀 연결선"}}
+{"text": "비디오 쓰루 끄고 패널 다 원래 위치로", "function": "DefaultResponse", "arguments": {}}
+{"text": "에 코 돌 아와", "function": "ReturnTeam", "arguments": {"team": "Echo"}}
+{"text": "양키팀 숄더 뷰", "function": "MoveToTeamView", "arguments": {"team": "Yankee"}}
+{"text": "녹화 꺼 줘,시간이 별로없어", "function": "StopRecording", "arguments": {}}
+{"text": "오스카팀 전원 제어권 회수해주세요, 시간이 없으니까", "function": "RevokeTeamControl", "arguments": {"team": "Oscar"}}
+{"text": "적이 접근하고 있어, 드론 시야, 장애물, 팀 연결선 필터 그만 보여 줘", "function": "ClearDisplayFilters", "arguments": {"filterNames": "드론 시야, 장애물, 팀 연결선"}}
+{"text": "다시 봐야 하니까 패널 원위치 시켜 줘", "function": "ResetPanelPositions", "arguments": {}}
+{"text": "자폭 공격 확인해 줘,다시 보려고", "function": "AcceptConfirmWindow", "arguments": {"confirmName": "자폭 공격"}}
+{"text": "어 카메라 창 최대로", "function": "EnlargeCameraWindow", "arguments": {}}
+{"text": "저기 추천 창 치워 줘", "function": "CancelTacticsRecommendation", "arguments": {}}
+{"text": "양 키 팀 제어권 이양 창 열어 줘", "function": "AssignTeamControl", "arguments": {"team": "Yankee"}}
+{"text": "에코팀 팀 전체 뷰로 전환해 줘,상황이 바뀌었으니까", "function": "MoveToTeamOverview", "arguments": {"team": "Echo"}}
+{"text": "프리셋 6번 삭제 해 줘", "function": "DeletePreset", "arguments": {"presetNumber": 6}}
+{"text": "Alpha 팀 대형 유지 해 줘 가려서 안 보여", "function": "DefaultResponse", "arguments": {}}
+{"text": "그 지금 마커 5 가고 마커 십 지어 줘", "function": "DefaultResponse", "arguments": {}}
+{"text": "파파 제어권 회수할게", "function": "RevokeTeamControl", "arguments": {"team": "Papa"}}
+{"text": "어, 비디오 쓰루 켜줘, 지금", "function": "EnableVideoThrough", "arguments": {}}
+{"text": "시선이 잡기 어렵다, 마커 추가해봐, 이상", "function": "EnterMarkerCreation", "arguments": {}}
+{"text": "드론팔 번 최고 속도로", "function": "DefaultResponse", "arguments": {}}
+{"text": "볼륨 조 절 부탁해", "function": "DefaultResponse", "arguments": {}}
+{"text": "파파팀 귀환시켜 줘", "function": "ReturnTeam", "arguments": {"team": "Papa"}}
+{"text": "4번 드론 드론 뷰", "function": "MoveToDroneView", "arguments": {"droneNumber": 4}}
+{"text": "시야 방해 심한데, 패스스루 켜 빨리", "function": "EnableVideoThrough", "arguments": {}}
+{"text": "1호기 팀 에서 제외해", "function": "DetachDrone", "arguments": {"droneNumber": 1}}
+{"text": "로미오 다 돌아와", "function": "ReturnTeam", "arguments": {"team": "Romeo"}}
+{"text": "파파팀 제어권 반납 얼른", "function": "ReturnTeamControl", "arguments": {"team": "Papa"}}
+{"text": "골프팀 제어권 반납하자", "function": "ReturnTeamControl", "arguments": {"team": "Golf"}}
+{"text": "시간이 별로 없어, 줄리에 팀 팀 풀어 줘", "function": "DisbandTeam", "arguments": {"team": "Juliet"}}
+{"text": "늑대팀 상태 확인 중이야, 이건 지금 지원 안 되는 요청 같다, 자", "function": "DefaultResponse", "arguments": {}}
+{"text": "이상, 빅터 팀 제어권 다시 저희에게 돌려줘, 당장", "function": "ReturnTeamControl", "arguments": {"team": "Victor"}}
+{"text": "적 은엄폐,장애물 필터 거", "function": "ClearDisplayFilters", "arguments": {"filterNames": "적 은엄폐, 장애물"}}
+{"text": "줄루로 선택해, 상황이 바뀌었으니까", "function": "SelectTeam", "arguments": {"team": "Zulu"}}
+{"text": "기동로 아군 은엄폐 주요 지형지물 켜,적 온다", "function": "ApplyDisplayFilters", "arguments": {"filterNames": "기동로, 아군 은엄폐, 주요 지형지물"}}
+{"text": "좀 정리하고 싶은데, 드론 3번 뷰", "function": "MoveToDroneView", "arguments": {"droneNumber": 3}}
+{"text": "드론 넷 따로 빼고 유니폼 잡자, 이상, 다시 봐야 하니까", "function": "DefaultResponse", "arguments": {}}
+{"text": "팀 꾸리자, 카메라가 엉뚱한 데를 보고 있어", "function": "EnterTeamCreation", "arguments": {}}
+{"text": "음 다음", "function": "DefaultResponse", "arguments": {}}
+{"text": "설정창 나가.", "function": "CloseWindow", "arguments": {"windowName": "설정"}}
+{"text": "추천 취소해주세요 이제 다 끝났으니까", "function": "CancelTacticsRecommendation", "arguments": {}}
+{"text": "패널 위치 되찾아라, 삼 빠르게", "function": "ResetPanelPositions", "arguments": {}}
+{"text": "브릿지, 드론 시야 조작 불가 팀 생성 모드 중, 확인해주고 나중에 다시 시도해줘, 이상", "function": "DefaultResponse", "arguments": {}}
+{"text": "Juliet 팀 복귀시켜 줘,영상이 좀 흔들리네", "function": "ReturnTeam", "arguments": {"team": "Juliet"}}
+{"text": "자 아 맞다, 필터 창 열지 마, 그대로 있어", "function": "DefaultResponse", "arguments": {}}
+{"text": "아진짜답답하네, 5번 마커 보여 줘", "function": "MoveToMarker", "arguments": {"markerNumber": 5}}
+{"text": "아 맞다, 프리셋 3 보여 줘", "function": "MoveToPreset", "arguments": {"presetNumber": 3}}
+{"text": "어, 시간이 별로 없어, 9호기 전술 편집이랑 알파 팀 10호기 복구 해", "function": "DefaultResponse", "arguments": {}}
+{"text": "인디아 팀 전술 손봐 줘", "function": "EditTeamTactics", "arguments": {"team": "India"}}
+{"text": "델타 일 번 드론 카메라 작동 시켜, 지금 당장 확인 필요", "function": "ShowDroneCamera", "arguments": {"droneNumber": 1, "team": "Delta"}}
+{"text": "자 아까 그 팀 제어건을 횟수해줘", "function": "DefaultResponse", "arguments": {}}
+{"text": "1번 마커 제거해줘", "function": "DeleteMarker", "arguments": {"markerNumber": 1}}
+{"text": "어 킬로팀 몇 기 남았어?", "function": "DefaultResponse", "arguments": {}}
+{"text": "작전이 거의 끝나 가, 브라보팀 해체해 주세요", "function": "DisbandTeam", "arguments": {"team": "Bravo"}}
+{"text": "시간이 없어, 패널 위치 제자리로 되돌려놔, 바람", "function": "ResetPanelPositions", "arguments": {}}
+{"text": "어 팀 해체 받 아 줘, 시야를 가 려", "function": "AcceptConfirmWindow", "arguments": {"confirmName": "팀 해체"}}
+{"text": "프리셋 2번을 삭제 해 줘, 전력이 얼마 안 남았어", "function": "DeletePreset", "arguments": {"presetNumber": 2}}
+{"text": "델타팀 카메라 화면", "function": "ShowTeamCamera", "arguments": {"team": "Delta"}}
+{"text": "지형이 복잡해, 알림 상세 창 닫고 다시 확인해, 서둘러", "function": "CloseWindow", "arguments": {"windowName": "알림 상세"}}
+{"text": "현재 상황에 따라, 드론11유니폼에서 제외해 이상", "function": "DetachDrone", "arguments": {"droneNumber": 11, "team": "Uniform"}}
+{"text": "저기 리마팀 그만 들어와", "function": "ReturnTeam", "arguments": {"team": "Lima"}}
+{"text": "십번 프리셋 시 점 으로, 지금 급해", "function": "MoveToPreset", "arguments": {"presetNumber": 10}}
+{"text": "시간이 없으니까 절대 녹화 시작 하지 마", "function": "DefaultResponse", "arguments": {}}
+{"text": "빅터 팀 제어권 회수할게", "function": "RevokeTeamControl", "arguments": {"team": "Victor"}}
+{"text": "비 디오 쓰루 켜기", "function": "EnableVideoThrough", "arguments": {}}
+{"text": "투 번 마커 지워줘", "function": "DeleteMarker", "arguments": {"markerNumber": 2}}
+{"text": "카메라 이상한 곳 봐, 설정 창 띄워야겠어", "function": "OpenWindow", "arguments": {"windowName": "설정"}}
+{"text": "자 폭스트롯팀 바로 복귀할게", "function": "ReturnTeam", "arguments": {"team": "Foxtrot"}}
+{"text": "녹화 잠깐 중지 해 줘", "function": "DefaultResponse", "arguments": {}}
+{"text": "전술 추천 창 닫아", "function": "CancelTacticsRecommendation", "arguments": {}}
+{"text": "마이크팀이나 파파팀 제어권 회수 지금 바로", "function": "DefaultResponse", "arguments": {}}
+{"text": "시야 혼란스럽네, 카메라 영점 재설정 당장", "function": "ResetCameraGimbal", "arguments": {}}
+{"text": "퓨즈 복잡한 지형, 탱고팀 작전 시작해봐, 서둘러", "function": "StartTeamTactics", "arguments": {"team": "Tango"}}
+{"text": "지상 두 기로 팀 짜 줘", "function": "CreateTeam", "arguments": {"teamType": "UGV", "memberCount": 2}}
+{"text": "화면이 너무 복잡해, 리마팀 제어권 요청해요.", "function": "RequestTeamControl", "arguments": {"team": "Lima"}}
+{"text": "1번 드론 드론 뷰, 작전 준비해야 하니까", "function": "MoveToDroneView", "arguments": {"droneNumber": 1}}
+{"text": "위스키팀 7번작전 지역으로 이동 바람", "function": "DefaultResponse", "arguments": {}}
+{"text": "아무렴, 지금 노벰버팀 선택해, 워너비", "function": "SelectTeam", "arguments": {"team": "November"}}
+{"text": "작전 거의 끝났는데, 노벰버팀 골라줘, 당장", "function": "SelectTeam", "arguments": {"team": "November"}}
+{"text": "2 번 마커는 절대 건드리지 마, 오버", "function": "DefaultResponse", "arguments": {}}
+{"text": "드론 팔 번 팀에서 분리", "function": "DetachDrone", "arguments": {"droneNumber": 8}}
+{"text": "마커 찍어 줘, 정신없으니까", "function": "EnterMarkerCreation", "arguments": {}}
+{"text": "정찰 드론 6 기로 팀 만들어 줘", "function": "CreateTeam", "arguments": {"teamType": "정찰", "memberCount": 6}}
+{"text": "빅터 제어권 놓을게", "function": "ReturnTeamControl", "arguments": {"team": "Victor"}}
+{"text": "Romeo팀 전술 운용 시작 부탁합니다 그 다음 9 번 드론 숄더 뷰로 바꿔 줘", "function": "DefaultResponse", "arguments": {}}
+{"text": "급하니까, 마커 3으로 이동해 줘", "function": "MoveToMarker", "arguments": {"markerNumber": 3}}
+{"text": "에코팀7호기는 전술 수 정", "function": "EditDroneTactics", "arguments": {"droneNumber": 7, "team": "Echo"}}
+{"text": "Zulu 팀 리더 시점", "function": "MoveToTeamView", "arguments": {"team": "Zulu"}}
+{"text": "빨리빨리, 인디아팀 10번 드론 영상", "function": "ShowDroneCamera", "arguments": {"droneNumber": 10, "team": "India"}}
+{"text": "화면 캡처할게", "function": "DefaultResponse", "arguments": {}}
+{"text": "해당 프리 새으로 가", "function": "DefaultResponse", "arguments": {}}
+{"text": "적들이 접근 중이라 상황이 급하다, 패널 원 위치 리셋 오버", "function": "ResetPanelPositions", "arguments": {}}
+{"text": "현재 상황 고려해서 프리셋 번호 6 삭제해, 지금", "function": "DeletePreset", "arguments": {"presetNumber": 6}}
+{"text": "이제 다 끝났으니까 팀 연결선 필터 설정 부탁해", "function": "ApplyDisplayFilters", "arguments": {"filterNames": "팀 연결선"}}
+{"text": "상황이 바뀌었어, 델타 팀 제어권 다시 드릴게요", "function": "ReturnTeamControl", "arguments": {"team": "Delta"}}
+{"text": "그 Zulu팀 9호기 속도 올려.", "function": "DefaultResponse", "arguments": {}}
+{"text": "카메라 화면 작게 하고 녹화 떠 줘 영상이 좀 흔들리네, 즉시", "function": "DefaultResponse", "arguments": {}}
+{"text": "녹화 정지하자", "function": "StopRecording", "arguments": {}}
+{"text": "아까 그 드론 전술 고쳐", "function": "DefaultResponse", "arguments": {}}
+{"text": "급하니까 프리셋 이동", "function": "DefaultResponse", "arguments": {}}
+{"text": "좋아, 십번 드론 팀에서 빼 줘", "function": "DetachDrone", "arguments": {"droneNumber": 10}}
+{"text": "이오기 개별제어, 그건 됐으니까", "function": "StartManualFlight", "arguments": {"droneNumber": 2}}
+{"text": "시야 확보 중, 비디오 쓰루 활성화 지금", "function": "EnableVideoThrough", "arguments": {}}
+{"text": "팀 연결선,마커 필터 숨기기", "function": "ClearDisplayFilters", "arguments": {"filterNames": "팀 연결선, 마커"}}
+{"text": "카메라가 엉뚱한 데를 보고 있어, 퀘벡 카메라 보여 줘", "function": "ShowTeamCamera", "arguments": {"team": "Quebec"}}
+{"text": "이 화면 프리새에 넣어 줘", "function": "CreatePreset", "arguments": {}}
+{"text": "어 코브 라 팀 팀뷰", "function": "DefaultResponse", "arguments": {}}
+{"text": "상황이 바뀌었으니까, 마커 이 시점", "function": "MoveToMarker", "arguments": {"markerNumber": 2}}
+{"text": "지금 화면 프리새으로 저장해 줘", "function": "CreatePreset", "arguments": {}}
+{"text": "브라보 팀 제어권 나한테 줘", "function": "RequestTeamControl", "arguments": {"team": "Bravo"}}
+{"text": "패널 초기화해라, 헷갈려", "function": "ResetPanelPositions", "arguments": {}}
+{"text": "시에라팀 카메라 띄워", "function": "ShowTeamCamera", "arguments": {"team": "Sierra"}}
+{"text": "이제 다 끝났으니까, 팀 새로 짜 줘", "function": "EnterTeamCreation", "arguments": {}}
+{"text": "이제 다 끝났으니까 마이크 팀은 전술 수정해라", "function": "EditTeamTactics", "arguments": {"team": "Mike"}}
+{"text": "10번 드론 에코 팀 전술 재검토해줘, 지금 바꿔줘요", "function": "EditDroneTactics", "arguments": {"droneNumber": 10, "team": "Echo"}}
+{"text": "그쪽 팀 제어권 이제 안 쓸게요", "function": "DefaultResponse", "arguments": {}}
+{"text": "아 팀 생성", "function": "EnterTeamCreation", "arguments": {}}
+{"text": "어 녹화 돌려 줘.", "function": "StartRecording", "arguments": {}}
+{"text": "브짜오 1팀, 지금 녹화 스톱해줘, 당장", "function": "StopRecording", "arguments": {}}
+{"text": "Papa팀 해체", "function": "DisbandTeam", "arguments": {"team": "Papa"}}
+{"text": "UGV팀 구성 좀 해 줘", "function": "EnterTeamCreation", "arguments": {}}
+{"text": "카메라 창 크게 해 줘, 인디아 리더 숄더 뷰로 전환", "function": "DefaultResponse", "arguments": {}}
+{"text": "수동 조종 불가, 상황 재확인 필요, 당장 확인하고 보고, 자", "function": "DefaultResponse", "arguments": {}}
+{"text": "호텔 팀 잡자", "function": "SelectTeam", "arguments": {"team": "Hotel"}}
+{"text": "카메라창 키워", "function": "EnlargeCameraWindow", "arguments": {}}
+{"text": "저기 쓰리 번마커 없애 줘", "function": "DeleteMarker", "arguments": {"markerNumber": 3}}
+{"text": "좋아, 줄리엣 팀전력 얼마나 남 았어?", "function": "DefaultResponse", "arguments": {}}
+{"text": "자 이제, 게임 종료 거절하자", "function": "RejectConfirmWindow", "arguments": {"confirmName": "게임 종료"}}
+{"text": "스크린이 혼란스러운데, 그 팀 연결 시도하면 문제 생기는 거지, 당장은 어렵겠어", "function": "DefaultResponse", "arguments": {}}
+{"text": "일번 마커로 이동해 줘.", "function": "MoveToMarker", "arguments": {"markerNumber": 1}}
+{"text": "브라보팀 전술시작해", "function": "StartTeamTactics", "arguments": {"team": "Bravo"}}
+{"text": "그럼, 양키팀 카메라 화면 꺼내", "function": "ShowTeamCamera", "arguments": {"team": "Yankee"}}
+{"text": "시에라 팀 잡아", "function": "SelectTeam", "arguments": {"team": "Sierra"}}
+{"text": "카메라 창 키워, 지금 급해", "function": "EnlargeCameraWindow", "arguments": {}}
+{"text": "육호기 시점", "function": "MoveToDroneView", "arguments": {"droneNumber": 6}}
+{"text": "마커 이 시점으로, 오버", "function": "MoveToMarker", "arguments": {"markerNumber": 2}}
+{"text": "시에라팀 전술 편집 부탁합니다", "function": "EditTeamTactics", "arguments": {"team": "Sierra"}}
+{"text": "적 은엄폐, 아군 은엄폐 해제 바람", "function": "ClearDisplayFilters", "arguments": {"filterNames": "적 은엄폐, 아군 은엄폐"}}
+{"text": "5번 드론 수동 조종 시작하라, 지금", "function": "StartManualFlight", "arguments": {"droneNumber": 5}}
+{"text": "그 엑스레이 팀을 해체 하지 말아, 잘 안 보이네", "function": "DefaultResponse", "arguments": {}}
+{"text": "팀 해 체 안 할래", "function": "RejectConfirmWindow", "arguments": {"confirmName": "팀 해체"}}
+{"text": "마커,주요 지형지물,팀 연결선 필터 보이게 해 줘, 그건 됐으니까", "function": "ApplyDisplayFilters", "arguments": {"filterNames": "마커, 주요 지형지물, 팀 연결선"}}
+{"text": "지형이 복잡한데, 프리셋 6 지워줘 당장", "function": "DeletePreset", "arguments": {"presetNumber": 6}}
+{"text": "지형이 복잡한데, 알림 상세창 확인 좀 해줘, 급하다", "function": "OpenWindow", "arguments": {"windowName": "알림 상세"}}
+{"text": "전술 다시 추천해 줘", "function": "RequestTacticsRecommendation", "arguments": {}}
+{"text": "방금 건 잘 됐고, 패스 스루 켜, 프리셋 만들어", "function": "DefaultResponse", "arguments": {}}
+{"text": "Bravo팀 전체가 보이게", "function": "MoveToTeamOverview", "arguments": {"team": "Bravo"}}
+{"text": "아 제어권 반납 창 안 돼거절", "function": "RejectConfirmWindow", "arguments": {"confirmName": "제어권 반납"}}
+{"text": "호텔팀 제혁원 놓을게", "function": "ReturnTeamControl", "arguments": {"team": "Hotel"}}
+{"text": "줄루팀 전술 다시 짜자", "function": "EditTeamTactics", "arguments": {"team": "Zulu"}}
+{"text": "Golf팀 소속 육번 드론 카메라 띄우지 말아", "function": "DefaultResponse", "arguments": {}}
+{"text": "줄루팀 제어권 이항", "function": "AssignTeamControl", "arguments": {"team": "Zulu"}}
+{"text": "리마 오호기 상 태 어때?", "function": "DefaultResponse", "arguments": {}}
+{"text": "1호기를 복구시켜", "function": "ReturnDrone", "arguments": {"droneNumber": 1}}
+{"text": "빅터 소속 팔번 드론 탄약 재장전 부탁해", "function": "DefaultResponse", "arguments": {}}
+{"text": "전술지도 화면을 호출 바람, 급하니까", "function": "OpenWindow", "arguments": {"windowName": "전술 지도"}}
+{"text": "5호기로 선택 바꿔 작전이 거의 끝나 가", "function": "SelectDrone", "arguments": {"droneNumber": 5}}
+{"text": "줄리엣 팀 드론 10 번 배터리 몇 퍼센트야?", "function": "DefaultResponse", "arguments": {}}
+{"text": "팀 정보 패널 열어", "function": "DefaultResponse", "arguments": {}}
+{"text": "잘 안 보이니까 엑스레이팀 다 나오게 화면 맞춰 줘", "function": "MoveToTeamOverview", "arguments": {"team": "X-ray"}}
+{"text": "줄리의 소속 2번 드론 내가 직접 조작할게 화면이 답답해서", "function": "StartManualFlight", "arguments": {"droneNumber": 2, "team": "Juliet"}}
+{"text": "로미오팀귀환할게", "function": "ReturnTeam", "arguments": {"team": "Romeo"}}
+{"text": "셋 셋 팀 구성 시나리오로 전환해, 서둘러", "function": "EnterTeamCreation", "arguments": {}}
+{"text": "그 기동성 필터 설정 해 주세요,전력이 간당간당하네", "function": "ApplyDisplayFilters", "arguments": {"filterNames": "기동성"}}
+{"text": "줄리의팀 전진, 얼른", "function": "DefaultResponse", "arguments": {}}
+{"text": "아직 퀘벡 팀 전체 뷰로 이동 하지 마", "function": "DefaultResponse", "arguments": {}}
+{"text": "아 맞다, 폭스트롯팀 전체가 보이게", "function": "MoveToTeamOverview", "arguments": {"team": "Foxtrot"}}
+{"text": "정찰팀 만들어줘", "function": "EnterTeamCreation", "arguments": {}}
+{"text": "전술 평가 결과 보고하자", "function": "DefaultResponse", "arguments": {}}
+{"text": "드론봇 팀 제외거절 부탁합니다", "function": "RejectConfirmWindow", "arguments": {"confirmName": "드론봇 팀 제외"}}
+{"text": "마커 7을 지워 줘", "function": "DeleteMarker", "arguments": {"markerNumber": 7}}
+{"text": "빅터 전체가 다 보이게 맞춰 줘", "function": "MoveToTeamOverview", "arguments": {"team": "Victor"}}
+{"text": "그 녹화 멈춰 줘 좀 헷갈리네", "function": "StopRecording", "arguments": {}}
+{"text": "7호기 전술 좀 손볼게.", "function": "EditDroneTactics", "arguments": {"droneNumber": 7}}
+{"text": "그 빅터팀 팀뷰", "function": "MoveToTeamView", "arguments": {"team": "Victor"}}
+{"text": "정신없으니까 이 화면 프리셋에 넣어 줘", "function": "CreatePreset", "arguments": {}}
+{"text": "위스키 제혁원 주십시오, 좀 정리하고 싶은데", "function": "RequestTeamControl", "arguments": {"team": "Whiskey"}}
+{"text": "육 번 드론 드론 뷰로 이동", "function": "MoveToDroneView", "arguments": {"droneNumber": 6}}
+{"text": "드론 여덟 개별제어", "function": "StartManualFlight", "arguments": {"droneNumber": 8}}
+{"text": "브라보팀 소속 7번 드론 잡아줘", "function": "SelectDrone", "arguments": {"droneNumber": 7, "team": "Bravo"}}
+{"text": "프리새6번을 없애", "function": "DeletePreset", "arguments": {"presetNumber": 6}}
+{"text": "이거 왜 이래, 패널 제자리로 돌려 놔", "function": "ResetPanelPositions", "arguments": {}}
+{"text": "지형 복잡해, 카메라 영점 다시 설정해요, 빨리", "function": "ResetCameraGimbal", "arguments": {}}
+{"text": "마이크 구호기 선택해줘", "function": "SelectDrone", "arguments": {"droneNumber": 9, "team": "Mike"}}
+{"text": "일번 드론 앞으로 가.", "function": "DefaultResponse", "arguments": {}}
+{"text": "음, 일시적으로 전술 녹화 중단해, 지금", "function": "StopRecording", "arguments": {}}
+{"text": "노벰버 팀, 상황 인식이 안 돼, 전술 행동 시작, 당장", "function": "StartTeamTactics", "arguments": {"team": "November"}}
+{"text": "프리셋 2를 없애 줘", "function": "DeletePreset", "arguments": {"presetNumber": 2}}
+{"text": "알림상세 들어가", "function": "OpenWindow", "arguments": {"windowName": "알림 상세"}}
+{"text": "시간이 없으니까, 찰리 8호기 시점으로 넘겨 줘", "function": "MoveToDroneView", "arguments": {"droneNumber": 8, "team": "Charlie"}}
+{"text": "리마팀으로 바꿔 줘", "function": "SelectTeam", "arguments": {"team": "Lima"}}
+{"text": "마커 9번 지워", "function": "DeleteMarker", "arguments": {"markerNumber": 9}}
+{"text": "호텔팀 제어권 지정 해 줘, 적 온다", "function": "AssignTeamControl", "arguments": {"team": "Hotel"}}
+{"text": "적의 공격으로 불안정한 상황, 알파팀 즉시 복귀 바람", "function": "ReturnTeam", "arguments": {"team": "Alpha"}}
+{"text": "마커 생성 모드", "function": "EnterMarkerCreation", "arguments": {}}
+{"text": "지형이 헷갈릴 정도로 혼란스럽다, 마커 필터와 아군 은엄폐, 주요 지형지물 해제해, 지금", "function": "ClearDisplayFilters", "arguments": {"filterNames": "마커, 아군 은엄폐, 주요 지형지물"}}
+{"text": "목표 팀과 연계 불가, 현재 시스템으로는 처리 안 되는 요청이야, 지금 상황에서", "function": "DefaultResponse", "arguments": {}}
+{"text": "엑스레이팀", "function": "SelectTeam", "arguments": {"team": "X-ray"}}
+{"text": "좋아, 알림 상세 화면 호출해 그 다음 전술 확정 취소해 줘", "function": "DefaultResponse", "arguments": {}}
+{"text": "적이 접근하고 있어, 엑스레이 팀 리더 숄더 뷰", "function": "MoveToTeamView", "arguments": {"team": "X-ray"}}
+{"text": "아이, 비디오 쓰루 활성화하라, 오버", "function": "EnableVideoThrough", "arguments": {}}
+{"text": "화면이 잘 안 보여, 팀 전체 뷰", "function": "DefaultResponse", "arguments": {}}
+{"text": "정찰 드론 6기로 팀 짜 줘", "function": "CreateTeam", "arguments": {"teamType": "정찰", "memberCount": 6}}
+{"text": "아까 그 드론 드론 뷰", "function": "DefaultResponse", "arguments": {}}
+{"text": "화면이 복잡하니까 노벰버팀 영상 좀 보자", "function": "ShowTeamCamera", "arguments": {"team": "November"}}
+{"text": "알림 상세창 나가고 카메라 정면으로 돌려 놔", "function": "DefaultResponse", "arguments": {}}
+{"text": "저기 영상이 좀 흔들리네, 드론 시야 켜", "function": "ApplyDisplayFilters", "arguments": {"filterNames": "드론 시야"}}
+{"text": "아군 은엄폐 주요 지형지물 활성화해", "function": "ApplyDisplayFilters", "arguments": {"filterNames": "아군 은엄폐, 주요 지형지물"}}
+{"text": "전술지도 닫자", "function": "CloseWindow", "arguments": {"windowName": "전술 지도"}}
+{"text": "유니폼팀 이륙 해 줘", "function": "DefaultResponse", "arguments": {}}
+{"text": "비디오 스루 꺼 줘, 전력이 부족하 니 까", "function": "DisableVideoThrough", "arguments": {}}
+{"text": "아 맞다, 프리셋 십번을 없애", "function": "DeletePreset", "arguments": {"presetNumber": 10}}
+{"text": "자폭 공격 거절해 줘.", "function": "RejectConfirmWindow", "arguments": {"confirmName": "자폭 공격"}}
+{"text": "줄리엣팀 리더 어 깨 너머 시점으로", "function": "MoveToTeamView", "arguments": {"team": "Juliet"}}
+{"text": "레코딩 중지", "function": "StopRecording", "arguments": {}}
+{"text": "위스키팀 드론 아홉 직접 조종할게", "function": "StartManualFlight", "arguments": {"droneNumber": 9, "team": "Whiskey"}}
+{"text": "10번 드론은 전술 수정 부탁합니다", "function": "EditDroneTactics", "arguments": {"droneNumber": 10}}
+{"text": "에코 제어권 반납할게", "function": "ReturnTeamControl", "arguments": {"team": "Echo"}}
+{"text": "설정 화면 치워 버려, 정리 좀 하게", "function": "CloseWindow", "arguments": {"windowName": "설정"}}
+{"text": "음 팀편성, 얼른", "function": "EnterTeamCreation", "arguments": {}}
+{"text": "칠번 프리셋 제거해라, 지금 당장", "function": "DeletePreset", "arguments": {"presetNumber": 7}}
+{"text": "LM 칠번 보여줘", "function": "MoveToMarker", "arguments": {"markerNumber": 7}}
+{"text": "제억원 반납을 승인", "function": "AcceptConfirmWindow", "arguments": {"confirmName": "제어권 반납"}}
+{"text": "음, 팀 연결선 필터 제거해줘, 오버", "function": "ClearDisplayFilters", "arguments": {"filterNames": "팀 연결선"}}
+{"text": "어 정찰팀 셋으로 만들자", "function": "CreateTeam", "arguments": {"teamType": "정찰", "memberCount": 3}}
+{"text": "인디아팀 8호기 돌아와", "function": "ReturnDrone", "arguments": {"droneNumber": 8, "team": "India"}}
+{"text": "찰리팀 전원 선택 부탁해", "function": "SelectTeam", "arguments": {"team": "Charlie"}}
+{"text": "7번 드론 기지로 복귀해줘", "function": "ReturnDrone", "arguments": {"droneNumber": 7}}
+{"text": "패스스루 켜졌어?", "function": "DefaultResponse", "arguments": {}}
+{"text": "어, 리마 팀, 제자리로 돌아가라, 당장!", "function": "ReturnTeam", "arguments": {"team": "Lima"}}
+{"text": "November팀 제억원 저 주세요", "function": "RequestTeamControl", "arguments": {"team": "November"}}
+{"text": "빅터 팀, 육 번 드론, 빨리 기지로 돌아와, 바람", "function": "ReturnDrone", "arguments": {"droneNumber": 6, "team": "Victor"}}
+{"text": "잘 안 보여서, 추천해 줘", "function": "RequestTacticsRecommendation", "arguments": {}}
+{"text": "설정창 없애 줘", "function": "CloseWindow", "arguments": {"windowName": "설정"}}
+{"text": "지금 급해, 줄리엣팀 전술 개시", "function": "StartTeamTactics", "arguments": {"team": "Juliet"}}
+{"text": "지형 복잡한데, Golf 팀뷰로 이동해 금방", "function": "MoveToTeamView", "arguments": {"team": "Golf"}}
+{"text": "마커 5번으로 이동 좀 해 줘", "function": "MoveToMarker", "arguments": {"markerNumber": 5}}
+{"text": "카메라 안 보이네, 드론 델타 일 번 카메라 켜봐, 빨리", "function": "ShowDroneCamera", "arguments": {"droneNumber": 1, "team": "Delta"}}
+{"text": "상황이 급하다, 드론 2호기 따로 빼줘 서둘러", "function": "DetachDrone", "arguments": {"droneNumber": 2}}
+{"text": "전술 지도 창 켜 줘,상황 파악하려고", "function": "OpenWindow", "arguments": {"windowName": "전술 지도"}}
+{"text": "지형 복잡해지네, 드론 5기 수동 조작 해줘, 바람", "function": "StartManualFlight", "arguments": {"droneNumber": 5}}
+{"text": "델타팀 제어권 나한테 줘", "function": "RequestTeamControl", "arguments": {"team": "Delta"}}
+{"text": "영상이 좀 흔들리네, 배터리 켜 그 다음 프리새 팔번 가 줘", "function": "DefaultResponse", "arguments": {}}
+{"text": "엑스레이팀 다 복귀 해 줘", "function": "ReturnTeam", "arguments": {"team": "X-ray"}}
+{"text": "적이 가까우니까, 패스스루 활성화해라", "function": "EnableVideoThrough", "arguments": {}}
+{"text": "프리셋 육 시점", "function": "MoveToPreset", "arguments": {"presetNumber": 6}}
+{"text": "어 November 팀 전술 편집해 주세요", "function": "EditTeamTactics", "arguments": {"team": "November"}}
+{"text": "X-ray 팀 시점", "function": "MoveToTeamView", "arguments": {"team": "X-ray"}}
+{"text": "빨리빨리, 전술 확정 창 그래 승인", "function": "AcceptConfirmWindow", "arguments": {"confirmName": "전술 확정"}}
+{"text": "제어권 회수를 승인 좀 해 줘,아까 부터 계속 이러네", "function": "AcceptConfirmWindow", "arguments": {"confirmName": "제어권 회수"}}
+{"text": "거의 끝이라니, 패널 원위치로 리셋해줘, 지금", "function": "ResetPanelPositions", "arguments": {}}
+{"text": "찰리 팀 다 보이게 해, 당장 움직여", "function": "MoveToTeamOverview", "arguments": {"team": "Charlie"}}
+{"text": "상황이 여의찮아, 고팀 전진 요청은 지금 당장 어려울 것 같아, 대체 방안 고려해", "function": "DefaultResponse", "arguments": {}}
+{"text": "마커 5번으로 이동해주세요 지금 급해", "function": "MoveToMarker", "arguments": {"markerNumber": 5}}
+{"text": "화 면이 잘 안 보여, 자, 전술 확정 오케이 승인 그리고 리마팀 3호기는 들어오게 해", "function": "DefaultResponse", "arguments": {}}
+{"text": "비디오 쓰루 설정하고 줄루팀 다 보이게 해 줘", "function": "DefaultResponse", "arguments": {}}
+{"text": "지원 가능한 기기 상태 확인 좀 해줘, 지금", "function": "DefaultResponse", "arguments": {}}
+{"text": "줄루 팀 쪽으로 시점 옮겨 줘", "function": "MoveToTeamView", "arguments": {"team": "Zulu"}}
+{"text": "7호기 쪽 시점 으로", "function": "MoveToDroneView", "arguments": {"droneNumber": 7}}
+{"text": "작전이 거의 끝나 가, 패스 스루 켜", "function": "EnableVideoThrough", "arguments": {}}
+{"text": "지금 편집 취소 허락해, 짐벌 영점 조정 화면이 잘 안 보여", "function": "DefaultResponse", "arguments": {}}
+{"text": "탱고 리더 시점", "function": "MoveToTeamView", "arguments": {"team": "Tango"}}
+{"text": "녹화꺼", "function": "StopRecording", "arguments": {}}
+{"text": "탱고팀은 제어권 회수 부탁합니다, 가려서 안 보여", "function": "RevokeTeamControl", "arguments": {"team": "Tango"}}
+{"text": "전술 추천창 띄워 줘", "function": "RequestTacticsRecommendation", "arguments": {}}
+{"text": "리마팀 제어건 지정하지 마라.", "function": "DefaultResponse", "arguments": {}}
+{"text": "전력이 부족하니까, 델타팀 작전 시작 바람", "function": "StartTeamTactics", "arguments": {"team": "Delta"}}
+{"text": "드론 칠번 고도 100미터 올려", "function": "DefaultResponse", "arguments": {}}
+{"text": "인디아팀 전 술 손 봐 줘", "function": "EditTeamTactics", "arguments": {"team": "India"}}
+{"text": "멀고 복잡한 지형, 골프팀 제어권 요청은 무효, 양키 전술대로 신속히 해라, 바람", "function": "DefaultResponse", "arguments": {}}
+{"text": "아직 빅터팀은 복귀하지 마", "function": "DefaultResponse", "arguments": {}}
+{"text": "오스카팀 카메라 좀 보자", "function": "ShowTeamCamera", "arguments": {"team": "Oscar"}}
+{"text": "엑스레이팀 남쪽으로이동,가려서 안 보여", "function": "DefaultResponse", "arguments": {}}
+{"text": "정지 상태에서 소리 줄이는 건 불가, 현재 상태 유지하고 다음 명령 대기해, 바람", "function": "DefaultResponse", "arguments": {}}
+{"text": "복잡한 상황, Golf팀 드론 삼호기 선별 완료, 오버", "function": "SelectDrone", "arguments": {"droneNumber": 3, "team": "Golf"}}
+{"text": "12번 마커 제거해줘, 당장", "function": "DeleteMarker", "arguments": {"markerNumber": 12}}
+{"text": "마이크 팀으로 바꿔 줘", "function": "SelectTeam", "arguments": {"team": "Mike"}}
+{"text": "그래, 패널 위치 원래대로 그리고 나서 프리셋15로 가 줘", "function": "DefaultResponse", "arguments": {}}
+{"text": "알파팀 팀 해산 좀 해 줘", "function": "DisbandTeam", "arguments": {"team": "Alpha"}}
+{"text": "필터 창 꺼줘, 당장 확인해 오버", "function": "CloseWindow", "arguments": {"windowName": "필터"}}
+{"text": "음, 로미오팀 리더 어깨 너머 시점으로, 5 기짜리 팀 꾸려, 전력이 얼마 안 남았어", "function": "DefaultResponse", "arguments": {}}
+{"text": "줄리엣 팀 전술 바꿀게", "function": "EditTeamTactics", "arguments": {"team": "Juliet"}}
+{"text": "방금 그 드론 영상 좀 보자", "function": "DefaultResponse", "arguments": {}}
+{"text": "알림 상세창 보여 주지 마,적 온다", "function": "DefaultResponse", "arguments": {}}
+{"text": "이번 드론 카메라 좀 보자", "function": "ShowDroneCamera", "arguments": {"droneNumber": 2}}
+{"text": "3번 마커 제거부탁합니다", "function": "DeleteMarker", "arguments": {"markerNumber": 3}}
+{"text": "자 적 은엄폐랑 기동성이랑 마커 꺼줘", "function": "ClearDisplayFilters", "arguments": {"filterNames": "적 은엄폐, 기동성, 마커"}}
+{"text": "어, 프리셋 4로 이동하도록, 괜찮아", "function": "MoveToPreset", "arguments": {"presetNumber": 4}}
+{"text": "기동성 필터랑 장애물 필터 가려, 지금 당장", "function": "ClearDisplayFilters", "arguments": {"filterNames": "기동성, 장애물"}}
+{"text": "마커 꺼 주세요", "function": "ClearDisplayFilters", "arguments": {"filterNames": "마커"}}
+{"text": "Echo 팀, 만사 정리하고 철수하자, 서둘러", "function": "DisbandTeam", "arguments": {"team": "Echo"}}
+{"text": "비디오 쓰루 비활성화해 줘", "function": "DisableVideoThrough", "arguments": {}}
+{"text": "위협,아군 은엄폐 표시 활성화해줘.", "function": "ApplyDisplayFilters", "arguments": {"filterNames": "위협, 아군 은엄폐"}}
+{"text": "음, 투번 프리셋을 없애 줘", "function": "DeletePreset", "arguments": {"presetNumber": 2}}
+{"text": "카메라 리셋해주세요", "function": "ResetCameraGimbal", "arguments": {}}
+{"text": "그 델타 드론 아홉 선택하고 에코팀 제어권을 가져와", "function": "DefaultResponse", "arguments": {}}
+{"text": "퀘 벡 팀 풀어줘", "function": "DisbandTeam", "arguments": {"team": "Quebec"}}
+{"text": "지형 바꾸지 말고 패널 원래 위치로 돌려놔, 서둘러", "function": "ResetPanelPositions", "arguments": {}}
+{"text": "에코 팀 지형이 녹록지 않지만, 한대위에게 제어권 넘겨, 이상", "function": "AssignTeamControl", "arguments": {"team": "Echo", "soldierName": "한대위"}}
+{"text": "비디오쓰루 안 켜졌나 확인, 자 이제 켜봐라, 이상으로", "function": "EnableVideoThrough", "arguments": {}}
+{"text": "마커 구를 지호, 잠깐 보게", "function": "DeleteMarker", "arguments": {"markerNumber": 9}}
+{"text": "마이크 팀 풀 어 줘", "function": "DisbandTeam", "arguments": {"team": "Mike"}}
+{"text": "미안한데, 공격 7대짜리 팀 생성 해 줘", "function": "CreateTeam", "arguments": {"teamType": "공격", "memberCount": 7}}
+{"text": "화면 가리면 안 돼, 패널들 원점으로 돌려 놔, 지금", "function": "ResetPanelPositions", "arguments": {}}
+{"text": "됐고, 패 스스루 그만", "function": "DisableVideoThrough", "arguments": {}}
+{"text": "시야가 제한적인데, 노벰버 팀 전술 가동, 지금", "function": "StartTeamTactics", "arguments": {"team": "November"}}
+{"text": "기 동로 숨겨 줘", "function": "ClearDisplayFilters", "arguments": {"filterNames": "기동로"}}
+{"text": "시에라 해체합니다", "function": "DisbandTeam", "arguments": {"team": "Sierra"}}
+{"text": "전력이 얼마 안 남았어, 마커 이 지호줘.", "function": "DeleteMarker", "arguments": {"markerNumber": 2}}
+{"text": "찰리 드론 미존재, 드론 정보부터 확인해, 지금 당장 전환", "function": "DefaultResponse", "arguments": {}}
+{"text": "저기 비디오 쓰루 이제 됐어", "function": "DisableVideoThrough", "arguments": {}}
+{"text": "자폭 일곱짜리 팀 만들어", "function": "CreateTeam", "arguments": {"teamType": "자폭", "memberCount": 7}}
+{"text": "음, 이곳에 마커 좀 더 넣어봐, 지금", "function": "EnterMarkerCreation", "arguments": {}}
+{"text": "음 델타팀 제어권횟수,가려서안 보여", "function": "RevokeTeamControl", "arguments": {"team": "Delta"}}
+{"text": "정신없으니까 추천 창 닫기", "function": "CancelTacticsRecommendation", "arguments": {}}
+{"text": "미안한데, 전술 추천해 줘 그리고 Charlie 팀 전술 바꿀게.", "function": "DefaultResponse", "arguments": {}}
+{"text": "알림 상세 화면 좀 닫어, 서둘러", "function": "CloseWindow", "arguments": {"windowName": "알림 상세"}}
+{"text": "아 카메라 창 넓게, 브라보 10번 드론 철수시켜.", "function": "DefaultResponse", "arguments": {}}
+{"text": "마커 3 지우고 게임 종료 창 하지 마, 즉시", "function": "DefaultResponse", "arguments": {}}
+{"text": "빅터팀 전술 고칠게", "function": "EditTeamTactics", "arguments": {"team": "Victor"}}
+{"text": "주요 지형지물이랑 장애물이랑 아군 은엄폐 숨겨", "function": "ClearDisplayFilters", "arguments": {"filterNames": "주요 지형지물, 장애물, 아군 은엄폐"}}
+{"text": "10번드론을 선택", "function": "SelectDrone", "arguments": {"droneNumber": 10}}
+{"text": "파파팀 전원잡아 화면이 너무 복잡해", "function": "SelectTeam", "arguments": {"team": "Papa"}}
+{"text": "적의 교란에도 게임 종료 안 돼, 지금 취소해", "function": "RejectConfirmWindow", "arguments": {"confirmName": "게임 종료"}}
+{"text": "시간이 없으니까, 전술 지도 창켜줘", "function": "OpenWindow", "arguments": {"windowName": "전술 지도"}}
+{"text": "지형이 복잡해서 시야 확보해야 하는데, 카메라 창 줄여 봐, 당장", "function": "ShrinkCameraWindow", "arguments": {}}
+{"text": "독수리팀, 현재 상태 괜찮나? 지원 가능하면 알려줘", "function": "DefaultResponse", "arguments": {}}
+{"text": "아군 은엄폐 켜기", "function": "ApplyDisplayFilters", "arguments": {"filterNames": "아군 은엄폐"}}
+{"text": "정신없으니까, 짐벌 리셋 부탁해", "function": "ResetCameraGimbal", "arguments": {}}
+{"text": "비디오 쓰루 켜, 서둘러 좀", "function": "EnableVideoThrough", "arguments": {}}
+{"text": "4번 드론 상태 어때", "function": "DefaultResponse", "arguments": {}}
+{"text": "작전이 거의 끝나 가, 이 드론 수동 비행 해 줘", "function": "DefaultResponse", "arguments": {}}
+{"text": "킬로팀 제어권 가져와 줘,적이 가까우니까", "function": "RevokeTeamControl", "arguments": {"team": "Kilo"}}
+{"text": "이 시 점 프리새으로 남겨둬", "function": "CreatePreset", "arguments": {}}
+{"text": "지형 감시 중, 4호기 수동 비행 명령 접수, 서둘러 실행, 그래", "function": "StartManualFlight", "arguments": {"droneNumber": 4}}
+{"text": "녹화 종료해라", "function": "StopRecording", "arguments": {}}
+{"text": "지형이 복잡해서, 해당 팀 연락 좀 줘도 될까? 음, 아직 지원 불가 상태라", "function": "DefaultResponse", "arguments": {}}
+{"text": "화면이 복잡하니까 Quebec팀 리더 카메라 띄워 봐", "function": "ShowTeamCamera", "arguments": {"team": "Quebec"}}
+{"text": "저 팀 연결선 필터 없애버려, 지금", "function": "ClearDisplayFilters", "arguments": {"filterNames": "팀 연결선"}}
+{"text": "설정 화면 없애지 마라, 이거 왜 이래", "function": "DefaultResponse", "arguments": {}}
+{"text": "짐벌 리셋", "function": "ResetCameraGimbal", "arguments": {}}
+{"text": "알림 상세 닫아", "function": "CloseWindow", "arguments": {"windowName": "알림 상세"}}
+{"text": "이오기 팀 제외", "function": "DetachDrone", "arguments": {"droneNumber": 2}}
+{"text": "프리새10번으로 가자", "function": "MoveToPreset", "arguments": {"presetNumber": 10}}
+{"text": "아, 늑대팀 복구 요청이군, 현재 상태로는 어려울 것 같아, 오버", "function": "DefaultResponse", "arguments": {}}
+{"text": "시야가 좀 그렇네요, 카메라 창 크기 조절해줘, 서둘러", "function": "ShrinkCameraWindow", "arguments": {}}
+{"text": "그 화면이 잘 안 보여, 아까 그 프리셋 보여 줘", "function": "DefaultResponse", "arguments": {}}
+{"text": "오스카 드론의 미사일 잔량 확인했어? 지금 상태로 첫 미사일 발사 가능할지 알려줘, 오버", "function": "DefaultResponse", "arguments": {}}
+{"text": "위스키팀 제어권을 넘겨 줘", "function": "AssignTeamControl", "arguments": {"team": "Whiskey"}}
+{"text": "첫 번째 드론 직접 몰아 볼게", "function": "StartManualFlight", "arguments": {"droneNumber": 1}}
+{"text": "유니 폼 팀 소속 11번 드론, 지금 제외해 일음", "function": "DetachDrone", "arguments": {"droneNumber": 11, "team": "Uniform"}}
+{"text": "음, 현재 상황에서 아군 은엄폐 필터 적용해, 지금", "function": "ApplyDisplayFilters", "arguments": {"filterNames": "아군 은엄폐"}}
+{"text": "즉시 다섯 번째 드론은 전술 수정해 주세요, 필터 열어 주세요", "function": "DefaultResponse", "arguments": {}}
+{"text": "빨리빨리, 킬로작전 시작해라", "function": "StartTeamTactics", "arguments": {"team": "Kilo"}}
+{"text": "줄리엣 팀 팀 해체 바람", "function": "DisbandTeam", "arguments": {"team": "Juliet"}}
+{"text": "관측 범위 좁혔으니, 녹화 다시 시작해야지, 서둘러", "function": "StartRecording", "arguments": {}}
+{"text": "지형 복잡하니까, Golf팀 삼호기 얼른 선택해라, 지금", "function": "SelectDrone", "arguments": {"droneNumber": 3, "team": "Golf"}}
+{"text": "녹화 상태가 애매했어, 다시 시작해, 빨리", "function": "StartRecording", "arguments": {}}
+{"text": "시에라팀 종대로 정렬하자, 다음 작전 때문에.", "function": "DefaultResponse", "arguments": {}}
+{"text": "미안한데, 이 시점 프리셋으로 등록해 주세요 그 다음 노벰버 제어권 돌려줄게", "function": "DefaultResponse", "arguments": {}}
+{"text": "그 카메라 창 확대해 주세요", "function": "EnlargeCameraWindow", "arguments": {}}
+{"text": "양키팀 돌아와 줘", "function": "ReturnTeam", "arguments": {"team": "Yankee"}}
+{"text": "음 전술 녹화 시작해 줘", "function": "StartRecording", "arguments": {}}
+{"text": "지형이 복잡한데 편집 취소 창 승인해줘, 지금", "function": "AcceptConfirmWindow", "arguments": {"confirmName": "편집 취소"}}
+{"text": "파파팀 다 제어권 가져와", "function": "RevokeTeamControl", "arguments": {"team": "Papa"}}
+{"text": "전력이 부족하니까, 16번 드론을 선택 부탁해", "function": "SelectDrone", "arguments": {"droneNumber": 16}}
+{"text": "4호기 배터리 상태 불안정해, 수동 제어 당장 시작해, 이상", "function": "StartManualFlight", "arguments": {"droneNumber": 4}}
+{"text": "지금 상황에서 마커 추가 어려울 것 같은데, 어떻게 됐어", "function": "DefaultResponse", "arguments": {}}
+{"text": "정찰 여덟 대짜리 팀 하나 짜 줘", "function": "CreateTeam", "arguments": {"teamType": "정찰", "memberCount": 8}}
+{"text": "봐, 시간 없어, 노벰버팀 골라, 오버", "function": "SelectTeam", "arguments": {"team": "November"}}
+{"text": "마커 육으로 이동해 줘", "function": "MoveToMarker", "arguments": {"markerNumber": 6}}
+{"text": "추천은 이제 됐어", "function": "CancelTacticsRecommendation", "arguments": {}}
+{"text": "시간이 없으니 까, 현재 뷰 저장해", "function": "CreatePreset", "arguments": {}}
+{"text": "프리셋 십 삭제해줘", "function": "DeletePreset", "arguments": {"presetNumber": 10}}
+{"text": "위스키팀 제역원을 넘 겨 줘", "function": "AssignTeamControl", "arguments": {"team": "Whiskey"}}
+{"text": "적 동향이 복잡해 보이는데, 전술 지도 창 당장 열어놔, 지금", "function": "OpenWindow", "arguments": {"windowName": "전술 지도"}}
+{"text": "음, 상황 마무리 단계네, 노벰버팀 택해야지, 급하게", "function": "SelectTeam", "arguments": {"team": "November"}}
+{"text": "지형이 복잡해서 기록 필요, 저기 전술 녹화 시작, 당장", "function": "StartRecording", "arguments": {}}
+{"text": "탱고팀 전체 시점으로 이동해 줘", "function": "MoveToTeamOverview", "arguments": {"team": "Tango"}}
+{"text": "에코를 선택해 줘", "function": "SelectTeam", "arguments": {"team": "Echo"}}
+{"text": "적이 접근하고 있어, 원번 마커 제거 바람", "function": "DeleteMarker", "arguments": {"markerNumber": 1}}
+{"text": "줄루팀 기지로 돌아와", "function": "ReturnTeam", "arguments": {"team": "Zulu"}}
+{"text": "Kilo 팀 제어건 가져올게", "function": "RevokeTeamControl", "arguments": {"team": "Kilo"}}
+{"text": "프리새 7 삭제하고 추천 안 받을래", "function": "DefaultResponse", "arguments": {}}
+{"text": "리마 소속 12 번 드론 전술 좀 손볼게", "function": "EditDroneTactics", "arguments": {"droneNumber": 12, "team": "Lima"}}
+{"text": "킬로팀 아직 살아 있어요?", "function": "DefaultResponse", "arguments": {}}
+{"text": "제어권 요청 확인하고 마커 1 지워, 얼른, 지금.", "function": "DefaultResponse", "arguments": {}}
+{"text": "새로운 팀 생성", "function": "EnterTeamCreation", "arguments": {}}
+{"text": "오케이, 지금 보는 거 프리셋으로", "function": "CreatePreset", "arguments": {}}
+{"text": "이 팀 전술 바 꿀 게", "function": "DefaultResponse", "arguments": {}}
+{"text": "드론 다섯 전술 수정 바람", "function": "EditDroneTactics", "arguments": {"droneNumber": 5}}
+{"text": "지형이 복잡해, 카메라창 작게 만들어 빨리", "function": "ShrinkCameraWindow", "arguments": {}}
+{"text": "Uniform팀 다 보이게 해 줘", "function": "MoveToTeamOverview", "arguments": {"team": "Uniform"}}
+{"text": "인디아팀 작전 편집 해 줘", "function": "EditTeamTactics", "arguments": {"team": "India"}}
+{"text": "자 드론 둘 내가 몰게", "function": "StartManualFlight", "arguments": {"droneNumber": 2}}
+{"text": "정찰팀 만들자", "function": "EnterTeamCreation", "arguments": {}}
+{"text": "칠번 드론 내보내기", "function": "DetachDrone", "arguments": {"droneNumber": 7}}
+{"text": "어 패스스루 좀 켜 봐", "function": "EnableVideoThrough", "arguments": {}}
+{"text": "필터 메뉴를 닫아 줘 그리고 나서 카메라창 크게 만들어, 가려서 안 보여", "function": "DefaultResponse", "arguments": {}}
+{"text": "빨리빨 리, 팀 연결선과 기동성 치워 줘", "function": "ClearDisplayFilters", "arguments": {"filterNames": "팀 연결선, 기동성"}}
+{"text": "드론 상태 점검 중, 1번 드론 무장 해제 가능 여부 확인 중이라, 음... 1번 드론 무장 해제 가능한지 봐줘 빨리", "function": "DefaultResponse", "arguments": {}}
+{"text": "급하니까 아까 그 드론을 선택해", "function": "DefaultResponse", "arguments": {}}
+{"text": "음, 당현히 필터 창 지금 닫아라", "function": "CloseWindow", "arguments": {"windowName": "필터"}}
+{"text": "카메라 위치 이상, 설정창 펼쳐줘 당장", "function": "OpenWindow", "arguments": {"windowName": "설정"}}
+{"text": "그 드 론 시야 켜기", "function": "ApplyDisplayFilters", "arguments": {"filterNames": "드론 시야"}}
+{"text": "마커 팔 번을 지어줘", "function": "DeleteMarker", "arguments": {"markerNumber": 8}}
+{"text": "팀 추가해", "function": "EnterTeamCreation", "arguments": {}}
+{"text": "카메라 창키워 줘", "function": "EnlargeCameraWindow", "arguments": {}}
+{"text": "파파 팀 드론 11 번 전술 편집 모드.", "function": "EditDroneTactics", "arguments": {"droneNumber": 11, "team": "Papa"}}
+{"text": "현재 지형 상황 고려해서 2 번 마커는 그대로 두자, 이상", "function": "DefaultResponse", "arguments": {}}
+{"text": "전술 지도는 그대로 두고 다른 업무 처리해줘, 이대로", "function": "DefaultResponse", "arguments": {}}
+{"text": "Tango 팀 전술 편집 모드", "function": "EditTeamTactics", "arguments": {"team": "Tango"}}
+{"text": "프리새 하나 추가하고 카메라 창 좀 작게 봐", "function": "DefaultResponse", "arguments": {}}
+{"text": "시점 이동", "function": "DefaultResponse", "arguments": {}}
+{"text": "위스키팀 팀 풀어 줘", "function": "DisbandTeam", "arguments": {"team": "Whiskey"}}
+{"text": "좋아, 녹화 켜 줘", "function": "StartRecording", "arguments": {}}
+{"text": "자 새 마커 생성 해 줘", "function": "EnterMarkerCreation", "arguments": {}}
+{"text": "그 기체는 따로 움직이게 빼 줘", "function": "DefaultResponse", "arguments": {}}
+{"text": "즉시 설정 펼쳐, 5 기로 팀 하나 꾸려 줘, 이상", "function": "DefaultResponse", "arguments": {}}
+{"text": "현재 상황 파악, 탱고 팀 전체 뷰로 전환해, 오버", "function": "MoveToTeamOverview", "arguments": {"team": "Tango"}}
+{"text": "필터 창 치우지말아", "function": "DefaultResponse", "arguments": {}}
+{"text": "전술 지도 창을 다다", "function": "CloseWindow", "arguments": {"windowName": "전술 지도"}}
+{"text": "전력이 얼마 안 남았어, 양키팀은 제어권 회수 바람", "function": "RevokeTeamControl", "arguments": {"team": "Yankee"}}
+{"text": "시야가 괴롭다, 필터 창 닫아 즉각", "function": "CloseWindow", "arguments": {"windowName": "필터"}}
+{"text": "패스 스루 거 그리고 나서 주요 지형지물이랑 기동성 숨겨줘", "function": "DefaultResponse", "arguments": {}}
+{"text": "정신없으니까 빅터 카메라 켜 줘", "function": "ShowTeamCamera", "arguments": {"team": "Victor"}}
+{"text": "이 번 드론 카메라 열어 줘.", "function": "ShowDroneCamera", "arguments": {"droneNumber": 2}}
+{"text": "찰리팀 전원 제혁원 횟수하자", "function": "RevokeTeamControl", "arguments": {"team": "Charlie"}}
+{"text": "엑스레이팀 카메라띄워 줘", "function": "ShowTeamCamera", "arguments": {"team": "X-ray"}}
+{"text": "잘 안 보이니까 프리셋 하나 추가 부탁합니다 그리고 나서 Bravo팀 작전 편집해라", "function": "DefaultResponse", "arguments": {}}
+{"text": "음, 패널들 재설정해 어울리는 자리로 당장", "function": "ResetPanelPositions", "arguments": {}}
+{"text": "4번 드론 수동 제어하자", "function": "StartManualFlight", "arguments": {"droneNumber": 4}}
+{"text": "Kilo팀 리더숄더 뷰 로 바꿔 줘", "function": "MoveToTeamView", "arguments": {"team": "Kilo"}}
+{"text": "9번 드론 쪽 시점으로, 지금 화면 기억해 둬", "function": "DefaultResponse", "arguments": {}}
+{"text": "Foxtrot팀 드론 1번 영상", "function": "ShowDroneCamera", "arguments": {"droneNumber": 1, "team": "Foxtrot"}}
+{"text": "시야가 흐릿한데, 드론 시야 필터랑 적 은엄폐 표시 설정해줘, 지금", "function": "ApplyDisplayFilters", "arguments": {"filterNames": "드론 시야, 적 은엄폐"}}
+{"text": "시에라 해체시켜 줘", "function": "DisbandTeam", "arguments": {"team": "Sierra"}}
+{"text": "프리셋으로 이동하자, 답답하네", "function": "DefaultResponse", "arguments": {}}
+{"text": "팀 연결선, 배터리 표시 안 봐도 돼", "function": "ClearDisplayFilters", "arguments": {"filterNames": "팀 연결선, 배터리"}}
+{"text": "프리셋 10으로 가자, 시간이 별로 없어", "function": "MoveToPreset", "arguments": {"presetNumber": 10}}
+{"text": "전술 지도를 들어가", "function": "OpenWindow", "arguments": {"windowName": "전술 지도"}}
+{"text": "줄루팀 제어권 주십시오 지금 바로.", "function": "RequestTeamControl", "arguments": {"team": "Zulu"}}
+{"text": "15호기 전술 편집해 줘", "function": "EditDroneTactics", "arguments": {"droneNumber": 15}}
+{"text": "현재 상황에서 알파 탱고팀 복귀 명령은 적용 불가, 확인 후 다시 연락 바람, 바람", "function": "DefaultResponse", "arguments": {}}
+{"text": "삼번 드론 카메 라로 보여 줘", "function": "ShowDroneCamera", "arguments": {"droneNumber": 3}}
+{"text": "밝기 낮춰 줘", "function": "DefaultResponse", "arguments": {}}
+{"text": "카메라창 줄 여", "function": "ShrinkCameraWindow", "arguments": {}}
+{"text": "응, 유니 폼팀 전술 고 쳐", "function": "EditTeamTactics", "arguments": {"team": "Uniform"}}
+{"text": "방금 건 잘 됐고, 추천은 그만 보여 줘, 노벰버 팀 팀 시점으로 이동, 화면이 복잡하니까", "function": "DefaultResponse", "arguments": {}}
+{"text": "좀 정리하고 싶은데, 알림 상세를 좀 볼게", "function": "OpenWindow", "arguments": {"windowName": "알림 상세"}}
+{"text": "브라이언, 드론 5번 수동 모드로 전환해, 즉시", "function": "StartManualFlight", "arguments": {"droneNumber": 5}}
+{"text": "마커 E 가 줘", "function": "MoveToMarker", "arguments": {"markerNumber": 2}}
+{"text": "이쪽 상황 안 맞아, 다른 전술 합시다, 지금", "function": "RequestTacticsRecommendation", "arguments": {}}
+{"text": "현재 시야 광각 장애 있어, 음 패스스루 켜 오버", "function": "EnableVideoThrough", "arguments": {}}
+{"text": "엑스레이팀 지역원 반납할게", "function": "ReturnTeamControl", "arguments": {"team": "X-ray"}}
+{"text": "퀘벡팀 이오기 팀에서 빼 줘", "function": "DetachDrone", "arguments": {"droneNumber": 2, "team": "Quebec"}}
+{"text": "그 드론봇 팀 제외 확인, 상황 파악하려고", "function": "AcceptConfirmWindow", "arguments": {"confirmName": "드론봇 팀 제외"}}
+{"text": "에코 팀, 지금 바로 해체해라, 오버", "function": "DisbandTeam", "arguments": {"team": "Echo"}}
+{"text": "빅터팀 다 전술 시작 해 줘", "function": "StartTeamTactics", "arguments": {"team": "Victor"}}
+{"text": "시간이 없으니까, 알림 상세 창 켜줘", "function": "OpenWindow", "arguments": {"windowName": "알림 상세"}}
+{"text": "아군 은엄폐 꺼줘", "function": "ClearDisplayFilters", "arguments": {"filterNames": "아군 은엄폐"}}
+{"text": "전술 녹화 시작해 줘, 시야를 가려.", "function": "StartRecording", "arguments": {}}
+{"text": "시야 좀 정리해, 드론 시야 필터랑 적 은엄폐 필터 설정 완료, 이상 보고 완료해", "function": "ApplyDisplayFilters", "arguments": {"filterNames": "드론 시야, 적 은엄폐"}}
+{"text": "기동성, 기동로 해제할게", "function": "ClearDisplayFilters", "arguments": {"filterNames": "기동성, 기동로"}}
+{"text": "빅터팀 제어권 저 주세요", "function": "RequestTeamControl", "arguments": {"team": "Victor"}}
+{"text": "음, Echo 팀 해산 명령 떨어지자, 당장", "function": "DisbandTeam", "arguments": {"team": "Echo"}}
+{"text": "아 카메라 창 좀 크게 봐야겠어", "function": "EnlargeCameraWindow", "arguments": {}}
+{"text": "로미오팀 카메 라 꺼내 봐", "function": "ShowTeamCamera", "arguments": {"team": "Romeo"}}
+{"text": "브라보 쪽 시점으로, 전력이 간당간당하네", "function": "MoveToTeamView", "arguments": {"team": "Bravo"}}
+{"text": "위스키 드론 12번 팀에서 빼 줘", "function": "DetachDrone", "arguments": {"droneNumber": 12, "team": "Whiskey"}}
+{"text": "오스카팀 리더 시점으로 이동해줘", "function": "MoveToTeamView", "arguments": {"team": "Oscar"}}
+{"text": "시야 확보해야 하는데, 패스스루 켜줘, 지금 당장", "function": "EnableVideoThrough", "arguments": {}}
+{"text": "아군 은엄폐 끄기", "function": "ClearDisplayFilters", "arguments": {"filterNames": "아군 은엄폐"}}
+{"text": "카메라 창 좀 작게 해, 이제 당장", "function": "ShrinkCameraWindow", "arguments": {}}
+{"text": "에코 팀 제어권 오하사로 지정 부탁해", "function": "AssignTeamControl", "arguments": {"team": "Echo", "soldierName": "오하사"}}
+{"text": "저기 그럼, 호텔 팀 전부 보이게줌 아웃", "function": "MoveToTeamOverview", "arguments": {"team": "Hotel"}}
+{"text": "마이크팀 드론 9번은 내가 조종할게", "function": "StartManualFlight", "arguments": {"droneNumber": 9, "team": "Mike"}}
+{"text": "십 번 프리새으로 가자.", "function": "MoveToPreset", "arguments": {"presetNumber": 10}}
+{"text": "적기, 게임 종료 창 거절, 당장 해", "function": "RejectConfirmWindow", "arguments": {"confirmName": "게임 종료"}}
+{"text": "지형 관찰 중, 알림 상세 화면 닫으라, 음", "function": "CloseWindow", "arguments": {"windowName": "알림 상세"}}
+{"text": "Whiskey팀 드론 14 번 돌아와 줘", "function": "ReturnDrone", "arguments": {"droneNumber": 14, "team": "Whiskey"}}
+{"text": "줄리엣 팀 숄더 뷰로 바꿔 줘", "function": "MoveToTeamView", "arguments": {"team": "Juliet"}}
+{"text": "지금은 녹화 그만하지 마,좀 헷갈리네", "function": "DefaultResponse", "arguments": {}}
+{"text": "정신없으니까 양키팀 제혁원 뺏어", "function": "RevokeTeamControl", "arguments": {"team": "Yankee"}}
+{"text": "지형이 복잡해서 혼란스럽다, 패널 위치 리셋 빨리", "function": "ResetPanelPositions", "arguments": {}}
+{"text": "5번 드론 뷰로 옮겨 줘", "function": "MoveToDroneView", "arguments": {"droneNumber": 5}}
+{"text": "현재로선 오스카 혹은 브라보를 정확히 지정할 수 없으니, 다시 한번 확인해 줬으면 좋겠어", "function": "DefaultResponse", "arguments": {}}
+{"text": "전장의 안개 켜져있어?", "function": "DefaultResponse", "arguments": {}}
+{"text": "장애물 켜", "function": "ApplyDisplayFilters", "arguments": {"filterNames": "장애물"}}
+{"text": "탱고 다 제혁원 가져와", "function": "RevokeTeamControl", "arguments": {"team": "Tango"}}
+{"text": "사호기 복귀시 켜 줘", "function": "ReturnDrone", "arguments": {"droneNumber": 4}}
+{"text": "팀이 너무 흩어졌어, 패널 위치 원래대로", "function": "ResetPanelPositions", "arguments": {}}
+{"text": "화면이 잘 안 보여, 델타 제역원 반납할게", "function": "ReturnTeamControl", "arguments": {"team": "Delta"}}
+{"text": "지형이 복잡해서, 프리셋 4로 이동해야겠어, 지금당장", "function": "MoveToPreset", "arguments": {"presetNumber": 4}}
+{"text": "오케이, 10번 드론 영상 보여 줘", "function": "ShowDroneCamera", "arguments": {"droneNumber": 10}}
+{"text": "16번 드론 카메라 창", "function": "ShowDroneCamera", "arguments": {"droneNumber": 16}}
+{"text": "설정창 꺼 주세요, 작전 준비해야 하니까", "function": "CloseWindow", "arguments": {"windowName": "설정"}}
+{"text": "시간이 없으니까 7번 드론 복귀시켜 줘", "function": "ReturnDrone", "arguments": {"droneNumber": 7}}
+{"text": "찰리팀 제어건 조병장으로 지정해주세요", "function": "AssignTeamControl", "arguments": {"team": "Charlie", "soldierName": "조병장"}}
+{"text": "어 적이 접근하고 있어, 제어권 반납을 거절", "function": "RejectConfirmWindow", "arguments": {"confirmName": "제어권 반납"}}
+{"text": "드론 7번 카메라 꺼내 줘", "function": "ShowDroneCamera", "arguments": {"droneNumber": 7}}
+{"text": "프리새 이동해줘", "function": "DefaultResponse", "arguments": {}}
+{"text": "눈 가릴 게 걱정되네, 마커 하나 푸른 숲에 박아, 지금", "function": "EnterMarkerCreation", "arguments": {}}
+{"text": "적 활약이 심했어, 고팀 전진은 어려울 것 같아, 당장은 다른 지원 필요해", "function": "DefaultResponse", "arguments": {}}
+{"text": "화면이 복잡하니까 인디아팀 잡아 줘", "function": "SelectTeam", "arguments": {"team": "India"}}
+{"text": "드론 3번 수동 비행", "function": "StartManualFlight", "arguments": {"droneNumber": 3}}
+{"text": "브라지 패널들 원래 자리로 얼른 돌려 놓고, 오버", "function": "ResetPanelPositions", "arguments": {}}
+{"text": "퀘벡팀 아직 살아 있어", "function": "DefaultResponse", "arguments": {}}
+{"text": "알람 맞춰줘.", "function": "DefaultResponse", "arguments": {}}
+{"text": "음, 알림 상세창 꺼내 봐, 지금 당장", "function": "OpenWindow", "arguments": {"windowName": "알림 상세"}}
+{"text": "알림 상세창 달아 줘", "function": "CloseWindow", "arguments": {"windowName": "알림 상세"}}
+{"text": "게임 종료 승인 안 해, 문제 있어! 오버", "function": "RejectConfirmWindow", "arguments": {"confirmName": "게임 종료"}}
+{"text": "드론 넷 동쪽으로 이동해 줘", "function": "DefaultResponse", "arguments": {}}
+{"text": "줄루팀전술 운용 시작해줘", "function": "StartTeamTactics", "arguments": {"team": "Zulu"}}
+{"text": "지형이 복잡한데, 에코 팀 한대위에게 제어권 넘겨줘, 서둘러", "function": "AssignTeamControl", "arguments": {"team": "Echo", "soldierName": "한대위"}}
+{"text": "에코팀 제어권 돌려드릴게요, 적 온다", "function": "ReturnTeamControl", "arguments": {"team": "Echo"}}
+{"text": "에코 팀 숄더 뷰", "function": "MoveToTeamView", "arguments": {"team": "Echo"}}
+{"text": "13 마커 향해 빠르게 움직여라, Bravo 팀", "function": "MoveToMarker", "arguments": {"markerNumber": 13}}
+{"text": "제어권 반납 확인해, 마커 6 시점으로", "function": "DefaultResponse", "arguments": {}}
+{"text": "알림 상세창을 열기 그 다음 시점 저장해 줘", "function": "DefaultResponse", "arguments": {}}
+{"text": "양키 드론 3 번 골라 줘", "function": "SelectDrone", "arguments": {"droneNumber": 3, "team": "Yankee"}}
+{"text": "7번 드론 어디 있어요?", "function": "DefaultResponse", "arguments": {}}
+{"text": "음 골프 사모기 복구시켜", "function": "ReturnDrone", "arguments": {"droneNumber": 3, "team": "Golf"}}
+{"text": "지금 은 녹화 켜지 마", "function": "DefaultResponse", "arguments": {}}
+{"text": "적 상황 파악 중, 비디오 쓰루 작동해라, 음", "function": "EnableVideoThrough", "arguments": {}}
+{"text": "다음은, 3 번 드론 전술 편집 모드", "function": "EditDroneTactics", "arguments": {"droneNumber": 3}}
+{"text": "작전 거의 끝났는데, 패널 다시 원래 자리로, 이상", "function": "ResetPanelPositions", "arguments": {}}
+{"text": "빅터팀 작전 들어가,그건 됐으니까", "function": "StartTeamTactics", "arguments": {"team": "Victor"}}
+{"text": "Juliet 팀 작전 들어가", "function": "StartTeamTactics", "arguments": {"team": "Juliet"}}
+{"text": "시간이 별로 없어, 골프 제어권을 이양", "function": "AssignTeamControl", "arguments": {"team": "Golf"}}
+{"text": "호텔팀 제어권 줘", "function": "RequestTeamControl", "arguments": {"team": "Hotel"}}
+{"text": "그럼, 팀 해체 창 수락해라", "function": "AcceptConfirmWindow", "arguments": {"confirmName": "팀 해체"}}
+{"text": "주 요 지형지물 전장의 안개 기동로 켜", "function": "ApplyDisplayFilters", "arguments": {"filterNames": "주요 지형지물, 전장의 안개, 기동로"}}
+{"text": "줄리엣 팀소속 팔 번 드론으로 바꿔", "function": "SelectDrone", "arguments": {"droneNumber": 8, "team": "Juliet"}}
+{"text": "작전 준비해야 하니까,패스스루 켜줘", "function": "EnableVideoThrough", "arguments": {}}
+{"text": "자 응, 사오기 시점으로 넘겨 줘, 작아서 안 보여", "function": "MoveToDroneView", "arguments": {"droneNumber": 4}}
+{"text": "오스카팀 전술 다시 짜자, 자폭 드론 여섯 기로 팀 구성 좀 해 줘", "function": "DefaultResponse", "arguments": {}}
+{"text": "자 상황이 바뀌었어, 정찰 여덟짜리 팀 만들어 줘", "function": "CreateTeam", "arguments": {"teamType": "정찰", "memberCount": 8}}
+{"text": "전원 꺼", "function": "DefaultResponse", "arguments": {}}
+{"text": "프리셋 원으로 가자", "function": "MoveToPreset", "arguments": {"presetNumber": 1}}
+{"text": "음, 저기 현재 상황 녹화 시작해, 지금", "function": "StartRecording", "arguments": {}}
+{"text": "음, 칠번 프리셋 제거해버리고, 서둘러", "function": "DeletePreset", "arguments": {"presetNumber": 7}}
+{"text": "음, 녹화 작업 마무리해라, 바람", "function": "StopRecording", "arguments": {}}
+{"text": "위스키팀 종대로 정렬하자", "function": "DefaultResponse", "arguments": {}}
+{"text": "마커 1번 이동해 줘", "function": "MoveToMarker", "arguments": {"markerNumber": 1}}
+{"text": "화면이 잘 안 보여, Zulu팀 전술대로 움직여", "function": "StartTeamTactics", "arguments": {"team": "Zulu"}}
+{"text": "카메라 윈도우 좀 축소해, 빨리 진행할게", "function": "ShrinkCameraWindow", "arguments": {}}
+{"text": "근데, 카메라 창 크게 해 줘", "function": "EnlargeCameraWindow", "arguments": {}}
+{"text": "지형 관측 중인데 녹화 좀 끄고 계속 진행해, 빨리", "function": "StopRecording", "arguments": {}}
+{"text": "오스카 제어건 이항 창 열어 줘", "function": "AssignTeamControl", "arguments": {"team": "Oscar"}}
+{"text": "오스카팀 복귀 부탁해", "function": "ReturnTeam", "arguments": {"team": "Oscar"}}
+{"text": "그거 열어 줘", "function": "DefaultResponse", "arguments": {}}
+{"text": "7 번 드론 서쪽으로 50미터 이동해", "function": "DefaultResponse", "arguments": {}}
+{"text": "아 진짜답답하네, 인디아 팀 드론 16번 상승할게", "function": "DefaultResponse", "arguments": {}}
+{"text": "급하니까, 6 번 드론 수동으로 몰게", "function": "StartManualFlight", "arguments": {"droneNumber": 6}}
+{"text": "드론 11번 수동 제어 모드", "function": "StartManualFlight", "arguments": {"droneNumber": 11}}
+{"text": "비디오 쓰루 활성화할게", "function": "EnableVideoThrough", "arguments": {}}
+{"text": "로미오 돌아와", "function": "ReturnTeam", "arguments": {"team": "Romeo"}}
+{"text": "위스키 구번 드론 들어와, 좀 정리하고 싶은데", "function": "ReturnDrone", "arguments": {"droneNumber": 9, "team": "Whiskey"}}
+{"text": "카메라 리셋해라", "function": "ResetCameraGimbal", "arguments": {}}
+{"text": "잘 안 보여서 드론 넷 선택됐어?", "function": "DefaultResponse", "arguments": {}}
+{"text": "시야 확보 안 되네, 비디오 쓰루 설정 해라, 당장", "function": "EnableVideoThrough", "arguments": {}}
+{"text": "다음은, Victor 팀 서쪽 방향으로 이동해 주세요", "function": "DefaultResponse", "arguments": {}}
+{"text": "녹 화 일시정지, 급하니까", "function": "DefaultResponse", "arguments": {}}
+{"text": "노벰버 팀 전술 수정할게 작전이 거의 끝나 가", "function": "EditTeamTactics", "arguments": {"team": "November"}}
+{"text": "전술 확정을 취소", "function": "RejectConfirmWindow", "arguments": {"confirmName": "전술 확정"}}
+{"text": "빅터 4호기는 내가 직 접 조종할게", "function": "StartManualFlight", "arguments": {"droneNumber": 4, "team": "Victor"}}
+{"text": "인디아팀 제어권 넘겨 줘", "function": "AssignTeamControl", "arguments": {"team": "India"}}
+{"text": "위협, 팀 연결선, 전장의 안개 끄기", "function": "ClearDisplayFilters", "arguments": {"filterNames": "위협, 팀 연결선, 전장의 안개"}}
+{"text": "찰리팀전원 전술 시작", "function": "StartTeamTactics", "arguments": {"team": "Charlie"}}
+{"text": "프리셋 등록해 줘", "function": "CreatePreset", "arguments": {}}
+{"text": "10 번 드론 수동 제어 좀 해 줘.", "function": "StartManualFlight", "arguments": {"droneNumber": 10}}
+{"text": "음 드론봇 팀 제외 확인", "function": "AcceptConfirmWindow", "arguments": {"confirmName": "드론봇 팀 제외"}}
+{"text": "필터 창 닫기", "function": "CloseWindow", "arguments": {"windowName": "필터"}}
+{"text": "시야가 흐릿하네, 마커 하나 찍어봐, 서둘러", "function": "EnterMarkerCreation", "arguments": {}}
+{"text": "상황이 바뀌었어, 밝기 낮춰 줘", "function": "DefaultResponse", "arguments": {}}
+{"text": "패스스루 설정 해 줘, 상황 파악하려 고", "function": "EnableVideoThrough", "arguments": {}}
+{"text": "필터창 띄워 줘 그 다음 16번 드론 귀환", "function": "DefaultResponse", "arguments": {}}
+{"text": "아군 은 엄폐 표시 활성화 시야를 가려", "function": "ApplyDisplayFilters", "arguments": {"filterNames": "아군 은엄폐"}}
+{"text": "8호기 복귀 좀 해 줘", "function": "ReturnDrone", "arguments": {"droneNumber": 8}}
+{"text": "레코딩 시작합니다", "function": "StartRecording", "arguments": {}}
+{"text": "Tango팀 13번 드론 전술 변경", "function": "EditDroneTactics", "arguments": {"droneNumber": 13, "team": "Tango"}}
+{"text": "폭탄 투하", "function": "DefaultResponse", "arguments": {}}
+{"text": "노벰버팀 전술 시작하자", "function": "StartTeamTactics", "arguments": {"team": "November"}}
+{"text": "엑스레이팀 다 보이게 해 줘", "function": "MoveToTeamOverview", "arguments": {"team": "X-ray"}}
+{"text": "호텔팀 제어권 돌려줄게", "function": "ReturnTeamControl", "arguments": {"team": "Hotel"}}
+{"text": "지형이 복잡해서, 유니 폼 팀 11번 드론 떼어놓고 오버", "function": "DetachDrone", "arguments": {"droneNumber": 11, "team": "Uniform"}}
+{"text": "알파 팀은 전술 시작해 라", "function": "StartTeamTactics", "arguments": {"team": "Alpha"}}
+{"text": "전술 다시 추천하자", "function": "RequestTacticsRecommendation", "arguments": {}}
+{"text": "프리셋 아홉으로 가", "function": "MoveToPreset", "arguments": {"presetNumber": 9}}
+{"text": "탱고팀 지금 어디 있어?", "function": "DefaultResponse", "arguments": {}}
+{"text": "빅터 팀 제어권 되돌리는거 지금 당장 해, 어", "function": "ReturnTeamControl", "arguments": {"team": "Victor"}}
+{"text": "프리새 삼번 보여 줘", "function": "MoveToPreset", "arguments": {"presetNumber": 3}}
+{"text": "전술 지도 거 줘", "function": "CloseWindow", "arguments": {"windowName": "전술 지도"}}
+{"text": "5번 마커로 이동해", "function": "MoveToMarker", "arguments": {"markerNumber": 5}}
+{"text": "마이크팀 제어권 다시 드릴게요 화면이 너무 복잡해.", "function": "ReturnTeamControl", "arguments": {"team": "Mike"}}
+{"text": "퀘벡 팀 제어권 이양 창 열어줘", "function": "AssignTeamControl", "arguments": {"team": "Quebec"}}
+{"text": "2번 프리셋 지워 줘", "function": "DeletePreset", "arguments": {"presetNumber": 2}}
+{"text": "에코팀 전체 시점으로 바꿔 줘", "function": "MoveToTeamOverview", "arguments": {"team": "Echo"}}
+{"text": "저 마커로 이동", "function": "DefaultResponse", "arguments": {}}
+{"text": "시에라팀 오호기 내보내 줘", "function": "DetachDrone", "arguments": {"droneNumber": 5, "team": "Sierra"}}
+{"text": "카메라창, 좀 축소해줘요, Bravo 팀", "function": "ShrinkCameraWindow", "arguments": {}}
+{"text": "기동로 주요 지형지물 장애물 필터 활성화 바람", "function": "ApplyDisplayFilters", "arguments": {"filterNames": "기동로, 주요 지형지물, 장애물"}}
+{"text": "인디아 제억원 넘 겨 줘", "function": "AssignTeamControl", "arguments": {"team": "India"}}
+{"text": "상황이 바뀌었어, 녹화 그만 그 다음 여기에 마커 추가 부탁합니다", "function": "DefaultResponse", "arguments": {}}
+{"text": "저기 13 마커 쪽으로 급히 전향해, 자네", "function": "MoveToMarker", "arguments": {"markerNumber": 13}}
+{"text": "저기 6호기 내보내 줘", "function": "DetachDrone", "arguments": {"droneNumber": 6}}
+{"text": "2번 프리새 지워 줘", "function": "DeletePreset", "arguments": {"presetNumber": 2}}
+{"text": "적 동향 파악 중이고, 전술 확정 창 수락해야 하는데 지금 당장 넘겨줘", "function": "AcceptConfirmWindow", "arguments": {"confirmName": "전술 확정"}}
+{"text": "마커 추가해 줘, 정리 좀 하게", "function": "EnterMarkerCreation", "arguments": {}}
+{"text": "팀이 너무 흩어졌어, 카메라창 줄여", "function": "ShrinkCameraWindow", "arguments": {}}
+{"text": "브릴라 팀 구성 시작하자, 음", "function": "EnterTeamCreation", "arguments": {}}
+{"text": "녹화 다시 시작해, 지금 당장", "function": "StartRecording", "arguments": {}}
+{"text": "알파 팀 소속 삼 번 드론 카메라 좀 보자", "function": "ShowDroneCamera", "arguments": {"droneNumber": 3, "team": "Alpha"}}
+{"text": "마커 적 은엄폐 보이게 해 줘", "function": "ApplyDisplayFilters", "arguments": {"filterNames": "마커, 적 은엄폐"}}
+{"text": "아 맞다, 정찰 팀 아홉대 만들어 줘", "function": "CreateTeam", "arguments": {"teamType": "정찰", "memberCount": 9}}
+{"text": "파파팀전술대로 움직여", "function": "StartTeamTactics", "arguments": {"team": "Papa"}}
+{"text": "Yankee팀 소속 1 번 드론 직접 조종할게", "function": "StartManualFlight", "arguments": {"droneNumber": 1, "team": "Yankee"}}
+{"text": "다음은, 찰리팀 제어건 요청해라", "function": "RequestTeamControl", "arguments": {"team": "Charlie"}}
+{"text": "빨리빨리, 설정 창을 없애 줘", "function": "CloseWindow", "arguments": {"windowName": "설정"}}
+{"text": "마커 하나 박아 줘 그리고 카메라 영점", "function": "DefaultResponse", "arguments": {}}
+{"text": "아 골프팀 제어권 안하사한테 넘겨 줘", "function": "AssignTeamControl", "arguments": {"team": "Golf", "soldierName": "안하사"}}
+{"text": "추천 창 닫아 줘 그리고 드론 칠번 즉시 복구 해 줘, 아까부터계속 이러네", "function": "DefaultResponse", "arguments": {}}
+{"text": "드론 6기로 투하 팀 편성 부탁해 그리고 인디아팀을 해체 좀 해 줘, 오버", "function": "DefaultResponse", "arguments": {}}
+{"text": "조중위한테 마이크팀 제어 권 이양해 줘", "function": "AssignTeamControl", "arguments": {"team": "Mike", "soldierName": "조중위"}}
+{"text": "적 은엄폐 숨겨", "function": "ClearDisplayFilters", "arguments": {"filterNames": "적 은엄폐"}}
+{"text": "호텔 리더 카메라 띄워 봐", "function": "ShowTeamCamera", "arguments": {"team": "Hotel"}}
+{"text": "녹화해 줘", "function": "StartRecording", "arguments": {}}
+{"text": "상황이 바뀌었어, 마이크 팀 해체하고 패스스루로 전환", "function": "DefaultResponse", "arguments": {}}
+{"text": "자 적은엄 폐 좀 보자", "function": "ApplyDisplayFilters", "arguments": {"filterNames": "적 은엄폐"}}
+{"text": "골프 팀들어와", "function": "ReturnTeam", "arguments": {"team": "Golf"}}
+{"text": "X-ray 팀 기 지로 복귀합니 다.", "function": "ReturnTeam", "arguments": {"team": "X-ray"}}
+{"text": "좋아, 7번 드론 수동 제어 모드", "function": "StartManualFlight", "arguments": {"droneNumber": 7}}
+{"text": "드론봇 팀 제외 창 그래 승인, 지금 급해", "function": "AcceptConfirmWindow", "arguments": {"confirmName": "드론봇 팀 제외"}}
+{"text": "저기 한번 보자, 호텔팀 지금 어디 있어요?", "function": "DefaultResponse", "arguments": {}}
+{"text": "알림 상세 화면을 닫지 마라", "function": "DefaultResponse", "arguments": {}}
+{"text": "프리셋 10 지워줘", "function": "DeletePreset", "arguments": {"presetNumber": 10}}
+{"text": "필터 창을 닫고 녹화 켜,전력이 얼마 안 남았어", "function": "DefaultResponse", "arguments": {}}
+{"text": "오케이, 13번 드론 따로 빼", "function": "DetachDrone", "arguments": {"droneNumber": 13}}
+{"text": "도움말", "function": "DefaultResponse", "arguments": {}}
+{"text": "7번 드론 미사일 발사, 다시봐야 하니까", "function": "DefaultResponse", "arguments": {}}
+{"text": "드론 5 번은 전술 수정 해 줘", "function": "EditDroneTactics", "arguments": {"droneNumber": 5}}
+{"text": "리마팀 팀 전체 뷰", "function": "MoveToTeamOverview", "arguments": {"team": "Lima"}}
+{"text": "좋아, 노벰버팀 전술 게시하자", "function": "StartTeamTactics", "arguments": {"team": "November"}}
+{"text": "팀이너무 흩어졌어, 프리셋 7 번지요", "function": "DeletePreset", "arguments": {"presetNumber": 7}}
+{"text": "잘 안 보여서, 전장의 안개 켜", "function": "ApplyDisplayFilters", "arguments": {"filterNames": "전장의 안개"}}
+{"text": "어 카메라 창 크기 줄여봐, 에너지 잔량 짧은데 빨리", "function": "ShrinkCameraWindow", "arguments": {}}
+{"text": "프리새 둘시점, 작아서안 보여", "function": "MoveToPreset", "arguments": {"presetNumber": 2}}
+{"text": "이 번 드론으로 할게", "function": "SelectDrone", "arguments": {"droneNumber": 2}}
+{"text": "서둘러, 비디오쓰루 해 제 후에 5 번 프리셋 지워 줘", "function": "DefaultResponse", "arguments": {}}
+{"text": "Romeo 팀 제어권 놓을게", "function": "ReturnTeamControl", "arguments": {"team": "Romeo"}}
+{"text": "설정창 열어 줘", "function": "OpenWindow", "arguments": {"windowName": "설정"}}
+{"text": "위스키팀 드론 다섯 쪽 시점으로", "function": "MoveToDroneView", "arguments": {"droneNumber": 5, "team": "Whiskey"}}
+{"text": "전술추천 닫 아", "function": "CancelTacticsRecommendation", "arguments": {}}
+{"text": "에코팀 전술 편집 모드", "function": "EditTeamTactics", "arguments": {"team": "Echo"}}
+{"text": "Uniform팀 소속 칠번 드론은 전술 수정 바람", "function": "EditDroneTactics", "arguments": {"droneNumber": 7, "team": "Uniform"}}
+{"text": "팔 번 드론은 전술 수정해주세요, 아 진짜 답답하네", "function": "EditDroneTactics", "arguments": {"droneNumber": 8}}
+{"text": "다음 작전 때문에 드론 팔번 팀에서 제외 바람", "function": "DetachDrone", "arguments": {"droneNumber": 8}}
+{"text": "네 번째 드론 골라", "function": "SelectDrone", "arguments": {"droneNumber": 4}}
+{"text": "추천 창 은 치워", "function": "CancelTacticsRecommendation", "arguments": {}}
+{"text": "탱고 팀 전체 위치로 이동해, 빨리", "function": "MoveToTeamOverview", "arguments": {"team": "Tango"}}
+{"text": "유니폼팀 다 보이게 맞춰 줘", "function": "MoveToTeamOverview", "arguments": {"team": "Uniform"}}
+{"text": "그 마 커를없애 줘", "function": "DefaultResponse", "arguments": {}}
+{"text": "양 키 해체해주세요", "function": "DisbandTeam", "arguments": {"team": "Yankee"}}
+{"text": "에코팀 다 해산 좀 해 줘", "function": "DisbandTeam", "arguments": {"team": "Echo"}}
+{"text": "마커 E로 가자", "function": "MoveToMarker", "arguments": {"markerNumber": 2}}
+{"text": "지형 복잡한데 마이크팀 전술 수정 필요, 당장 해", "function": "EditTeamTactics", "arguments": {"team": "Mike"}}
+{"text": "음, 카메라 위치 이상해, 설정으로 가자 지금", "function": "OpenWindow", "arguments": {"windowName": "설정"}}
+{"text": "엑스레이팀 제억원 저한테 주세요", "function": "RequestTeamControl", "arguments": {"team": "X-ray"}}
+{"text": "시야가 꽉 차 있어, 카메라창 좀 축소해줘 당장", "function": "ShrinkCameraWindow", "arguments": {}}
+{"text": "오스카팀과 탱고팀 중 하나 해체", "function": "DefaultResponse", "arguments": {}}
+{"text": "자폭팀 만들어 줘", "function": "EnterTeamCreation", "arguments": {}}
+{"text": "다른 전술로 바꿔, 빨리 좀", "function": "RequestTacticsRecommendation", "arguments": {}}
+{"text": "유니폼팀 제어건 다시 드릴게요", "function": "ReturnTeamControl", "arguments": {"team": "Uniform"}}
+{"text": "다음은, 노벰버 소속 일번 드론 드론 시점으로 옮겨 줘", "function": "MoveToDroneView", "arguments": {"droneNumber": 1, "team": "November"}}
+{"text": "마이크팀 좌측으로 이동 부탁해", "function": "DefaultResponse", "arguments": {}}
+{"text": "카메라 창 축소 좀 해 줘", "function": "ShrinkCameraWindow", "arguments": {}}
+{"text": "킬로팀 시점으로 가 줘", "function": "MoveToTeamView", "arguments": {"team": "Kilo"}}
+{"text": "잘 안 보여서 팀 연결선 없애 줘", "function": "ClearDisplayFilters", "arguments": {"filterNames": "팀 연결선"}}
+{"text": "델타 드론 6번 팀 제외 좀 해 줘", "function": "DetachDrone", "arguments": {"droneNumber": 6, "team": "Delta"}}
+{"text": "에코팀 카메라 띄워 줘.", "function": "ShowTeamCamera", "arguments": {"team": "Echo"}}
+{"text": "상황이 바뀌었으니까, 그 마커 삭제 부탁해", "function": "DefaultResponse", "arguments": {}}
+{"text": "제 어권 요청 창안 돼 거절", "function": "RejectConfirmWindow", "arguments": {"confirmName": "제어권 요청"}}
+{"text": "미안한데, 편집 취소 창 거부합니다", "function": "RejectConfirmWindow", "arguments": {"confirmName": "편집 취소"}}
+{"text": "삼호기는 전술 수정 부탁해", "function": "EditDroneTactics", "arguments": {"droneNumber": 3}}
+{"text": "상황 파악을 위해 전술 지도 창 열릴 것, 오버", "function": "OpenWindow", "arguments": {"windowName": "전술 지도"}}
+{"text": "전장의 안개 안 보이게 해 줘 그리고 나서 전술지도 화면 열기", "function": "DefaultResponse", "arguments": {}}
+{"text": "호랑이팀 해체해", "function": "DefaultResponse", "arguments": {}}
+{"text": "시간이 없으니까, 패스 스루 꺼", "function": "DisableVideoThrough", "arguments": {}}
+{"text": "일시 정지합니다.", "function": "DefaultResponse", "arguments": {}}
+{"text": "에코팀 영상 보여 줘", "function": "ShowTeamCamera", "arguments": {"team": "Echo"}}
+{"text": "게임 종료 창 좋아 승인해", "function": "AcceptConfirmWindow", "arguments": {"confirmName": "게임 종료"}}
+{"text": "유니폼팀 제어권을 요청해 줘", "function": "RequestTeamControl", "arguments": {"team": "Uniform"}}
+{"text": "드론봇 팀 제외 거부할게", "function": "RejectConfirmWindow", "arguments": {"confirmName": "드론봇 팀 제외"}}
+{"text": "녹화 상황 확인, 지금 종료해, 오버", "function": "StopRecording", "arguments": {}}
+{"text": "폭스트롯팀을 8번 웨이포인트로 이동해 줘, 다음 작전 때문에", "function": "DefaultResponse", "arguments": {}}
+{"text": "15 번 드론 카메라 줌 아웃", "function": "DefaultResponse", "arguments": {}}
+{"text": "알파 팀, 지금 당장 기지로 돌아옵니다", "function": "ReturnTeam", "arguments": {"team": "Alpha"}}
+{"text": "카메라 창 좁게", "function": "ShrinkCameraWindow", "arguments": {}}
+{"text": "퀘벡팀 팀 뷰", "function": "MoveToTeamView", "arguments": {"team": "Quebec"}}
+{"text": "지형이 복잡해지고 있으니, 알파팀 지금 복귀해줘, 바람", "function": "ReturnTeam", "arguments": {"team": "Alpha"}}
+{"text": "전력이 부족하니까, 필터 창 오픈하자", "function": "OpenWindow", "arguments": {"windowName": "필터"}}
+{"text": "전술 확정 창 확인 완료했네, 삼, 지금 수락할게 이상", "function": "AcceptConfirmWindow", "arguments": {"confirmName": "전술 확정"}}
+{"text": "아까부터 계속 이러네, 7 번 드론 카메라 화면", "function": "ShowDroneCamera", "arguments": {"droneNumber": 7}}
+{"text": "폭스트롯팀으로 할게카메라가 엉뚱한데를 보고 있어", "function": "SelectTeam", "arguments": {"team": "Foxtrot"}}
+{"text": "그건 됐으니까 리마팀 카메라로 보여 줘", "function": "ShowTeamCamera", "arguments": {"team": "Lima"}}
+{"text": "7 번 마커 삭제해 줘", "function": "DeleteMarker", "arguments": {"markerNumber": 7}}
+{"text": "시야가 흐려, 비디오쓰루 켜 해외", "function": "EnableVideoThrough", "arguments": {}}
+{"text": "전장의 안개 표시 설정할게.", "function": "ApplyDisplayFilters", "arguments": {"filterNames": "전장의 안개"}}
+{"text": "오스카야, 현재 배터리 상태에서 첫 번째 미사일 발사 가능한가? 빠르게 체크해줘, 바람", "function": "DefaultResponse", "arguments": {}}
+{"text": "적 은엄폐 꺼져 있어요?.", "function": "DefaultResponse", "arguments": {}}
+{"text": "카메라 각도 원래대로 해 줘너무 작아", "function": "ResetCameraGimbal", "arguments": {}}
+{"text": "이 지형에서 탱고팀 전략 시작해, 빨리죠? 이상 보고 완료", "function": "StartTeamTactics", "arguments": {"team": "Tango"}}
+{"text": "시뮬레이션 종료 받아줘", "function": "AcceptConfirmWindow", "arguments": {"confirmName": "시뮬레이션 종료"}}
+{"text": "전력 여유가 없는데, 인근 팀으로 지원 요청할래, 지금 바로 바꿔, 바람", "function": "DefaultResponse", "arguments": {}}
+{"text": "골프팀 전원 전술 시작 부탁해", "function": "StartTeamTactics", "arguments": {"team": "Golf"}}
+{"text": "음 이제 다 끝났으니까 패널 원위치 시켜 줘", "function": "ResetPanelPositions", "arguments": {}}
+{"text": "위스키팀 소속 8번 드론 카메라", "function": "ShowDroneCamera", "arguments": {"droneNumber": 8, "team": "Whiskey"}}
+{"text": "잘 안보이니까 삼번 드론 선택", "function": "SelectDrone", "arguments": {"droneNumber": 3}}
+{"text": "드론 시야 표시 켜기", "function": "ApplyDisplayFilters", "arguments": {"filterNames": "드론 시야"}}
+{"text": "잘 안 보여서, 프리새 16 지워 줘", "function": "DeletePreset", "arguments": {"presetNumber": 16}}
+{"text": "상황 파악 힘겨워, 카메라 창 확대해봐, 오버", "function": "EnlargeCameraWindow", "arguments": {}}
+{"text": "Delta팀 드론 5번 복구한 다음 시에라팀 해체시켜, 답답하네", "function": "DefaultResponse", "arguments": {}}
+{"text": "독수리팀, 지금 통제권 상황 어때, 정확히 확인하고 원가 알려줘, 지금", "function": "DefaultResponse", "arguments": {}}
+{"text": "카메라 정면으로 돌려 놔", "function": "ResetCameraGimbal", "arguments": {}}
+{"text": "자 쓰리 번 마 커 지어", "function": "DeleteMarker", "arguments": {"markerNumber": 3}}
+{"text": "마커 3번으로 가 줘", "function": "MoveToMarker", "arguments": {"markerNumber": 3}}
+{"text": "드론16번으로 선택해라", "function": "SelectDrone", "arguments": {"droneNumber": 16}}
+{"text": "카메라 각도 원래대로, 답답하네", "function": "ResetCameraGimbal", "arguments": {}}
+{"text": "팀 전술 편집해주세요,전력이 부족하니까", "function": "DefaultResponse", "arguments": {}}
+{"text": "위협, 드론 시야 표시해줘", "function": "ApplyDisplayFilters", "arguments": {"filterNames": "위협, 드론 시야"}}
+{"text": "Hotel팀 다 지역원 가져와", "function": "RevokeTeamControl", "arguments": {"team": "Hotel"}}
+{"text": "사번 드론 복귀해 줘", "function": "ReturnDrone", "arguments": {"droneNumber": 4}}
+{"text": "줌 아웃", "function": "DefaultResponse", "arguments": {}}
+{"text": "11번 드 론 복구시켜 줘", "function": "ReturnDrone", "arguments": {"droneNumber": 11}}
+{"text": "시야가 흐릿하다, 기동성 켜서 잠깐 확인해 오버", "function": "ApplyDisplayFilters", "arguments": {"filterNames": "기동성"}}
+{"text": "드론 7 번 따로 빼 줘, 잠깐 보게", "function": "DetachDrone", "arguments": {"droneNumber": 7}}
+{"text": "킬로팀 골라 줘", "function": "SelectTeam", "arguments": {"team": "Kilo"}}
+{"text": "전술 하나 추천해 줘,너무 작 아", "function": "RequestTacticsRecommendation", "arguments": {}}
+{"text": "10번 드론 잡아", "function": "SelectDrone", "arguments": {"droneNumber": 10}}
+{"text": "마커 생성 모드, 기동성 적 은엄폐 표시 켜 줘, 다시 보려고", "function": "DefaultResponse", "arguments": {}}
+{"text": "음 오케이, 마커 찍을게", "function": "EnterMarkerCreation", "arguments": {}}
+{"text": "드론봇 팀 제외 취소해 줘", "function": "RejectConfirmWindow", "arguments": {"confirmName": "드론봇 팀 제외"}}
+{"text": "상황 파악하려고 전원 꺼", "function": "DefaultResponse", "arguments": {}}
+{"text": "마커 육 삭제", "function": "DeleteMarker", "arguments": {"markerNumber": 6}}
+{"text": "드론 10 위치로 전환해줘라, 이상 확인하고 오버", "function": "MoveToDroneView", "arguments": {"droneNumber": 10}}
+{"text": "드론 2번 기환시켜", "function": "ReturnDrone", "arguments": {"droneNumber": 2}}
+{"text": "브릿지 팀, 현재 마커 추가 지원 불가, 잠깐 기다려봐", "function": "DefaultResponse", "arguments": {}}
+{"text": "드론 5기 공격 팀 편성 좀 헷갈리네", "function": "CreateTeam", "arguments": {"teamType": "공격", "memberCount": 5}}
+{"text": "응, 카메라창 좁 게", "function": "ShrinkCameraWindow", "arguments": {}}
+{"text": "지형이 복잡해, 다른 전술 추천 급하게", "function": "RequestTacticsRecommendation", "arguments": {}}
+{"text": "음, 녹화 멈추고 싶은데요, 당장 해주세요, 바람", "function": "StopRecording", "arguments": {}}
+{"text": "패스스루모드꺼", "function": "DisableVideoThrough", "arguments": {}}
+{"text": "위협 보이게 해 줘, 그건 됐으니까", "function": "ApplyDisplayFilters", "arguments": {"filterNames": "위협"}}
+{"text": "화면이 복잡하니까, Hotel 팀 제어권 제가 받을게요", "function": "RequestTeamControl", "arguments": {"team": "Hotel"}}
+{"text": "자 전력이 얼마 안 남았어, 5번 드론 이제 들어와", "function": "ReturnDrone", "arguments": {"droneNumber": 5}}
+{"text": "아 진짜 답답하네, 자폭 드론 3대로 팀 만들어줘", "function": "CreateTeam", "arguments": {"teamType": "자폭", "memberCount": 3}}
+{"text": "전장의 안개 표시 꺼", "function": "ClearDisplayFilters", "arguments": {"filterNames": "전장의 안개"}}
+{"text": "로미오 팀 선택 이상, 오버", "function": "SelectTeam", "arguments": {"team": "Romeo"}}
+{"text": "지상 드론 1대 팀 구성 부탁합니다", "function": "CreateTeam", "arguments": {"teamType": "UGV", "memberCount": 1}}
+{"text": "테 덜어먹지 마, 다른 지시 바꿔봐 지금 당장", "function": "DefaultResponse", "arguments": {}}
+{"text": "브리티 십번 드론 뷰로 바꿔놔, 서둘러", "function": "MoveToDroneView", "arguments": {"droneNumber": 10}}
+{"text": "녹화 잠시 중단할게", "function": "DefaultResponse", "arguments": {}}
+{"text": "음, 지금은 전술 지도 조정 금지야, 계속 진행해", "function": "DefaultResponse", "arguments": {}}
+{"text": "지형 파악이 어려운데, 전술 지도 창 좀 봐줘, 빨리빨리", "function": "OpenWindow", "arguments": {"windowName": "전술 지도"}}
+{"text": "적기 압박 중, 드론 5번 수동 조종 해줘야, 서두르자", "function": "StartManualFlight", "arguments": {"droneNumber": 5}}
+{"text": "어 기동성 표시 꺼줘", "function": "ClearDisplayFilters", "arguments": {"filterNames": "기동성"}}
+{"text": "전장의 안개 켜", "function": "ApplyDisplayFilters", "arguments": {"filterNames": "전장의 안개"}}
+{"text": "마커 육번 을 지 우면 안 돼", "function": "DefaultResponse", "arguments": {}}
+{"text": "전력이부족하니까 카메라창 줄여", "function": "ShrinkCameraWindow", "arguments": {}}
+{"text": "아 아까부터 계속 이러네, 구 번 드론 드론 시점", "function": "MoveToDroneView", "arguments": {"droneNumber": 9}}
+{"text": "4번 마커 제거할게", "function": "DeleteMarker", "arguments": {"markerNumber": 4}}
+{"text": "좀 헷갈리네, 팀 해체 승인 바람", "function": "AcceptConfirmWindow", "arguments": {"confirmName": "팀 해체"}}
+{"text": "다시봐야 하니까 폭탄 투하 좀 해 줘", "function": "DefaultResponse", "arguments": {}}
+{"text": "에코 사번 드론 잡 아 줘", "function": "SelectDrone", "arguments": {"droneNumber": 4, "team": "Echo"}}
+{"text": "탱고팀 다 제어건 가져와", "function": "RevokeTeamControl", "arguments": {"team": "Tango"}}
+{"text": "기동성,위협 표시 안 보이게", "function": "ClearDisplayFilters", "arguments": {"filterNames": "기동성, 위협"}}
+{"text": "킬로팀잡자.", "function": "SelectTeam", "arguments": {"team": "Kilo"}}
+{"text": "시에라 6호기 팀에서 내보내 지금 급해", "function": "DetachDrone", "arguments": {"droneNumber": 6, "team": "Sierra"}}
+{"text": "레코딩 중지할게,너무 작아", "function": "StopRecording", "arguments": {}}
+{"text": "지역원 반납을 안 돼 거절", "function": "RejectConfirmWindow", "arguments": {"confirmName": "제어권 반납"}}
+{"text": "퀘벡 9번 드론 팀에서 제외", "function": "DetachDrone", "arguments": {"droneNumber": 9, "team": "Quebec"}}
+{"text": "새 마커 생성해 줘", "function": "EnterMarkerCreation", "arguments": {}}
+{"text": "현재 전력 상태 확인 중, 다른 팀으로 미룰까요? 결정해줘, 지금 당장 필요해, 오버", "function": "DefaultResponse", "arguments": {}}
+{"text": "육 번 드론 카메라 띄워", "function": "ShowDroneCamera", "arguments": {"droneNumber": 6}}
+{"text": "드론 3번 따로 빼고 녹화 거 버려 시간이 없으니까", "function": "DefaultResponse", "arguments": {}}
+{"text": "Kilo 팀 그만 들어와", "function": "ReturnTeam", "arguments": {"team": "Kilo"}}
+{"text": "현재 시스템에서 인디아 복귀 명령 불가, 상태 재확인 필요, 오버", "function": "DefaultResponse", "arguments": {}}
+{"text": "전술 확정 창 거절", "function": "RejectConfirmWindow", "arguments": {"confirmName": "전술 확정"}}
+{"text": "됐고, 지상 다섯 기 팀 만들어줘", "function": "CreateTeam", "arguments": {"teamType": "UGV", "memberCount": 5}}
+{"text": "세 번째 드론 드론 뷰.", "function": "MoveToDroneView", "arguments": {"droneNumber": 3}}
+{"text": "마커 십 번 삭제 좀 해 줘", "function": "DeleteMarker", "arguments": {"markerNumber": 10}}
+{"text": "이거 왜 이래, 8번 드론 영상 띄워 줘", "function": "ShowDroneCamera", "arguments": {"droneNumber": 8}}
+{"text": "전력이 간당간당하네, 탱고팀 소속 8번 드론은 들어오게 해", "function": "ReturnDrone", "arguments": {"droneNumber": 8, "team": "Tango"}}
+{"text": "아군 은엄폐 그만 보여 줘", "function": "ClearDisplayFilters", "arguments": {"filterNames": "아군 은엄폐"}}
+{"text": "퀘벡 소속 7번 드론 직접 몰아 볼게, 그리고 지금 화면 기억해 둬", "function": "DefaultResponse", "arguments": {}}
+{"text": "다른 안으로 추천", "function": "RequestTacticsRecommendation", "arguments": {}}
+{"text": "급하니까 전술 지도 꺼", "function": "CloseWindow", "arguments": {"windowName": "전술 지도"}}
+{"text": "전술지도 보여 줘, 답답하네", "function": "OpenWindow", "arguments": {"windowName": "전술 지도"}}
+{"text": "이 드론으로 선택할게", "function": "DefaultResponse", "arguments": {}}
+{"text": "장애물 숨겨", "function": "ClearDisplayFilters", "arguments": {"filterNames": "장애물"}}
+{"text": "여기 시야가 안 좋네, 마커 하나 추가해봐, 빨리", "function": "EnterMarkerCreation", "arguments": {}}
+{"text": "전술 확정 창 거부하자", "function": "RejectConfirmWindow", "arguments": {"confirmName": "전술 확정"}}
+{"text": "자폭 드론 10대로 팀 생성해 줘", "function": "CreateTeam", "arguments": {"teamType": "자폭", "memberCount": 10}}
+{"text": "그럼, 드론 넷 고도 백미터 올려", "function": "DefaultResponse", "arguments": {}}
+{"text": "음, 프리셋 번호 6은 지워 주면 돼, 이상 빨리", "function": "DeletePreset", "arguments": {"presetNumber": 6}}
+{"text": "찰리팀 제역원 요청해요", "function": "RequestTeamControl", "arguments": {"team": "Charlie"}}
+{"text": "화면이 너무 복잡해, 비디오 쓰루 끄기", "function": "DisableVideoThrough", "arguments": {}}
+{"text": "양키팀 제어권 주세요, 다음 작전 때문에", "function": "RequestTeamControl", "arguments": {"team": "Yankee"}}
+{"text": "그 다섯 번째 드론 선택 적 온다", "function": "SelectDrone", "arguments": {"droneNumber": 5}}
+{"text": "사모기 기수 북쪽으로", "function": "DefaultResponse", "arguments": {}}
+{"text": "드론 8번, 당장 잡아서 위치 확인해", "function": "SelectDrone", "arguments": {"droneNumber": 8}}
+{"text": "에코 드론 10번 위치 이상, 전술 조정해줘 당장", "function": "EditDroneTactics", "arguments": {"droneNumber": 10, "team": "Echo"}}
+{"text": "시야 흐리니 여기 마커 추가해, 서둘러요", "function": "EnterMarkerCreation", "arguments": {}}
+{"text": "급하니까 녹화 꺼 줘 그리고 나서 8번 프리셋으로 가", "function": "DefaultResponse", "arguments": {}}
+{"text": "전술 지도 창을 보자", "function": "OpenWindow", "arguments": {"windowName": "전술 지도"}}
+{"text": "녹화 끊어 그리고 알파팀 제어권 반납합니다", "function": "DefaultResponse", "arguments": {}}
+{"text": "드 론 11번 드론 시점으로 전환해 줘", "function": "MoveToDroneView", "arguments": {"droneNumber": 11}}
+{"text": "팀 연결선 표시 없애버려, 서둘러", "function": "ClearDisplayFilters", "arguments": {"filterNames": "팀 연결선"}}
+{"text": "폭스트롯팀몇 기남았어?", "function": "DefaultResponse", "arguments": {}}
+{"text": "시야 혼탁해지고 있어, 영상 패스스루 활성화 해봐, 지금", "function": "EnableVideoThrough", "arguments": {}}
+{"text": "골프 팀 드론 4번 어디있어요, 적 온다", "function": "DefaultResponse", "arguments": {}}
+{"text": "기동로 표시 그 만 보여 줘 적이 접근하고 있어", "function": "ClearDisplayFilters", "arguments": {"filterNames": "기동로"}}
+{"text": "양키 해체 바람", "function": "DisbandTeam", "arguments": {"team": "Yankee"}}
+{"text": "뒤로 가기", "function": "DefaultResponse", "arguments": {}}
+{"text": "어, 유니폼 팀 제어권 회수해, 빨리", "function": "RevokeTeamControl", "arguments": {"team": "Uniform"}}
+{"text": "적의 움직임이 복잡해지고 있어, 녹화 중지해, 서둘러", "function": "StopRecording", "arguments": {}}
+{"text": "패널 원위치해라", "function": "ResetPanelPositions", "arguments": {}}
+{"text": "고팀 위치 확인했어, 이곳에서의 전진은 제한적일 것 같아, 추가 지원 필요할지도", "function": "DefaultResponse", "arguments": {}}
+{"text": "카메라 괴리감 있어, 설정 창이야 빨리", "function": "OpenWindow", "arguments": {"windowName": "설정"}}
+{"text": "시야가 바쁜데, 녹화 중임 중지해줘요, 서둘러", "function": "StopRecording", "arguments": {}}
+{"text": "마커 이로 가자", "function": "MoveToMarker", "arguments": {"markerNumber": 2}}
+{"text": "필터 창 좀 볼게, 잠깐 보게", "function": "OpenWindow", "arguments": {"windowName": "필터"}}
+{"text": "LM 추가 부탁해", "function": "EnterMarkerCreation", "arguments": {}}
+{"text": "마커 없애", "function": "DefaultResponse", "arguments": {}}
+{"text": "제어권 회수 승인할게", "function": "AcceptConfirmWindow", "arguments": {"confirmName": "제어권 회수"}}
+{"text": "현 상황 복잡해, Golf 삼호기 택해라, 서둘러", "function": "SelectDrone", "arguments": {"droneNumber": 3, "team": "Golf"}}
+{"text": "줄리엣팀으로 바꿔 줘", "function": "SelectTeam", "arguments": {"team": "Juliet"}}
+{"text": "그 파파팀 제역 원 요청 좀 해줘", "function": "RequestTeamControl", "arguments": {"team": "Papa"}}
+{"text": "드론 3번 내보내기", "function": "DetachDrone", "arguments": {"droneNumber": 3}}
+{"text": "저기, 전술 녹화 시작해 주실래요, 빨리", "function": "StartRecording", "arguments": {}}
+{"text": "레코딩시작", "function": "StartRecording", "arguments": {}}
+{"text": "브라보 팀 전원 제어권 회수", "function": "RevokeTeamControl", "arguments": {"team": "Bravo"}}
+{"text": "시에라팀 전술 변경합니다", "function": "EditTeamTactics", "arguments": {"team": "Sierra"}}
+{"text": "알림 상세 를 닫아 주세요 그 다음 3번 드론 전술 편집 모드", "function": "DefaultResponse", "arguments": {}}
+{"text": "마이크 지금 어디 있어", "function": "DefaultResponse", "arguments": {}}
+{"text": "지형 관찰 중, 전술 확정 창 승인해, 지금 당장 해줘", "function": "AcceptConfirmWindow", "arguments": {"confirmName": "전술 확정"}}
+{"text": "지형이 애매해서, [{팀 번호}] 팀 연계 요청이지만, 지금 상태로는 불가능하겠어, 이상", "function": "DefaultResponse", "arguments": {}}
+{"text": "더 나은 전술 추천해 줘", "function": "RequestTacticsRecommendation", "arguments": {}}
+{"text": "오케이, 자폭 공격 확인해", "function": "AcceptConfirmWindow", "arguments": {"confirmName": "자폭 공격"}}
+{"text": "확인 창 '편집 취소' 거부해야지, 지금 당장", "function": "RejectConfirmWindow", "arguments": {"confirmName": "편집 취소"}}
+{"text": "인디아팀 팀 전체 시점, 상황 파악하려고", "function": "MoveToTeamOverview", "arguments": {"team": "India"}}
+{"text": "노벰버 팀 팀 해산해", "function": "DisbandTeam", "arguments": {"team": "November"}}
+{"text": "로미오팀으로 전환 좀 해 줘", "function": "SelectTeam", "arguments": {"team": "Romeo"}}

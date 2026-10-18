@@ -26,6 +26,7 @@ is Android CPU unless noted.
 | Gemma3-270M-IT | official `q8` | 290 MB | — | 27.7 | not deployed — answers missed our smoke bar. Cannot be i4'd (no f32 source) | [litert-community](https://huggingface.co/litert-community/gemma-3-270m-it) |
 | Gemma3-1B-IT | official `int4` | 557 MB | 3/20 | 16.0 | chat fallback only — **not a router** | [litert-community](https://huggingface.co/litert-community/Gemma3-1B-IT) |
 | FunctionGemma-270M | `ft-mobile-actions` | 276 MB | 6/7‡ | 38.2† | comparison point — built around fine-tuning, so excluded from selection | [litert-community](https://huggingface.co/litert-community/functiongemma-270m-ft-mobile-actions) |
+| FunctionGemma-270M **ko fine-tune (v6e)** | int8, cache 256 / prefill 64·128 | 277 MB | WebServer contract: 147/147 eval, 130/137 blind | 50 (device) | **voice-command router** — ~0.3–0.4 s/command on kona, with the app-side guard in `LiteRtLmFunctionGemmaRouter.cs`. [benchmarks/functiongemma-korean-fc.md](benchmarks/functiongemma-korean-fc.md) | local (`Tools/Research/FunctionGemma`) |
 | LFM2.5-1.2B-Instruct | `int4` | 702 MB | **17/20** | 16.8 | **mid-tier FC pick**. Requires the v0.14 runtime | [LiquidAI](https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct) |
 | gemma-4-E2B-it | official QAT `wNa8o8` | 2.6 GB | **19/20** | 5.2 | **on-demand flagship** — chat, image, audio and FC in one model | [litert-community](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm) |
 

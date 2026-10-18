@@ -1,0 +1,202 @@
+{"kind": "exec", "hint": "SelectTeam", "text": "알파팀 선택하자"}
+{"kind": "exec", "hint": "SelectTeam", "text": "팀이 브라보야"}
+{"kind": "exec", "hint": "SelectTeam", "text": "팀 세트 찰리"}
+{"kind": "exec", "hint": "SelectTeam", "text": "호델타 팀 선택"}
+{"kind": "exec", "hint": "EnterTeamCreation", "text": "팀생성하자"}
+{"kind": "exec", "hint": "EnterTeamCreation", "text": "새팀만들어야지"}
+{"kind": "exec", "hint": "EnterTeamCreation", "text": "팀편성화면으로"}
+{"kind": "exec", "hint": "CreateTeam", "text": "정찰 드론 4기로 팀 만들어줘"}
+{"kind": "exec", "hint": "CreateTeam", "text": "공격 드론 세 대로 팀 생성"}
+{"kind": "exec", "hint": "CreateTeam", "text": "자폭 드론 일곱 대로 팀 만들어 줘"}
+{"kind": "exec", "hint": "CreateTeam", "text": "UGV 드론 여섯 대로 팀 만들어"}
+{"kind": "exec", "hint": "ReturnTeam", "text": "브라보 팀 귀환"}
+{"kind": "exec", "hint": "ReturnTeam", "text": "찰리팀 복귀해"}
+{"kind": "exec", "hint": "ReturnTeam", "text": "델타팀 돌아와"}
+{"kind": "exec", "hint": "DisbandTeam", "text": "알파팀 해체하자"}
+{"kind": "exec", "hint": "DisbandTeam", "text": "브라보 팀 해산해"}
+{"kind": "exec", "hint": "DisbandTeam", "text": "찰리팀 접고 대기팀으로 바꿔"}
+{"kind": "exec", "hint": "DisbandTeam", "text": "델타팀 정리하고 예비로 보내"}
+{"kind": "exec", "hint": "StartTeamTactics", "text": "브라보팀 작전 개시"}
+{"kind": "exec", "hint": "StartTeamTactics", "text": "찰리팀 작전 시작해"}
+{"kind": "exec", "hint": "StartTeamTactics", "text": "델타팀 전략 실행"}
+{"kind": "exec", "hint": "EditTeamTactics", "text": "알파팀 전략 수정하자"}
+{"kind": "exec", "hint": "EditTeamTactics", "text": "호텔팀 전술 바꿔줘"}
+{"kind": "exec", "hint": "EditTeamTactics", "text": "팀 델타 전략 좀 바꿔"}
+{"kind": "exec", "hint": "EditTeamTactics", "text": "시에라팀 전술 수정"}
+{"kind": "exec", "hint": "SelectDrone", "text": "세 번째 드론 고르자"}
+{"kind": "exec", "hint": "SelectDrone", "text": "팀 알파 둘호기 고름"}
+{"kind": "exec", "hint": "SelectDrone", "text": "네번째 드론 선택해"}
+{"kind": "exec", "hint": "SelectDrone", "text": "팀 호텔 세호기 고름"}
+{"kind": "exec", "hint": "EditDroneTactics", "text": "삼호기 전술 바꿔"}
+{"kind": "exec", "hint": "EditDroneTactics", "text": "세호기 전술 편집"}
+{"kind": "exec", "hint": "EditDroneTactics", "text": "네 번째 드론 전술 바꾸기"}
+{"kind": "exec", "hint": "EditDroneTactics", "text": "네번째 드론 전술 편집 좀"}
+{"kind": "exec", "hint": "ReturnDrone", "text": "3호기 돌아와"}
+{"kind": "exec", "hint": "ReturnDrone", "text": "삼호기 귀환해"}
+{"kind": "exec", "hint": "ReturnDrone", "text": "드론 다섯 복귀"}
+{"kind": "exec", "hint": "ReturnDrone", "text": "브라보 2호기 복귀"}
+{"kind": "exec", "hint": "DetachDrone", "text": "삼호기 팀에서 뺴줘"}
+{"kind": "exec", "hint": "DetachDrone", "text": "팀에서 다섯호기 내보내"}
+{"kind": "exec", "hint": "DetachDrone", "text": "팀 브라보 세호기 빼 줘"}
+{"kind": "exec", "hint": "DetachDrone", "text": "세호기 팀에서 빼"}
+{"kind": "exec", "hint": "StartManualFlight", "text": "삼호기 개별비행"}
+{"kind": "exec", "hint": "StartManualFlight", "text": "델타 세번째 개별비행 들어가"}
+{"kind": "exec", "hint": "StartManualFlight", "text": "세 번째 드론 개별제어 시작해"}
+{"kind": "exec", "hint": "StartManualFlight", "text": "브라보 세호기 개별비행 해"}
+{"kind": "exec", "hint": "AssignTeamControl", "text": "알파팀 제어권 넘겨"}
+{"kind": "exec", "hint": "AssignTeamControl", "text": "브라보팀 제어권 이양하자"}
+{"kind": "exec", "hint": "AssignTeamControl", "text": "델타팀 김대위 제어권 넘겨줘"}
+{"kind": "exec", "hint": "RevokeTeamControl", "text": "델타팀 제어권 다시 잡아"}
+{"kind": "exec", "hint": "RevokeTeamControl", "text": "제어권 회수, 알파팀"}
+{"kind": "exec", "hint": "RevokeTeamControl", "text": "팀 제어권 뺏겨, 브라보팀"}
+{"kind": "exec", "hint": "RevokeTeamControl", "text": "제어권 회수해, 카리브팀"}
+{"kind": "exec", "hint": "RequestTeamControl", "text": "팀 제어 알파 팀"}
+{"kind": "exec", "hint": "RequestTeamControl", "text": "제어권 받고 싶네 브라보 팀"}
+{"kind": "exec", "hint": "RequestTeamControl", "text": "차리 팀 제어권 줘"}
+{"kind": "exec", "hint": "RequestTeamControl", "text": "델타 팀 제어 할래"}
+{"kind": "exec", "hint": "ReturnTeamControl", "text": "팀 제어권 돌려줘요 알파"}
+{"kind": "exec", "hint": "ReturnTeamControl", "text": "알파팀 제어권 내놔"}
+{"kind": "exec", "hint": "ReturnTeamControl", "text": "알파팀 제어권 넘겨 줄게"}
+{"kind": "exec", "hint": "ReturnTeamControl", "text": "제어권 돌려줘 알파팀"}
+{"kind": "exec", "hint": "MoveToMarker", "text": "마커 2로 이동하자"}
+{"kind": "exec", "hint": "MoveToMarker", "text": "이번엔 마커 4로 가봐"}
+{"kind": "exec", "hint": "MoveToMarker", "text": "마커 5로 보내줘"}
+{"kind": "exec", "hint": "MoveToMarker", "text": "마커 다섯 위치로 갈래"}
+{"kind": "exec", "hint": "MoveToPreset", "text": "preset 1 가"}
+{"kind": "exec", "hint": "MoveToPreset", "text": "프리셋 두 보여줘"}
+{"kind": "exec", "hint": "MoveToPreset", "text": "세번째 프리셋으로 이동해"}
+{"kind": "exec", "hint": "MoveToPreset", "text": "셋 번 프리셋 보여줘"}
+{"kind": "exec", "hint": "EnterMarkerCreation", "text": "마커생성하자"}
+{"kind": "exec", "hint": "EnterMarkerCreation", "text": "마커추가해야겠다"}
+{"kind": "exec", "hint": "EnterMarkerCreation", "text": "찍어야겠다"}
+{"kind": "exec", "hint": "EnterMarkerCreation", "text": "마커 더 만들래"}
+{"kind": "exec", "hint": "CreatePreset", "text": "지금 상태 프리셋저장"}
+{"kind": "exec", "hint": "CreatePreset", "text": "이거 지금 프리셋으로 저장해"}
+{"kind": "exec", "hint": "CreatePreset", "text": "현재 상태 저장해"}
+{"kind": "exec", "hint": "CreatePreset", "text": "지금 시점 프리셋으로 정리"}
+{"kind": "exec", "hint": "DeleteMarker", "text": "2번 마커 지워줘"}
+{"kind": "exec", "hint": "DeleteMarker", "text": "이 마커 삭제해봐"}
+{"kind": "exec", "hint": "DeleteMarker", "text": "마커 두 개 없애"}
+{"kind": "exec", "hint": "DeleteMarker", "text": "두 번째 마커 지워"}
+{"kind": "exec", "hint": "DeletePreset", "text": "이번 프리셋 지우봐"}
+{"kind": "exec", "hint": "DeletePreset", "text": "두 번째 프리셋 삭제해"}
+{"kind": "exec", "hint": "DeletePreset", "text": "두 호 프리셋 지워"}
+{"kind": "exec", "hint": "DeletePreset", "text": "브라보 2호 프리셋 지우줘"}
+{"kind": "exec", "hint": "RequestTacticsRecommendation", "text": "추천 다시 받아"}
+{"kind": "exec", "hint": "RequestTacticsRecommendation", "text": "다른 전술 알려줘"}
+{"kind": "exec", "hint": "CancelTacticsRecommendation", "text": "추천 안 함"}
+{"kind": "exec", "hint": "CancelTacticsRecommendation", "text": "추천 끝내"}
+{"kind": "exec", "hint": "CancelTacticsRecommendation", "text": "추천 취소해"}
+{"kind": "exec", "hint": "OpenWindow", "text": "전술지도 불러줘"}
+{"kind": "exec", "hint": "OpenWindow", "text": "알림 상세 창 띄워줘"}
+{"kind": "exec", "hint": "OpenWindow", "text": "필터 창 좀 불러"}
+{"kind": "exec", "hint": "OpenWindow", "text": "셋팅 창 여셔"}
+{"kind": "exec", "hint": "CloseWindow", "text": "알림 상세 닫혀"}
+{"kind": "exec", "hint": "CloseWindow", "text": "필터 창 없애줘"}
+{"kind": "exec", "hint": "CloseWindow", "text": "셋팅 창 닫아"}
+{"kind": "exec", "hint": "CloseWindow", "text": "전술 지도 닫아주"}
+{"kind": "exec", "hint": "ShowTeamCamera", "text": "알파팀 보여줘"}
+{"kind": "exec", "hint": "ShowTeamCamera", "text": "Alpha팀 카메라 좀 띄워"}
+{"kind": "exec", "hint": "ShowTeamCamera", "text": "Alpha팀 카메라 보이게 해줘"}
+{"kind": "exec", "hint": "ShowTeamCamera", "text": "Alpha팀 화면 좀 펴줘"}
+{"kind": "exec", "hint": "ShowDroneCamera", "text": "삼호기 카메라 보여줘"}
+{"kind": "exec", "hint": "ShowDroneCamera", "text": "브라보 세호기 영상 좀"}
+{"kind": "exec", "hint": "ShowDroneCamera", "text": "3호기 카메라 띄워"}
+{"kind": "exec", "hint": "ShowDroneCamera", "text": "세 번째 드론 뷰"}
+{"kind": "exec", "hint": "ResetCameraGimbal", "text": "카메라 영점 다시 세워줘"}
+{"kind": "exec", "hint": "ResetCameraGimbal", "text": "짐벌 영점으로 돌려"}
+{"kind": "exec", "hint": "ResetCameraGimbal", "text": "카메라 정면 맞추고"}
+{"kind": "exec", "hint": "ResetCameraGimbal", "text": "찍는 각도 초기화해"}
+{"kind": "exec", "hint": "EnlargeCameraWindow", "text": "영상 창 크게 해줘"}
+{"kind": "exec", "hint": "EnlargeCameraWindow", "text": "1920x1080 크기로 카메라 창 확대해"}
+{"kind": "exec", "hint": "EnlargeCameraWindow", "text": "영상 창 크기를 늘려줘"}
+{"kind": "exec", "hint": "ShrinkCameraWindow", "text": "카메라창 줄여"}
+{"kind": "exec", "hint": "ShrinkCameraWindow", "text": "영상창 작게 해"}
+{"kind": "exec", "hint": "ShrinkCameraWindow", "text": "캠창 축소하자"}
+{"kind": "exec", "hint": "ShrinkCameraWindow", "text": "캠 크기 작게"}
+{"kind": "exec", "hint": "ApplyDisplayFilters", "text": "전장의 안개 켜줘"}
+{"kind": "exec", "hint": "ApplyDisplayFilters", "text": "팀 연결선, 드론 시야 표시"}
+{"kind": "exec", "hint": "ApplyDisplayFilters", "text": "장애물 설정"}
+{"kind": "exec", "hint": "ApplyDisplayFilters", "text": "드론 시야 켜"}
+{"kind": "exec", "hint": "ClearDisplayFilters", "text": "드론 시야, 배터리 숨겨"}
+{"kind": "exec", "hint": "ClearDisplayFilters", "text": "팀 연결선 해제 좀 해줘"}
+{"kind": "exec", "hint": "ClearDisplayFilters", "text": "장애물, 마커 꺼줘"}
+{"kind": "exec", "hint": "ClearDisplayFilters", "text": "전장의 안개, 위협 창 닫혀"}
+{"kind": "exec", "hint": "AcceptConfirmWindow", "text": "네, 제어권 요청 확인해"}
+{"kind": "exec", "hint": "AcceptConfirmWindow", "text": "팀 해체 승인해"}
+{"kind": "exec", "hint": "AcceptConfirmWindow", "text": "자폭 공격 수락해"}
+{"kind": "exec", "hint": "AcceptConfirmWindow", "text": "게임 종료 하자"}
+{"kind": "exec", "hint": "RejectConfirmWindow", "text": "팀 해체 안 돼"}
+{"kind": "exec", "hint": "RejectConfirmWindow", "text": "드론봇 팀 제외 취소하자"}
+{"kind": "exec", "hint": "RejectConfirmWindow", "text": "자폭 공격 거부야"}
+{"kind": "exec", "hint": "EnableVideoThrough", "text": "패스스루 키우"}
+{"kind": "exec", "hint": "EnableVideoThrough", "text": "패스스루 활성화"}
+{"kind": "exec", "hint": "DisableVideoThrough", "text": "비디오 쓰루 끄셈"}
+{"kind": "exec", "hint": "DisableVideoThrough", "text": "패스스루 꺼 줄게"}
+{"kind": "exec", "hint": "DisableVideoThrough", "text": "비디오 쓰루 꺼버려"}
+{"kind": "exec", "hint": "DisableVideoThrough", "text": "비디오 패스스루 끄셈"}
+{"kind": "exec", "hint": "MoveToTeamView", "text": "알파팀뷰"}
+{"kind": "exec", "hint": "MoveToTeamView", "text": "브라보팀의.Shoulder.View.돌리자"}
+{"kind": "exec", "hint": "MoveToTeamView", "text": "찰리팀.Shoulder.View.보자"}
+{"kind": "exec", "hint": "MoveToTeamView", "text": "델타팀.팀뷰"}
+{"kind": "exec", "hint": "MoveToTeamOverview", "text": "브라보팀 전체보기 해"}
+{"kind": "exec", "hint": "MoveToTeamOverview", "text": "찰리팀 확대"}
+{"kind": "exec", "hint": "MoveToTeamOverview", "text": "델타팀 전부 보이게 해줘"}
+{"kind": "exec", "hint": "MoveToDroneView", "text": "삼호기 드론 뷰 바꿔"}
+{"kind": "exec", "hint": "MoveToDroneView", "text": "델타 세호기 시점 바꿔줘"}
+{"kind": "exec", "hint": "MoveToDroneView", "text": "브라보 2호기 워크라우드"}
+{"kind": "exec", "hint": "MoveToDroneView", "text": "에코 1호기 뷰 바꾸세요"}
+{"kind": "exec", "hint": "ResetPanelPositions", "text": "패널 위치 초기화"}
+{"kind": "exec", "hint": "ResetPanelPositions", "text": "원위치 해"}
+{"kind": "exec", "hint": "ResetPanelPositions", "text": "초기 위치로 돌려"}
+{"kind": "exec", "hint": "ResetPanelPositions", "text": "1번 패널 원위치"}
+{"kind": "exec", "hint": "StartRecording", "text": "녹화 시작해"}
+{"kind": "exec", "hint": "StartRecording", "text": "녹화켜"}
+{"kind": "exec", "hint": "StartRecording", "text": "전술녹음시작"}
+{"kind": "exec", "hint": "StopRecording", "text": "녹음 멈춰"}
+{"kind": "exec", "hint": "StopRecording", "text": "전술 녹화 중지하자"}
+{"kind": "exec", "hint": "StopRecording", "text": "녹음 끝내"}
+{"kind": "exec", "hint": "StopRecording", "text": "녹화 중지해"}
+{"kind": "refuse", "hint": "unsupported", "text": "드론 고도를 3000으로 설정해줘"}
+{"kind": "refuse", "hint": "unsupported", "text": "전체 팀을 2배 크기로 확대해줘"}
+{"kind": "refuse", "hint": "unsupported", "text": "드론의 속도를 2배로 높여줘"}
+{"kind": "refuse", "hint": "unsupported", "text": "볼륨 좀 줄여줘"}
+{"kind": "refuse", "hint": "unsupported", "text": "지도를 좀 크게 해줘"}
+{"kind": "refuse", "hint": "unsupported", "text": "지도의 밝기를 좀 올려줘"}
+{"kind": "refuse", "hint": "unsupported", "text": "공격 대상 지정해줘"}
+{"kind": "refuse", "hint": "unsupported", "text": "드론의 방향을 북쪽으로 돌려줘"}
+{"kind": "refuse", "hint": "two_actions", "text": "팀 A 선택하고 전술 시작"}
+{"kind": "refuse", "hint": "two_actions", "text": "팀 C 복귀시키고 드론 1호기 선택"}
+{"kind": "refuse", "hint": "two_actions", "text": "드론 3호기 내보내고 마커 M 삭제"}
+{"kind": "refuse", "hint": "two_actions", "text": "팀 B 해체하고 드론 2호기 복귀"}
+{"kind": "refuse", "hint": "two_actions", "text": "드론 5호기 전투원 수동 제어 시작하고 팀 E 복귀"}
+{"kind": "refuse", "hint": "two_actions", "text": "팀 F 제어권 지휘관에게 넘기고 팀 F 제어권 회수"}
+{"kind": "refuse", "hint": "two_actions", "text": "마커 P 생성 모드 진입하고 프리셋 Q 삭제"}
+{"kind": "refuse", "hint": "two_actions", "text": "팀 G 리더 카메라 창 표시하고 팀 H 전체 보기"}
+{"kind": "refuse", "hint": "question", "text": "팀 상태는?"}
+{"kind": "refuse", "hint": "question", "text": "내가 지금 어떤 팀을 지휘하는지 알려줘"}
+{"kind": "refuse", "hint": "question", "text": "드론 3호기 지금 어디 있지?"}
+{"kind": "refuse", "hint": "question", "text": "지금 몇 번째 프리셋인가요?"}
+{"kind": "refuse", "hint": "question", "text": "현재 창이 어떤 창인지 알려줘"}
+{"kind": "refuse", "hint": "question", "text": "드론 7호기 현재 작동 상태는?"}
+{"kind": "refuse", "hint": "negation", "text": "팀 생성 안 해"}
+{"kind": "refuse", "hint": "negation", "text": "드론 복귀 하지마"}
+{"kind": "refuse", "hint": "negation", "text": "전략 수정 막음"}
+{"kind": "refuse", "hint": "negation", "text": "팀 선택 안함"}
+{"kind": "refuse", "hint": "negation", "text": "팀 해체 안해"}
+{"kind": "refuse", "hint": "negation", "text": "전술 운용 안시작"}
+{"kind": "refuse", "hint": "negation", "text": "드론 내보내지마"}
+{"kind": "refuse", "hint": "smalltalk", "text": "오늘 날씨 참 좋은 것 같네"}
+{"kind": "refuse", "hint": "smalltalk", "text": "이런 것도 가능하다니 신기하네"}
+{"kind": "refuse", "hint": "smalltalk", "text": "이번 작전 성공할 것 같아"}
+{"kind": "refuse", "hint": "smalltalk", "text": "드론 상태는 다 좋네"}
+{"kind": "refuse", "hint": "smalltalk", "text": "팀원들 잘 따라와"}
+{"kind": "refuse", "hint": "smalltalk", "text": "이런 건 내가 좋아하는 작업이야"}
+{"kind": "refuse", "hint": "smalltalk", "text": "오늘 하루도 열심히 해야겠네"}
+{"kind": "refuse", "hint": "missing", "text": "팀 리셋"}
+{"kind": "refuse", "hint": "missing", "text": "팀 세트"}
+{"kind": "refuse", "hint": "missing", "text": "팀 3 리셋"}
+{"kind": "refuse", "hint": "missing", "text": "드론 5 시작"}
+{"kind": "refuse", "hint": "missing", "text": "드론 1 편집"}
+{"kind": "refuse", "hint": "missing", "text": "드론 2 복귀"}
+{"kind": "refuse", "hint": "missing", "text": "드론 4 내보내기"}
