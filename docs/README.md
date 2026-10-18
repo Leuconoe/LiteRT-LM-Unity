@@ -31,6 +31,12 @@ numbers are reference only.
 - [ASR model matrix](benchmarks/asr-model-matrix.md) — every tier × 10 clips,
   CER/WER/RTF
 - [FC model benchmark](benchmarks/fc-model-benchmark.md) — 20-case scoring
+- [FunctionGemma for Korean voice commands](benchmarks/functiongemma-korean-fc.md) —
+  fine-tuning on the WebServer tool contract, four blind sets, the app-side router,
+  device and voice end-to-end numbers
+- [SenseVoice Korean eval](benchmarks/sensevoice-korean-eval.md) — stock vs Zeroth
+  fine-tune vs Whisper tiers, the LiteRT conversion (published to litert-community),
+  and the Whisper hotword A/B
 - [Device PDCA ledger](benchmarks/device-cycle1-baseline.md) — cycles 1–6 in full
 - [Short-utterance ASR research](benchmarks/short-utterance-asr-research.md)
 - [Whisper tflite on Windows](benchmarks/whisper-windows-tflite.md) — desktop
