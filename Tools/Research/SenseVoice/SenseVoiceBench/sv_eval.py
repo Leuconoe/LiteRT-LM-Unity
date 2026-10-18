@@ -186,11 +186,11 @@ class OnnxBackend:
 class TfliteBackend:
     """Fixed-shape bucket graphs sv_t{N}.tflite; features zero-padded to N with the true length fed."""
 
-    def __init__(self, model: str, threads: int):
+    def __init__(self, model: str, threads: int, pattern: str = "sv_t*.tflite"):
         from ai_edge_litert.interpreter import Interpreter
 
         p = Path(model)
-        files = sorted(p.glob("sv_t*.tflite")) if p.is_dir() else [p]
+        files = sorted(p.glob(pattern)) if p.is_dir() else [p]  # release dir: sensevoice_small_*_w8.tflite
         self.side = SideFiles(side_dir(p))
         self.graphs = []
         for f in files:

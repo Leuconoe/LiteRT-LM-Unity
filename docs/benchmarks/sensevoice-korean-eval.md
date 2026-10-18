@@ -112,3 +112,50 @@ prompt. Same prefix (`<|startofprev|>` + hotwords) on our tflite tiers, desktop 
 .\Tools\Research\SenseVoice\Train-SenseVoiceZeroth.ps1 -OutDir External\sensevoice-work\zeroth-ft-lr1e5 -MaxEpoch 2 -Lr 1e-5 -WarmupSteps 500 -SaveSteps 1345
 .\Tools\Research\Whisper\Run-WhisperTfliteWindows.ps1 -HotwordsFile <WhisperHotwords.txt>   # A/B driver: WhisperTflite/hotword_ab.py
 ```
+
+## 6. On the device (AAR take20, kona / SM8250, 2026-10-18)
+
+`UnityLiteRtLmBridge.runSenseVoiceAsr` (C# `LiteRtLmSenseVoice`) runs the fbank/LFR/CMVN front end, picks the
+smallest bucket present that fits, runs the w8 graph on LiteRT CPU (XNNPACK, 4 threads) and decodes greedy CTC
+with a confidence. Parity with the desktop tflite path on the same wavs: **tokens identical 62/62**, feature
+max |diff| 9.6e-5, logit max |diff| 1.2e-4 (10 dumped clips), confidence diff ≤ 1.6e-4.
+
+| set | n | CER | exact | infer ms mean / p50 | feat ms |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| gate40 (TTS, ranking only) | 40 | 0.2042 | 20 | 402 / 385 | 3 |
+| real_clean | 13 | 0.0064 | 12 | 465 / 478 | 5–9 |
+| real_noise | 9 | 0.2685 | 5 | 499 / 449 | 11 |
+
+Per bucket: 3 s 396 ms p50, 5 s 766 ms p50, 10 s 1.35 s (one clip); first use of a bucket compiles for ~2.9 s.
+App PSS 2.46 GB with one bucket resident; hottest thermal zone 39.7 → 49.8 °C over the 62 clips.
+
+- **One bucket resident.** A w8 bucket costs ~2 GB RSS on XNNPACK; caching three got the app killed by the
+  low-memory killer at 5.6 GB, so the native side frees the previous graph before compiling the next. Each
+  bucket file is a full 242 MB copy of the weights — ship one (the FC demo APK ships only 5 s; longer audio is
+  truncated to the largest bucket present).
+- The CPU default is one thread (930 ms for the 3 s bucket); the JNI sets 4, like the other entries.
+- Test clips are float WAV: the noise recordings decode past ±1 and PCM16 export clipped them (CER 0.27 → 0.32).
+
+### Confidence as a confirmation gate
+
+`meanMaxProb` (mean best softmax probability over speech frames) and `minTokenProb` were joined with the v6e
+router's outcomes on the heldout5 voice sets (svw8 arm), on top of the high-impact `ConfirmationPolicy`.
+Aggregate counts only.
+
+| set · MinAsrConfidence (meanMaxProb) | wrong actions held | correct commands asked to confirm |
+| --- | ---: | ---: |
+| TTS 7 voices (2,024) · policy only | 19/216 (8.8 %) | 109/1070 (10.2 %) |
+| · 0.90 | 26/216 (12.0 %) | 123/1070 (11.5 %) |
+| · 0.93 | 50/216 (23.1 %) | 182/1070 (17.0 %) |
+| · 0.95 | 99/216 (45.8 %) | 323/1070 (30.2 %) |
+| OSS 4,499 · policy only | 41/607 (6.8 %) | 156/1686 (9.3 %) |
+| · 0.90 | 87/607 (14.3 %) | 198/1686 (11.7 %) |
+| · 0.93 | 162/607 (26.7 %) | 303/1686 (18.0 %) |
+| · 0.95 | 298/607 (49.1 %) | 568/1686 (33.7 %) |
+
+The gate is weak: AUROC wrong-vs-correct 0.57 (`meanMaxProb`), 0.55 (`minTokenProb`, worse at every
+threshold — BPE pieces split probability even on correct text, median 0.57). It does flag transcription
+errors (AUROC 0.73), but 18–31 % of wrong actions come from exact transcripts. `LiteRtLmSenseVoice.RecommendedMinConfidence`
+is 0.90: +3–8 points of wrong actions held for +1–2 points of extra confirmations; 0.93 is the stricter option.
+Driver: `Tools/Research/SenseVoice/SenseVoiceBench/sv_device.py` (`clips` / `score` / `conf`) and
+`Tools/Windows/Tests/Run-LiteRtLmAndroidSenseVoiceSmokeTest.ps1`.

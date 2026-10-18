@@ -166,10 +166,10 @@ index 3264d52f..3619f0b5 100644
          "//runtime/conversation:io_types",
          "//runtime/conversation/model_data_processor:config_registry",
 diff --git a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
-index 22251ba7..283fab43 100644
+index 22251ba7..8b76a954 100644
 --- a/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
 +++ b/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc
-@@ -13,75 +13,3964 @@
+@@ -13,11 +13,30 @@
  // limitations under the License.
  
  #include <jni.h>
@@ -179,12 +179,6 @@ index 22251ba7..283fab43 100644
 +#endif
  #include <sys/stat.h>
  
--#include <memory>
--#include <optional>
--#include <string>
--#include <utility>
--#include <variant>
--#include <vector>
 +#include <algorithm>
 +#include <array>
 +#include <cctype>
@@ -194,28 +188,28 @@ index 22251ba7..283fab43 100644
 +#include <cstring>
 +#include <fstream>
 +#include <functional>
++#include <iterator>
 +#include <limits>
-+#include <memory>
+ #include <memory>
 +#include <mutex>
-+#include <optional>
+ #include <optional>
 +#include <random>
 +#include <sstream>
-+#include <string>
+ #include <string>
 +#include <unordered_map>
-+#include <utility>
-+#include <variant>
-+#include <vector>
-+
-+#include "absl/functional/any_invocable.h"  // from @com_google_absl
-+#include "absl/log/absl_log.h"  // from @com_google_absl
-+#include "absl/status/status.h"  // from @com_google_absl
-+#include "absl/status/statusor.h"  // from @com_google_absl
+ #include <utility>
+ #include <variant>
+ #include <vector>
+@@ -26,10 +45,25 @@
+ #include "absl/log/absl_log.h"  // from @com_google_absl
+ #include "absl/status/status.h"  // from @com_google_absl
+ #include "absl/status/statusor.h"  // from @com_google_absl
 +#include "absl/strings/escaping.h"  // from @com_google_absl
-+#include "absl/strings/str_cat.h"  // from @com_google_absl
-+#include "absl/time/time.h"  // from @com_google_absl
+ #include "absl/strings/str_cat.h"  // from @com_google_absl
+ #include "absl/time/time.h"  // from @com_google_absl
 +#include "nlohmann/json.hpp"  // from @nlohmann_json
-+#include "nlohmann/json_fwd.hpp"  // from @nlohmann_json
-+#include "litert/cc/internal/scoped_file.h"  // from @litert
+ #include "nlohmann/json_fwd.hpp"  // from @nlohmann_json
+ #include "litert/cc/internal/scoped_file.h"  // from @litert
 +#include "litert/c/litert_model.h"  // from @litert
 +#include "litert/cc/litert_compiled_model.h"  // from @litert
 +#include "litert/cc/litert_environment.h"  // from @litert
@@ -229,22 +223,15 @@ index 22251ba7..283fab43 100644
 +#include "litert/cc/options/litert_cpu_options.h"  // from @litert
 +#include "litert/cc/options/litert_gpu_options.h"  // from @litert
 +#include "runtime/components/preprocessor/audio_preprocessor_miniaudio.h"
-+#include "runtime/components/prompt_template.h"
-+#include "runtime/conversation/conversation.h"
-+#include "runtime/conversation/io_types.h"
-+#include "runtime/conversation/model_data_processor/config_registry.h"
-+#include "runtime/conversation/model_data_processor/gemma4_data_processor_config.h"
-+#include "runtime/engine/engine.h"
-+#include "runtime/engine/engine_factory.h"
-+#include "runtime/engine/engine_settings.h"
-+#include "runtime/engine/io_types.h"
-+#include "runtime/executor/executor_settings_base.h"
-+#include "runtime/executor/llm_executor_settings.h"
-+#include "runtime/proto/sampler_params.pb.h"
-+#include "runtime/util/file_util.h"
-+#include "runtime/util/logging.h"
+ #include "runtime/components/prompt_template.h"
+ #include "runtime/conversation/conversation.h"
+ #include "runtime/conversation/io_types.h"
+@@ -44,7 +78,22 @@
+ #include "runtime/proto/sampler_params.pb.h"
+ #include "runtime/util/file_util.h"
+ #include "runtime/util/logging.h"
 +#include "support/tokenizer/sentencepiece_tokenizer.h"  // from @litert
-+#include "schema/capabilities/capabilities_c.h"
+ #include "schema/capabilities/capabilities_c.h"
 +#include "kiss_fftr.h"  // from @kissfft
 +
 +#if defined(__ANDROID__)
@@ -259,44 +246,20 @@ index 22251ba7..283fab43 100644
 +void UnityAsrLog(const char*) {}
 +void UnityAsrLog(const std::string&) {}
 +#endif
-+
-+// For Windows, __declspec( dllexport ) is required to export function in .dll.
-+// https://learn.microsoft.com/en-us/cpp/cpp/using-dllimport-and-dllexport-in-cpp-classes?view=msvc-170
-+//
-+// _WIN32 is defined as 1 when the compilation target is 32-bit ARM, 64-bit ARM,
-+// x86, x64, or ARM64EC. Otherwise, undefined.
-+// https://learn.microsoft.com/en-us/cpp/preprocessor/predefined-macros
-+#if defined(_WIN32)
-+#define LITERTLM_JNIEXPORT __declspec(dllexport)
-+#else
-+#define LITERTLM_JNIEXPORT JNIEXPORT
-+#endif  // _WIN32
-+
-+#define JNI_METHOD(METHOD_NAME) \
-+  Java_com_google_ai_edge_litertlm_LiteRtLmJni_##METHOD_NAME
-+
-+namespace {
-+using litert::lm::Backend;
-+using litert::lm::Channel;
-+using litert::lm::Conversation;
-+using litert::lm::ConversationConfig;
-+using litert::lm::Engine;
-+using litert::lm::EngineFactory;
-+using litert::lm::EngineSettings;
-+using litert::lm::FileExists;
-+using litert::lm::InputAudio;
-+using litert::lm::InputData;
-+using litert::lm::InputImage;
-+using litert::lm::InputText;
-+using litert::lm::JsonPreface;
-+using litert::lm::Message;
-+using litert::lm::ModelAssets;
-+using litert::lm::Preface;
-+using litert::lm::PromptTemplate;
-+using litert::lm::Responses;
-+using litert::lm::SessionConfig;
-+using litert::lm::proto::SamplerParameters;
-+
+ 
+ // For Windows, __declspec( dllexport ) is required to export function in .dll.
+ // https://learn.microsoft.com/en-us/cpp/cpp/using-dllimport-and-dllexport-in-cpp-classes?view=msvc-170
+@@ -83,280 +132,5303 @@ using litert::lm::Responses;
+ using litert::lm::SessionConfig;
+ using litert::lm::proto::SamplerParameters;
+ 
+-void ThrowLiteRtLmJniException(JNIEnv* env, const std::string& message) {
+-  jclass exClass =
+-      env->FindClass("com/google/ai/edge/litertlm/LiteRtLmJniException");
+-  if (exClass != nullptr) {
+-    env->ThrowNew(exClass, message.c_str());
+-    // Clean up local reference
+-    env->DeleteLocalRef(exClass);
 +struct UnityBridgeContext {
 +  std::unique_ptr<Engine> engine;
 +  std::unique_ptr<Conversation> conversation;
@@ -311,10 +274,32 @@ index 22251ba7..283fab43 100644
 +  std::string result(chars == nullptr ? "" : chars);
 +  if (chars != nullptr) {
 +    env->ReleaseStringUTFChars(value, chars);
-+  }
+   }
 +  return result;
-+}
-+
+ }
+ 
+-// Replacement of env->NewStringUTF(str.c_str()) to handle "Standard UTF-8".
+-//
+-// NewStringUTF() expects a "modified UTF-8" string. "Standard UTF-8" and
+-// "modified UTF-8" are mostly the same, but differ in the encoding of null
+-// characters and characters outside the Basic Multilingual Plane (BMP). Emojis
+-// often fall into this latter category. nlohmann::json::dump() also returns a
+-// "Standard UTF-8".
+-//
+-// https://developer.android.com/ndk/guides/jni-tips#utf-8-and-utf-16-strings
+-jstring NewStringStandardUTF(JNIEnv* env, std::string standard_utf8_str) {
+-  // Create a jbyteArray from the UTF-8 string
+-  jbyteArray bytes = env->NewByteArray(standard_utf8_str.length());
+-  if (bytes == nullptr) return nullptr;
+-  env->SetByteArrayRegion(
+-      bytes, 0, standard_utf8_str.length(),
+-      reinterpret_cast<const jbyte*>(standard_utf8_str.c_str()));
+-
+-  // Get the java.lang.String class
+-  jclass string_class = env->FindClass("java/lang/String");
+-  if (string_class == nullptr) {
+-    env->DeleteLocalRef(bytes);
+-    return nullptr;
 +std::string ElementTypeToString(LiteRtElementType element_type) {
 +  switch (element_type) {
 +    case kLiteRtElementTypeNone:
@@ -359,19 +344,32 @@ index 22251ba7..283fab43 100644
 +      return "tf_string";
 +    case kLiteRtElementTypeTfVariant:
 +      return "tf_variant";
-+  }
+   }
 +  return "unknown";
 +}
-+
+ 
+-  // Get the constructor for String(byte[], String)
+-  jmethodID string_ctor =
+-      env->GetMethodID(string_class, "<init>", "([BLjava/lang/String;)V");
+-  if (string_ctor == nullptr) {
+-    env->DeleteLocalRef(string_class);
+-    env->DeleteLocalRef(bytes);
+-    return nullptr;
 +std::string LiteRtStatusToString(LiteRtStatus status) {
 +  const char* status_string = LiteRtGetStatusString(status);
 +  if (status_string == nullptr) {
 +    return "LiteRtStatus(" + std::to_string(static_cast<int>(status)) + ")";
-+  }
+   }
 +  return std::string(status_string) + " (" +
 +         std::to_string(static_cast<int>(status)) + ")";
 +}
-+
+ 
+-  // Create a jstring for the charset name "UTF-8"
+-  jstring charset_name = env->NewStringUTF("UTF-8");
+-  if (charset_name == nullptr) {
+-    env->DeleteLocalRef(string_class);
+-    env->DeleteLocalRef(bytes);
+-    return nullptr;
 +nlohmann::ordered_json TensorInfoToJson(LiteRtTensor tensor) {
 +  nlohmann::ordered_json result;
 +  LiteRtTensorTypeId type_id;
@@ -379,8 +377,16 @@ index 22251ba7..283fab43 100644
 +  if (status != kLiteRtStatusOk) {
 +    result["error"] = LiteRtStatusToString(status);
 +    return result;
-+  }
-+
+   }
+ 
+-  // Create the new String object
+-  jstring result =
+-      (jstring)env->NewObject(string_class, string_ctor, bytes, charset_name);
+-
+-  // Clean up local references
+-  env->DeleteLocalRef(bytes);
+-  env->DeleteLocalRef(string_class);
+-  env->DeleteLocalRef(charset_name);
 +  if (type_id == kLiteRtUnrankedTensorType) {
 +    LiteRtUnrankedTensorType tensor_type;
 +    status = LiteRtGetUnrankedTensorType(tensor, &tensor_type);
@@ -392,7 +398,7 @@ index 22251ba7..283fab43 100644
 +    result["elementType"] = ElementTypeToString(tensor_type.element_type);
 +    return result;
 +  }
-+
+ 
 +  LiteRtRankedTensorType tensor_type;
 +  status = LiteRtGetRankedTensorType(tensor, &tensor_type);
 +  if (status != kLiteRtStatusOk) {
@@ -405,23 +411,43 @@ index 22251ba7..283fab43 100644
 +  for (int i = 0; i < tensor_type.layout.rank; ++i) {
 +    result["shape"].push_back(tensor_type.layout.dimensions[i]);
 +  }
-+  return result;
-+}
-+
+   return result;
+ }
+ 
+-// Helper function to convert BenchmarkInfo to Java object
+-jobject CreateBenchmarkInfoJni(
+-    JNIEnv* env, const litert::lm::BenchmarkInfo& benchmark_info) {
+-  int last_prefill_token_count = 0;
+-  if (benchmark_info.GetTotalPrefillTurns() > 0) {
+-    auto turn = benchmark_info.GetPrefillTurn(
+-        benchmark_info.GetTotalPrefillTurns() - 1);
+-    if (turn.ok()) {
+-      last_prefill_token_count = turn->num_tokens;
+-    }
+-  }
 +nlohmann::ordered_json InspectLiteRtModelToJson(const std::string& model_path) {
 +  nlohmann::ordered_json result;
 +  result["modelPath"] = model_path;
 +  result["exists"] = false;
 +  result["loaded"] = false;
-+
+ 
+-  int last_decode_token_count = 0;
+-  if (benchmark_info.GetTotalDecodeTurns() > 0) {
+-    auto turn =
+-        benchmark_info.GetDecodeTurn(benchmark_info.GetTotalDecodeTurns() - 1);
+-    if (turn.ok()) {
+-      last_decode_token_count = turn->num_tokens;
+-    }
 +  struct stat buffer;
 +  if (stat(model_path.c_str(), &buffer) != 0) {
 +    result["error"] = "Model file not found.";
 +    return result;
-+  }
+   }
 +  result["exists"] = true;
 +  result["fileSizeBytes"] = static_cast<long long>(buffer.st_size);
-+
+ 
+-  double last_prefill_tokens_per_second = benchmark_info.GetPrefillTokensPerSec(
+-      benchmark_info.GetTotalPrefillTurns() - 1);
 +  auto inspect_env_or = ::litert::Environment::Create({});
 +  if (!inspect_env_or.HasValue()) {
 +    result["error"] = inspect_env_or.Error().Message();
@@ -457,7 +483,9 @@ index 22251ba7..283fab43 100644
 +      result["signatures"].push_back(signature_error);
 +      continue;
 +    }
-+
+ 
+-  double last_decode_tokens_per_second = benchmark_info.GetDecodeTokensPerSec(
+-      benchmark_info.GetTotalDecodeTurns() - 1);
 +    nlohmann::ordered_json signature_json;
 +    signature_json["index"] = i;
 +    const char* signature_key = nullptr;
@@ -497,7 +525,11 @@ index 22251ba7..283fab43 100644
 +      input_json["error"] = LiteRtStatusToString(status);
 +      signature_json["inputs"].push_back(input_json);
 +    }
-+
+ 
+-  jclass benchmark_info_cls =
+-      env->FindClass("com/google/ai/edge/litertlm/BenchmarkInfo");
+-  jmethodID benchmark_info_ctor =
+-      env->GetMethodID(benchmark_info_cls, "<init>", "(DDIIDD)V");
 +    signature_json["outputs"] = nlohmann::ordered_json::array();
 +
 +    LiteRtParamIndex num_outputs = 0;
@@ -529,14 +561,33 @@ index 22251ba7..283fab43 100644
 +      output_json["error"] = LiteRtStatusToString(status);
 +      signature_json["outputs"].push_back(output_json);
 +    }
-+
+ 
+-  double total_init_time_ms = 0.0;
+-  for (const auto& phase : benchmark_info.GetInitPhases()) {
+-    ABSL_LOG(INFO) << "Init phase: " << phase.first << " took "
+-                   << absl::ToDoubleMilliseconds(phase.second) << " ms";
+-    total_init_time_ms += absl::ToDoubleMilliseconds(phase.second);
 +    result["signatures"].push_back(signature_json);
-+  }
-+
+   }
+ 
+-  return env->NewObject(
+-      benchmark_info_cls, benchmark_info_ctor, total_init_time_ms / 1000.0,
+-      benchmark_info.GetTimeToFirstToken(), last_prefill_token_count,
+-      last_decode_token_count, last_prefill_tokens_per_second,
+-      last_decode_tokens_per_second);
 +  LiteRtDestroyModel(model);
 +  return result;
-+}
-+
+ }
+ 
+-// Converts a Java InputData array to a C++ vector of InputData.
+-std::vector<InputData> GetNativeInputData(JNIEnv* env,
+-                                          jobjectArray input_data) {
+-  jclass text_class =
+-      env->FindClass("com/google/ai/edge/litertlm/InputData$Text");
+-  jclass audio_class =
+-      env->FindClass("com/google/ai/edge/litertlm/InputData$Audio");
+-  jclass image_class =
+-      env->FindClass("com/google/ai/edge/litertlm/InputData$Image");
 +absl::StatusOr<std::string> ReadBinaryFile(const std::string& path) {
 +  std::ifstream stream(path, std::ios::binary);
 +  if (!stream) {
@@ -557,7 +608,13 @@ index 22251ba7..283fab43 100644
 +  }
 +  return data;
 +}
-+
+ 
+-  jmethodID text_get_text_mid =
+-      env->GetMethodID(text_class, "getText", "()Ljava/lang/String;");
+-  jmethodID audio_get_bytes_mid =
+-      env->GetMethodID(audio_class, "getBytes", "()[B");
+-  jmethodID image_get_bytes_mid =
+-      env->GetMethodID(image_class, "getBytes", "()[B");
 +std::vector<float> HannWindow(int length) {
 +  std::vector<float> window(length);
 +  for (int i = 0; i < length; ++i) {
@@ -567,7 +624,37 @@ index 22251ba7..283fab43 100644
 +  }
 +  return window;
 +}
-+
+ 
+-  jsize num_inputs = env->GetArrayLength(input_data);
+-  std::vector<InputData> contents;
+-  contents.reserve(num_inputs);
+-  for (jsize i = 0; i < num_inputs; ++i) {
+-    jobject input_obj = env->GetObjectArrayElement(input_data, i);
+-    if (env->IsInstanceOf(input_obj, text_class)) {
+-      jstring text_jstr =
+-          (jstring)env->CallObjectMethod(input_obj, text_get_text_mid);
+-      const char* text_chars = env->GetStringUTFChars(text_jstr, nullptr);
+-      contents.emplace_back(InputText(text_chars));
+-      env->ReleaseStringUTFChars(text_jstr, text_chars);
+-      env->DeleteLocalRef(text_jstr);
+-    } else if (env->IsInstanceOf(input_obj, audio_class)) {
+-      jbyteArray bytes_jarr =
+-          (jbyteArray)env->CallObjectMethod(input_obj, audio_get_bytes_mid);
+-      jsize len = env->GetArrayLength(bytes_jarr);
+-      jbyte* bytes = env->GetByteArrayElements(bytes_jarr, nullptr);
+-      contents.emplace_back(
+-          InputAudio(std::string(reinterpret_cast<char*>(bytes), len)));
+-      env->ReleaseByteArrayElements(bytes_jarr, bytes, JNI_ABORT);
+-      env->DeleteLocalRef(bytes_jarr);
+-    } else if (env->IsInstanceOf(input_obj, image_class)) {
+-      jbyteArray bytes_jarr =
+-          (jbyteArray)env->CallObjectMethod(input_obj, image_get_bytes_mid);
+-      jsize len = env->GetArrayLength(bytes_jarr);
+-      jbyte* bytes = env->GetByteArrayElements(bytes_jarr, nullptr);
+-      contents.emplace_back(
+-          InputImage(std::string(reinterpret_cast<char*>(bytes), len)));
+-      env->ReleaseByteArrayElements(bytes_jarr, bytes, JNI_ABORT);
+-      env->DeleteLocalRef(bytes_jarr);
 +// ---------------------------------------------------------------------------
 +// Compact MD5 (RFC 1321). Used only for the whisper mel-feature diagnostic
 +// checksum ("featureMd5" in the smoke-test JSON). The digest over the raw
@@ -624,10 +711,12 @@ index 22251ba7..283fab43 100644
 +    } else if (i < 48) {
 +      f = b ^ c ^ d;
 +      g = (3 * i + 5) & 15;
-+    } else {
+     } else {
+-      ThrowLiteRtLmJniException(env, "Unsupported InputData type");
 +      f = c ^ (b | ~d);
 +      g = (7 * i) & 15;
-+    }
+     }
+-    env->DeleteLocalRef(input_obj);
 +    const uint32_t rotated = a + f + kSineTable[i] + m[g];
 +    const int s = kShifts[i];
 +    const uint32_t new_b = b + ((rotated << s) | (rotated >> (32 - s)));
@@ -635,13 +724,39 @@ index 22251ba7..283fab43 100644
 +    d = c;
 +    c = b;
 +    b = new_b;
-+  }
+   }
+-
+-  env->DeleteLocalRef(text_class);
+-  env->DeleteLocalRef(audio_class);
+-  env->DeleteLocalRef(image_class);
+-
+-  return contents;
 +  state[0] += a;
 +  state[1] += b;
 +  state[2] += c;
 +  state[3] += d;
-+}
-+
+ }
+ 
+-// Helper to get JNIEnv and attach to the current thread if necessary.
+-// Returns nullptr if an error occurs.
+-JNIEnv* GetJniEnvAndAttach(JavaVM* jvm, bool* attached) {
+-  JNIEnv* env = nullptr;
+-  *attached = false;
+-  // Requesting JNI_VERSION_1_6, but the returned JNIEnv* will support
+-  // the highest version the current JVM provides. This is safe because
+-  // newer JNI versions are backward-compatible.
+-  int get_env_stat = jvm->GetEnv((void**)&env, JNI_VERSION_1_6);
+-  if (get_env_stat == JNI_EDETACHED) {
+-#if defined(__ANDROID__)
+-    if (jvm->AttachCurrentThread(&env, nullptr) == 0) {
+-#else
+-    if (jvm->AttachCurrentThread((void**)&env, nullptr) == 0) {
+-#endif
+-      *attached = true;
+-      return env;
+-    } else {
+-      ABSL_LOG(ERROR) << "Failed to attach to JVM.";
+-      return nullptr;
 +void Md5Update(Md5Context& ctx, const uint8_t* data, size_t len) {
 +  size_t buffered = static_cast<size_t>(ctx.total_bytes & 63);
 +  ctx.total_bytes += len;
@@ -650,7 +765,12 @@ index 22251ba7..283fab43 100644
 +    if (len < fill) {
 +      std::memcpy(ctx.buffer + buffered, data, len);
 +      return;
-+    }
+     }
+-  } else if (get_env_stat == JNI_OK) {
+-    return env;
+-  } else {
+-    ABSL_LOG(ERROR) << "Failed to get JNIEnv: GetEnv returned " << get_env_stat;
+-    return nullptr;
 +    std::memcpy(ctx.buffer + buffered, data, fill);
 +    Md5Transform(ctx.state, ctx.buffer);
 +    data += fill;
@@ -663,9 +783,40 @@ index 22251ba7..283fab43 100644
 +  }
 +  if (len > 0) {
 +    std::memcpy(ctx.buffer, data, len);
-+  }
-+}
-+
+   }
+ }
+ 
+-// Helper function to create SamplerParameters from Java SamplerConfig object.
+-SamplerParameters CreateSamplerParamsFromJni(JNIEnv* env,
+-                                             jobject sampler_config_obj) {
+-  SamplerParameters sampler_params;
+-
+-  // Based on the current engine implementation, when the SamplerConfig is
+-  // set, we must switch to the TOP_P sampling type.
+-  sampler_params.set_type(SamplerParameters::TOP_P);
+-
+-  // Get the fields from SamplerConfig
+-  jclass sampler_config_cls = env->GetObjectClass(sampler_config_obj);
+-
+-  jmethodID get_top_k_mid =
+-      env->GetMethodID(sampler_config_cls, "getTopK", "()I");
+-  sampler_params.set_k(env->CallIntMethod(sampler_config_obj, get_top_k_mid));
+-
+-  jmethodID get_top_p_mid =
+-      env->GetMethodID(sampler_config_cls, "getTopP", "()D");
+-  sampler_params.set_p(
+-      env->CallDoubleMethod(sampler_config_obj, get_top_p_mid));
+-
+-  jmethodID get_temperature_mid =
+-      env->GetMethodID(sampler_config_cls, "getTemperature", "()D");
+-  sampler_params.set_temperature(
+-      env->CallDoubleMethod(sampler_config_obj, get_temperature_mid));
+-
+-  jmethodID get_seed_mid =
+-      env->GetMethodID(sampler_config_cls, "getSeed", "()I");
+-  sampler_params.set_seed(env->CallIntMethod(sampler_config_obj, get_seed_mid));
+-
+-  env->DeleteLocalRef(sampler_config_cls);
 +std::string Md5FinalHex(Md5Context& ctx) {
 +  const uint64_t bit_count = ctx.total_bytes * 8;
 +  static const uint8_t kPad[64] = {0x80};
@@ -690,13 +841,21 @@ index 22251ba7..283fab43 100644
 +  }
 +  return hex;
 +}
-+
+ 
+-  return sampler_params;
 +std::string Md5HexOfBytes(const void* data, size_t size) {
 +  Md5Context ctx;
 +  Md5Update(ctx, static_cast<const uint8_t*>(data), size);
 +  return Md5FinalHex(ctx);
-+}
-+
+ }
+ 
+-nlohmann::ordered_json GetExtraContextJson(JNIEnv* env,
+-                                           jstring extra_context_json_string) {
+-  const char* extra_context_chars =
+-      env->GetStringUTFChars(extra_context_json_string, nullptr);
+-  nlohmann::ordered_json extra_context_json;
+-  if (extra_context_chars != nullptr) {
+-    extra_context_json = nlohmann::ordered_json::parse(extra_context_chars);
 +// Dual-mode VAD ASR audio preprocessing, shared by the Whisper and Qwen3
 +// feature builders (task #24; offline validation in docs/benchmarks/
 +// short-utterance-asr-research.md, "Dual-mode VAD" section):
@@ -743,14 +902,19 @@ index 22251ba7..283fab43 100644
 +float ComputePcmRms(const float* pcm, size_t sample_count) {
 +  if (sample_count == 0) {
 +    return 0.0f;
-+  }
+   }
+-  env->ReleaseStringUTFChars(extra_context_json_string, extra_context_chars);
+-  return extra_context_json;
 +  double sum_squares = 0.0;
 +  for (size_t i = 0; i < sample_count; ++i) {
 +    sum_squares += static_cast<double>(pcm[i]) * pcm[i];
 +  }
 +  return static_cast<float>(std::sqrt(sum_squares / sample_count));
-+}
-+
+ }
+ 
+-std::optional<int> GetOptionalInt(JNIEnv* env, jobject integer_obj) {
+-  if (integer_obj == nullptr) return std::nullopt;
+-  jclass integer_class = env->FindClass("java/lang/Integer");
 +// Per-run VAD report surfaced in the smoke-result JSON.
 +struct AsrVadReport {
 +  std::string mode_requested = "energy";
@@ -3341,30 +3505,7 @@ index 22251ba7..283fab43 100644
 +  if (!out) {
 +    return absl::UnavailableError("could not open " + path + " for writing.");
 +  }
- 
--#include "absl/functional/any_invocable.h"  // from @com_google_absl
--#include "absl/log/absl_log.h"  // from @com_google_absl
--#include "absl/status/status.h"  // from @com_google_absl
--#include "absl/status/statusor.h"  // from @com_google_absl
--#include "absl/strings/str_cat.h"  // from @com_google_absl
--#include "absl/time/time.h"  // from @com_google_absl
--#include "nlohmann/json_fwd.hpp"  // from @nlohmann_json
--#include "litert/cc/internal/scoped_file.h"  // from @litert
--#include "runtime/components/prompt_template.h"
--#include "runtime/conversation/conversation.h"
--#include "runtime/conversation/io_types.h"
--#include "runtime/conversation/model_data_processor/config_registry.h"
--#include "runtime/conversation/model_data_processor/gemma4_data_processor_config.h"
--#include "runtime/engine/engine.h"
--#include "runtime/engine/engine_factory.h"
--#include "runtime/engine/engine_settings.h"
--#include "runtime/engine/io_types.h"
--#include "runtime/executor/executor_settings_base.h"
--#include "runtime/executor/llm_executor_settings.h"
--#include "runtime/proto/sampler_params.pb.h"
--#include "runtime/util/file_util.h"
--#include "runtime/util/logging.h"
--#include "schema/capabilities/capabilities_c.h"
++
 +  const uint32_t data_bytes = static_cast<uint32_t>(samples.size() * 2);
 +  auto put32 = [&out](uint32_t value) {
 +    const char bytes[4] = {static_cast<char>(value & 0xff),
@@ -3378,9 +3519,7 @@ index 22251ba7..283fab43 100644
 +                           static_cast<char>((value >> 8) & 0xff)};
 +    out.write(bytes, 2);
 +  };
- 
--// For Windows, __declspec( dllexport ) is required to export function in .dll.
--// https://learn.microsoft.com/en-us/cpp/cpp/using-dllimport-and-dllexport-in-cpp-classes?view=msvc-170
++
 +  out.write("RIFF", 4);
 +  put32(36 + data_bytes);
 +  out.write("WAVE", 4);
@@ -3494,12 +3633,7 @@ index 22251ba7..283fab43 100644
 +}
 +
 +// Same, but with the shape stated explicitly.
- //
--// _WIN32 is defined as 1 when the compilation target is 32-bit ARM, 64-bit ARM,
--// x86, x64, or ARM64EC. Otherwise, undefined.
--// https://learn.microsoft.com/en-us/cpp/preprocessor/predefined-macros
--#if defined(_WIN32)
--#define LITERTLM_JNIEXPORT __declspec(dllexport)
++//
 +// A graph that was resized needs this: `CreateOutputBuffer` allocates from the
 +// size the model reports, and a non-strict resize does not update it, so the
 +// buffer comes out at the pre-resize size and the device rejects the run with
@@ -4048,15 +4182,11 @@ index 22251ba7..283fab43 100644
 +  ABSL_LOG(INFO) << "Promoted liblitertlm_jni.so symbols for LiteRT sampler "
 +                    "shared libraries: "
 +                 << jni_library_path;
- #else
--#define LITERTLM_JNIEXPORT JNIEXPORT
--#endif  // _WIN32
++#else
 +  (void)native_library_dir;
 +#endif
 +}
- 
--#define JNI_METHOD(METHOD_NAME) \
--  Java_com_google_ai_edge_litertlm_LiteRtLmJni_##METHOD_NAME
++
 +absl::StatusOr<std::unique_ptr<Engine>> CreateUnityBridgeEngine(
 +    const std::string& model_path, const std::string& backend_name,
 +    const std::string& cache_dir, const std::string& native_library_dir,
@@ -4068,28 +4198,7 @@ index 22251ba7..283fab43 100644
 +  if (!model_assets.ok()) {
 +    return model_assets.status();
 +  }
- 
--namespace {
--using litert::lm::Backend;
--using litert::lm::Channel;
--using litert::lm::Conversation;
--using litert::lm::ConversationConfig;
--using litert::lm::Engine;
--using litert::lm::EngineFactory;
--using litert::lm::EngineSettings;
--using litert::lm::FileExists;
--using litert::lm::InputAudio;
--using litert::lm::InputData;
--using litert::lm::InputImage;
--using litert::lm::InputText;
--using litert::lm::JsonPreface;
--using litert::lm::Message;
--using litert::lm::ModelAssets;
--using litert::lm::Preface;
--using litert::lm::PromptTemplate;
--using litert::lm::Responses;
--using litert::lm::SessionConfig;
--using litert::lm::proto::SamplerParameters;
++
 +  auto backend_enum = litert::lm::GetBackendFromString(backend_name);
 +  if (!backend_enum.ok()) {
 +    return backend_enum.status();
@@ -4192,15 +4301,104 @@ index 22251ba7..283fab43 100644
 +
 +  return Conversation::Create(*engine, *conversation_config);
 +}
- 
- void ThrowLiteRtLmJniException(JNIEnv* env, const std::string& message) {
-   jclass exClass =
-@@ -180,16 +4069,61 @@ jobject CreateBenchmarkInfoJni(
- 
-   double total_init_time_ms = 0.0;
-   for (const auto& phase : benchmark_info.GetInitPhases()) {
--    ABSL_LOG(INFO) << "Init phase: " << phase.first << " took "
--                   << absl::ToDoubleMilliseconds(phase.second) << " ms";
++
++void ThrowLiteRtLmJniException(JNIEnv* env, const std::string& message) {
++  jclass exClass =
++      env->FindClass("com/google/ai/edge/litertlm/LiteRtLmJniException");
++  if (exClass != nullptr) {
++    env->ThrowNew(exClass, message.c_str());
++    // Clean up local reference
++    env->DeleteLocalRef(exClass);
++  }
++}
++
++// Replacement of env->NewStringUTF(str.c_str()) to handle "Standard UTF-8".
++//
++// NewStringUTF() expects a "modified UTF-8" string. "Standard UTF-8" and
++// "modified UTF-8" are mostly the same, but differ in the encoding of null
++// characters and characters outside the Basic Multilingual Plane (BMP). Emojis
++// often fall into this latter category. nlohmann::json::dump() also returns a
++// "Standard UTF-8".
++//
++// https://developer.android.com/ndk/guides/jni-tips#utf-8-and-utf-16-strings
++jstring NewStringStandardUTF(JNIEnv* env, std::string standard_utf8_str) {
++  // Create a jbyteArray from the UTF-8 string
++  jbyteArray bytes = env->NewByteArray(standard_utf8_str.length());
++  if (bytes == nullptr) return nullptr;
++  env->SetByteArrayRegion(
++      bytes, 0, standard_utf8_str.length(),
++      reinterpret_cast<const jbyte*>(standard_utf8_str.c_str()));
++
++  // Get the java.lang.String class
++  jclass string_class = env->FindClass("java/lang/String");
++  if (string_class == nullptr) {
++    env->DeleteLocalRef(bytes);
++    return nullptr;
++  }
++
++  // Get the constructor for String(byte[], String)
++  jmethodID string_ctor =
++      env->GetMethodID(string_class, "<init>", "([BLjava/lang/String;)V");
++  if (string_ctor == nullptr) {
++    env->DeleteLocalRef(string_class);
++    env->DeleteLocalRef(bytes);
++    return nullptr;
++  }
++
++  // Create a jstring for the charset name "UTF-8"
++  jstring charset_name = env->NewStringUTF("UTF-8");
++  if (charset_name == nullptr) {
++    env->DeleteLocalRef(string_class);
++    env->DeleteLocalRef(bytes);
++    return nullptr;
++  }
++
++  // Create the new String object
++  jstring result =
++      (jstring)env->NewObject(string_class, string_ctor, bytes, charset_name);
++
++  // Clean up local references
++  env->DeleteLocalRef(bytes);
++  env->DeleteLocalRef(string_class);
++  env->DeleteLocalRef(charset_name);
++
++  return result;
++}
++
++// Helper function to convert BenchmarkInfo to Java object
++jobject CreateBenchmarkInfoJni(
++    JNIEnv* env, const litert::lm::BenchmarkInfo& benchmark_info) {
++  int last_prefill_token_count = 0;
++  if (benchmark_info.GetTotalPrefillTurns() > 0) {
++    auto turn = benchmark_info.GetPrefillTurn(
++        benchmark_info.GetTotalPrefillTurns() - 1);
++    if (turn.ok()) {
++      last_prefill_token_count = turn->num_tokens;
++    }
++  }
++
++  int last_decode_token_count = 0;
++  if (benchmark_info.GetTotalDecodeTurns() > 0) {
++    auto turn =
++        benchmark_info.GetDecodeTurn(benchmark_info.GetTotalDecodeTurns() - 1);
++    if (turn.ok()) {
++      last_decode_token_count = turn->num_tokens;
++    }
++  }
++
++  double last_prefill_tokens_per_second = benchmark_info.GetPrefillTokensPerSec(
++      benchmark_info.GetTotalPrefillTurns() - 1);
++
++  double last_decode_tokens_per_second = benchmark_info.GetDecodeTokensPerSec(
++      benchmark_info.GetTotalDecodeTurns() - 1);
++
++  jclass benchmark_info_cls =
++      env->FindClass("com/google/ai/edge/litertlm/BenchmarkInfo");
++  jmethodID benchmark_info_ctor =
++      env->GetMethodID(benchmark_info_cls, "<init>", "(DDIIDD)V");
++
++  double total_init_time_ms = 0.0;
++  for (const auto& phase : benchmark_info.GetInitPhases()) {
 +    ABSL_LOG(INFO) << "Init phase: " << phase.first << " took "
 +                   << absl::ToDoubleMilliseconds(phase.second) << " ms";
 +    total_init_time_ms += absl::ToDoubleMilliseconds(phase.second);
@@ -4241,14 +4439,9 @@ index 22251ba7..283fab43 100644
 +
 +  double total_init_time_ms = 0.0;
 +  for (const auto& phase : benchmark_info.GetInitPhases()) {
-     total_init_time_ms += absl::ToDoubleMilliseconds(phase.second);
-   }
- 
--  return env->NewObject(
--      benchmark_info_cls, benchmark_info_ctor, total_init_time_ms / 1000.0,
--      benchmark_info.GetTimeToFirstToken(), last_prefill_token_count,
--      last_decode_token_count, last_prefill_tokens_per_second,
--      last_decode_tokens_per_second);
++    total_init_time_ms += absl::ToDoubleMilliseconds(phase.second);
++  }
++
 +  std::ostringstream stream;
 +  stream << "BenchmarkInfo:\n";
 +  stream << "  Init Total: " << total_init_time_ms << " ms\n";
@@ -4261,13 +4454,180 @@ index 22251ba7..283fab43 100644
 +         << " tokens, " << last_decode_tokens_per_second
 +         << " tokens/sec";
 +  return stream.str();
++}
++
++// Converts a Java InputData array to a C++ vector of InputData.
++std::vector<InputData> GetNativeInputData(JNIEnv* env,
++                                          jobjectArray input_data) {
++  jclass text_class =
++      env->FindClass("com/google/ai/edge/litertlm/InputData$Text");
++  jclass audio_class =
++      env->FindClass("com/google/ai/edge/litertlm/InputData$Audio");
++  jclass image_class =
++      env->FindClass("com/google/ai/edge/litertlm/InputData$Image");
++
++  jmethodID text_get_text_mid =
++      env->GetMethodID(text_class, "getText", "()Ljava/lang/String;");
++  jmethodID audio_get_bytes_mid =
++      env->GetMethodID(audio_class, "getBytes", "()[B");
++  jmethodID image_get_bytes_mid =
++      env->GetMethodID(image_class, "getBytes", "()[B");
++
++  jsize num_inputs = env->GetArrayLength(input_data);
++  std::vector<InputData> contents;
++  contents.reserve(num_inputs);
++  for (jsize i = 0; i < num_inputs; ++i) {
++    jobject input_obj = env->GetObjectArrayElement(input_data, i);
++    if (env->IsInstanceOf(input_obj, text_class)) {
++      jstring text_jstr =
++          (jstring)env->CallObjectMethod(input_obj, text_get_text_mid);
++      const char* text_chars = env->GetStringUTFChars(text_jstr, nullptr);
++      contents.emplace_back(InputText(text_chars));
++      env->ReleaseStringUTFChars(text_jstr, text_chars);
++      env->DeleteLocalRef(text_jstr);
++    } else if (env->IsInstanceOf(input_obj, audio_class)) {
++      jbyteArray bytes_jarr =
++          (jbyteArray)env->CallObjectMethod(input_obj, audio_get_bytes_mid);
++      jsize len = env->GetArrayLength(bytes_jarr);
++      jbyte* bytes = env->GetByteArrayElements(bytes_jarr, nullptr);
++      contents.emplace_back(
++          InputAudio(std::string(reinterpret_cast<char*>(bytes), len)));
++      env->ReleaseByteArrayElements(bytes_jarr, bytes, JNI_ABORT);
++      env->DeleteLocalRef(bytes_jarr);
++    } else if (env->IsInstanceOf(input_obj, image_class)) {
++      jbyteArray bytes_jarr =
++          (jbyteArray)env->CallObjectMethod(input_obj, image_get_bytes_mid);
++      jsize len = env->GetArrayLength(bytes_jarr);
++      jbyte* bytes = env->GetByteArrayElements(bytes_jarr, nullptr);
++      contents.emplace_back(
++          InputImage(std::string(reinterpret_cast<char*>(bytes), len)));
++      env->ReleaseByteArrayElements(bytes_jarr, bytes, JNI_ABORT);
++      env->DeleteLocalRef(bytes_jarr);
++    } else {
++      ThrowLiteRtLmJniException(env, "Unsupported InputData type");
++    }
++    env->DeleteLocalRef(input_obj);
++  }
++
++  env->DeleteLocalRef(text_class);
++  env->DeleteLocalRef(audio_class);
++  env->DeleteLocalRef(image_class);
++
++  return contents;
++}
++
++// Helper to get JNIEnv and attach to the current thread if necessary.
++// Returns nullptr if an error occurs.
++JNIEnv* GetJniEnvAndAttach(JavaVM* jvm, bool* attached) {
++  JNIEnv* env = nullptr;
++  *attached = false;
++  // Requesting JNI_VERSION_1_6, but the returned JNIEnv* will support
++  // the highest version the current JVM provides. This is safe because
++  // newer JNI versions are backward-compatible.
++  int get_env_stat = jvm->GetEnv((void**)&env, JNI_VERSION_1_6);
++  if (get_env_stat == JNI_EDETACHED) {
++#if defined(__ANDROID__)
++    if (jvm->AttachCurrentThread(&env, nullptr) == 0) {
++#else
++    if (jvm->AttachCurrentThread((void**)&env, nullptr) == 0) {
++#endif
++      *attached = true;
++      return env;
++    } else {
++      ABSL_LOG(ERROR) << "Failed to attach to JVM.";
++      return nullptr;
++    }
++  } else if (get_env_stat == JNI_OK) {
++    return env;
++  } else {
++    ABSL_LOG(ERROR) << "Failed to get JNIEnv: GetEnv returned " << get_env_stat;
++    return nullptr;
++  }
++}
++
++// Helper function to create SamplerParameters from Java SamplerConfig object.
++SamplerParameters CreateSamplerParamsFromJni(JNIEnv* env,
++                                             jobject sampler_config_obj) {
++  SamplerParameters sampler_params;
++
++  // Based on the current engine implementation, when the SamplerConfig is
++  // set, we must switch to the TOP_P sampling type.
++  sampler_params.set_type(SamplerParameters::TOP_P);
++
++  // Get the fields from SamplerConfig
++  jclass sampler_config_cls = env->GetObjectClass(sampler_config_obj);
++
++  jmethodID get_top_k_mid =
++      env->GetMethodID(sampler_config_cls, "getTopK", "()I");
++  sampler_params.set_k(env->CallIntMethod(sampler_config_obj, get_top_k_mid));
++
++  jmethodID get_top_p_mid =
++      env->GetMethodID(sampler_config_cls, "getTopP", "()D");
++  sampler_params.set_p(
++      env->CallDoubleMethod(sampler_config_obj, get_top_p_mid));
++
++  jmethodID get_temperature_mid =
++      env->GetMethodID(sampler_config_cls, "getTemperature", "()D");
++  sampler_params.set_temperature(
++      env->CallDoubleMethod(sampler_config_obj, get_temperature_mid));
++
++  jmethodID get_seed_mid =
++      env->GetMethodID(sampler_config_cls, "getSeed", "()I");
++  sampler_params.set_seed(env->CallIntMethod(sampler_config_obj, get_seed_mid));
++
++  env->DeleteLocalRef(sampler_config_cls);
++
++  return sampler_params;
++}
++
++nlohmann::ordered_json GetExtraContextJson(JNIEnv* env,
++                                           jstring extra_context_json_string) {
++  const char* extra_context_chars =
++      env->GetStringUTFChars(extra_context_json_string, nullptr);
++  nlohmann::ordered_json extra_context_json;
++  if (extra_context_chars != nullptr) {
++    extra_context_json = nlohmann::ordered_json::parse(extra_context_chars);
++  }
++  env->ReleaseStringUTFChars(extra_context_json_string, extra_context_chars);
++  return extra_context_json;
++}
++
++std::optional<int> GetOptionalInt(JNIEnv* env, jobject integer_obj) {
++  if (integer_obj == nullptr) return std::nullopt;
++  jclass integer_class = env->FindClass("java/lang/Integer");
+   jmethodID int_value_mid = env->GetMethodID(integer_class, "intValue", "()I");
+   jint value = env->CallIntMethod(integer_obj, int_value_mid);
+   env->DeleteLocalRef(integer_class);
+   return value;
  }
  
- // Converts a Java InputData array to a C++ vector of InputData.
-@@ -353,10 +4287,735 @@ std::optional<litert::lm::DataProcessorArguments> GetDataProcessorArguments(
-   return std::nullopt;
- }
- 
+-std::optional<litert::lm::DataProcessorArguments> GetDataProcessorArguments(
+-    JNIEnv* env, Conversation* conversation, jobject visual_token_budget_obj) {
+-  std::optional<int> budget = GetOptionalInt(env, visual_token_budget_obj);
+-  if (budget.has_value()) {
+-    bool is_gemma4 = conversation->GetConfig()
+-                         .GetSessionConfig()
+-                         .GetLlmModelType()
+-                         .has_gemma4();
+-    if (is_gemma4) {
+-      return litert::lm::Gemma4DataProcessorArguments{.visual_token_budget =
+-                                                          budget};
++std::optional<litert::lm::DataProcessorArguments> GetDataProcessorArguments(
++    JNIEnv* env, Conversation* conversation, jobject visual_token_budget_obj) {
++  std::optional<int> budget = GetOptionalInt(env, visual_token_budget_obj);
++  if (budget.has_value()) {
++    bool is_gemma4 = conversation->GetConfig()
++                         .GetSessionConfig()
++                         .GetLlmModelType()
++                         .has_gemma4();
++    if (is_gemma4) {
++      return litert::lm::Gemma4DataProcessorArguments{.visual_token_budget =
++                                                          budget};
++    }
++  }
++  return std::nullopt;
++}
++
 +// Fixed-shape text encoders for the Jev and RAG samples: SentencePiece ids ->
 +// one .tflite ([1, T] int32 ids, optionally a [1, T] int32 attention mask) on
 +// CPU/XNNPACK. The id convention is a parameter because the graphs come from
@@ -4474,6 +4834,401 @@ index 22251ba7..283fab43 100644
 +                out->values.begin() + out->real_tokens * width);
 +  return result;
 +}
++
++// SenseVoice-Small on the fixed-shape LiteRT buckets (litert-community/
++// SenseVoiceSmall): funasr WavFrontend (x32768, Kaldi fbank 80 with dither 0,
++// LFR m7/n6, CMVN from am.mvn) -> speech [1, 560, N] feature-major, zero-padded
++// to the smallest bucket that fits with the true length fed -> greedy CTC over
++// tokens.txt. Confidence: each emitted token's best softmax probability over
++// its CTC run, and the mean over frames of the max probability. Mirrors the
++// desktop reference Tools/Research/SenseVoice/SenseVoiceBench/sv_eval.py.
++namespace sensevoice {
++
++constexpr int kMel = 80;
++constexpr int kWin = 400;   // 25 ms
++constexpr int kHop = 160;   // 10 ms
++constexpr int kFft = 512;   // next power of two of kWin
++constexpr int kLfrM = 7;
++constexpr int kLfrN = 6;
++constexpr int kDim = kMel * kLfrM;  // 560
++constexpr int kTags = 4;            // language, emotion, event, itn query frames
++constexpr int kVocab = 25055;
++
++struct Bucket {
++  const char* name;
++  int frames;  // LFR frames N of the graph's speech input
++};
++constexpr Bucket kBuckets[] = {{"3s", 50}, {"5s", 84}, {"10s", 167}, {"30s", 500}};
++
++double MelScale(double f) { return 1127.0 * std::log(1.0 + f / 700.0); }
++
++// torchaudio.compliance.kaldi.fbank with funasr's arguments: snip_edges,
++// remove_dc_offset, preemphasis 0.97 (first sample against itself), hamming
++// (symmetric), power spectrum, 80 triangular mel bins over 20 Hz..Nyquist,
++// log(max(e, float eps)). Returns [T, 80] row-major.
++std::vector<float> KaldiFbank(const std::vector<float>& pcm, int* frames) {
++  const int n = static_cast<int>(pcm.size());
++  const int t_count = n < kWin ? 0 : 1 + (n - kWin) / kHop;
++  *frames = t_count;
++  std::vector<float> out(static_cast<size_t>(t_count) * kMel, 0.0f);
++  if (t_count == 0) {
++    return out;
++  }
++  static const std::vector<float> window = [] {
++    std::vector<float> w(kWin);
++    for (int i = 0; i < kWin; ++i) {
++      w[i] = static_cast<float>(0.54 - 0.46 * std::cos(2.0 * M_PI * i / (kWin - 1)));
++    }
++    return w;
++  }();
++  static const std::vector<float> banks = [] {
++    // [kMel, kFft / 2 + 1]; the Nyquist column stays zero, as in torchaudio.
++    std::vector<float> b(kMel * (kFft / 2 + 1), 0.0f);
++    const double low = MelScale(20.0), high = MelScale(8000.0);
++    const double delta = (high - low) / (kMel + 1);
++    const double bin_width = 16000.0 / kFft;
++    for (int m = 0; m < kMel; ++m) {
++      const double left = low + m * delta, center = left + delta,
++                   right = center + delta;
++      for (int k = 0; k < kFft / 2; ++k) {
++        const double mel = MelScale(bin_width * k);
++        const double up = (mel - left) / (center - left);
++        const double down = (right - mel) / (right - center);
++        b[m * (kFft / 2 + 1) + k] =
++            static_cast<float>(std::max(0.0, std::min(up, down)));
++      }
++    }
++    return b;
++  }();
++  constexpr float kEps = 1.1920928955078125e-07f;  // torch.finfo(float32).eps
++  kiss_fftr_cfg fft = kiss_fftr_alloc(kFft, 0, nullptr, nullptr);
++  std::vector<float> frame(kFft, 0.0f);
++  std::vector<kiss_fft_cpx> spec(kFft / 2 + 1);
++  std::vector<float> power(kFft / 2 + 1);
++  for (int t = 0; t < t_count; ++t) {
++    const float* src = pcm.data() + t * kHop;
++    double mean = 0.0;
++    for (int i = 0; i < kWin; ++i) mean += src[i];
++    mean /= kWin;
++    float prev = static_cast<float>(src[0] - mean);
++    for (int i = 0; i < kWin; ++i) {
++      const float x = static_cast<float>(src[i] - mean);
++      frame[i] = (x - 0.97f * prev) * window[i];
++      prev = x;
++    }
++    std::fill(frame.begin() + kWin, frame.end(), 0.0f);
++    kiss_fftr(fft, frame.data(), spec.data());
++    for (int k = 0; k <= kFft / 2; ++k) {
++      power[k] = spec[k].r * spec[k].r + spec[k].i * spec[k].i;
++    }
++    for (int m = 0; m < kMel; ++m) {
++      const float* row = banks.data() + m * (kFft / 2 + 1);
++      double e = 0.0;
++      for (int k = 0; k <= kFft / 2; ++k) e += row[k] * power[k];
++      out[t * kMel + m] = std::log(std::max(static_cast<float>(e), kEps));
++    }
++  }
++  kiss_fftr_free(fft);
++  return out;
++}
++
++// funasr apply_lfr: prepend (m-1)/2 copies of frame 0, stack m frames every n,
++// pad the last stack with the final frame. [T, 80] -> [ceil(T/n), 560].
++std::vector<float> ApplyLfr(const std::vector<float>& fbank, int t_count,
++                            int* lfr_frames) {
++  const int t_lfr = (t_count + kLfrN - 1) / kLfrN;
++  *lfr_frames = t_lfr;
++  const int left = (kLfrM - 1) / 2;
++  const int total = t_count + left;
++  auto source_row = [&](int padded_index) {
++    const int i = std::min(std::max(padded_index - left, 0), t_count - 1);
++    return fbank.data() + static_cast<size_t>(i) * kMel;
++  };
++  std::vector<float> out(static_cast<size_t>(t_lfr) * kDim);
++  for (int i = 0; i < t_lfr; ++i) {
++    for (int j = 0; j < kLfrM; ++j) {
++      // Past the end the stack repeats the last real frame (total - 1).
++      const int padded = std::min(i * kLfrN + j, total - 1);
++      std::copy(source_row(padded), source_row(padded) + kMel,
++                out.begin() + static_cast<size_t>(i) * kDim + j * kMel);
++    }
++  }
++  return out;
++}
++
++// am.mvn is Kaldi nnet text: <AddShift> ... [ 560 values ] <Rescale> ... [ 560 values ].
++absl::Status ParseCmvn(const std::string& text, std::vector<float>* shift,
++                       std::vector<float>* scale) {
++  auto read_after = [&](const char* tag, std::vector<float>* values) {
++    const size_t at = text.find(tag);
++    const size_t open = at == std::string::npos ? at : text.find('[', at);
++    const size_t close = open == std::string::npos ? open : text.find(']', open);
++    if (close == std::string::npos) return false;
++    std::istringstream in(text.substr(open + 1, close - open - 1));
++    values->assign(std::istream_iterator<float>(in), std::istream_iterator<float>());
++    return values->size() == kDim;
++  };
++  if (!read_after("<AddShift>", shift) || !read_after("<Rescale>", scale)) {
++    return absl::InvalidArgumentError("am.mvn: expected 560 AddShift/Rescale values.");
++  }
++  return absl::OkStatus();
++}
++
++int LanguageId(const std::string& language) {
++  static const std::unordered_map<std::string, int> ids = {
++      {"auto", 0}, {"zh", 3}, {"en", 4}, {"yue", 7}, {"ja", 11}, {"ko", 12},
++      {"nospeech", 13}};
++  auto it = ids.find(language);
++  return it == ids.end() ? -1 : it->second;
++}
++
++struct Assets {
++  std::vector<float> shift, scale;
++  std::vector<std::string> pieces;  // tokens.txt, index = id
++};
++
++struct GraphEntry {
++  std::unique_ptr<::litert::Environment> env;
++  std::unique_ptr<::litert::CompiledModel> model;
++  int frames = 0;
++};
++
++bool WriteFloats(const std::string& path, const float* data, size_t count) {
++  std::ofstream f(path, std::ios::binary);
++  f.write(reinterpret_cast<const char*>(data), count * sizeof(float));
++  return static_cast<bool>(f);
++}
++
++nlohmann::ordered_json Run(const std::string& model_dir, const std::string& variant,
++                           const std::string& audio_path, const std::string& language,
++                           bool use_itn, const std::string& dump_dir) {
++  using Clock = std::chrono::steady_clock;
++  auto ms_since = [](Clock::time_point start) {
++    return std::chrono::duration<float, std::milli>(Clock::now() - start).count();
++  };
++  nlohmann::ordered_json result;
++  result["success"] = false;
++  const int language_id = LanguageId(language.empty() ? "ko" : language);
++  if (language_id < 0) {
++    result["error"] = "Unsupported language: " + language;
++    return result;
++  }
++  // ponytail: assets cached per model dir and never evicted — a sample uses one model dir.
++  static std::mutex mutex;
++  static std::unordered_map<std::string, std::unique_ptr<Assets>> assets_cache;
++  // A w8 bucket costs ~2 GB RSS on XNNPACK (kona's LMK killed the app at 5.6 GB with three
++  // cached), so only ONE graph stays resident and a bucket switch recompiles.
++  static std::unique_ptr<GraphEntry> graph;
++  static std::string graph_key;
++  std::unique_lock<std::mutex> lock(mutex);
++
++  auto& assets = assets_cache[model_dir];
++  if (!assets) {
++    auto loaded = std::make_unique<Assets>();
++    auto mvn = ReadBinaryFile(model_dir + "/am.mvn");
++    if (!mvn.ok()) {
++      result["error"] = mvn.status().ToString();
++      return result;
++    }
++    auto status = ParseCmvn(*mvn, &loaded->shift, &loaded->scale);
++    if (!status.ok()) {
++      result["error"] = status.ToString();
++      return result;
++    }
++    std::ifstream tokens(model_dir + "/tokens.txt");
++    std::string line;
++    while (std::getline(tokens, line)) {
++      if (!line.empty() && line.back() == '\r') line.pop_back();  // the release ships CRLF
++      const size_t tab = line.find('\t');
++      if (tab == std::string::npos) continue;
++      const int id = std::stoi(line.substr(0, tab));
++      if (id >= static_cast<int>(loaded->pieces.size())) loaded->pieces.resize(id + 1);
++      loaded->pieces[id] = line.substr(tab + 1);
++    }
++    if (loaded->pieces.size() != kVocab) {
++      result["error"] = "tokens.txt: expected 25055 entries.";
++      return result;
++    }
++    assets = std::move(loaded);
++  }
++
++  const auto feat_start = Clock::now();
++  auto audio_bytes = ReadBinaryFile(audio_path);
++  if (!audio_bytes.ok()) {
++    result["error"] = audio_bytes.status().ToString();
++    return result;
++  }
++  std::vector<float> pcm;
++  auto decode = litert::lm::AudioPreprocessorMiniAudio::DecodeAudio(
++      *audio_bytes, /*num_channels=*/1, /*sample_rate_hz=*/16000, pcm);
++  if (!decode.ok()) {
++    result["error"] = decode.ToString();
++    return result;
++  }
++  result["audioSeconds"] = pcm.size() / 16000.0;
++  for (float& s : pcm) s *= 32768.0f;
++  int fbank_frames = 0, lfr_frames = 0;
++  const std::vector<float> fbank = KaldiFbank(pcm, &fbank_frames);
++  if (fbank_frames == 0) {
++    result["error"] = "Audio shorter than one 25 ms frame.";
++    return result;
++  }
++  std::vector<float> feats = ApplyLfr(fbank, fbank_frames, &lfr_frames);
++  for (int t = 0; t < lfr_frames; ++t) {
++    for (int d = 0; d < kDim; ++d) {
++      float& v = feats[static_cast<size_t>(t) * kDim + d];
++      v = (v + assets->shift[d]) * assets->scale[d];
+     }
+   }
+-  return std::nullopt;
++  // Smallest bucket that fits among the graphs present (an app may ship only the 5 s one);
++  // longer audio is truncated to the largest bucket present.
++  const std::string suffix = "_" + (variant.empty() ? std::string("w8") : variant) + ".tflite";
++  auto bucket_path = [&](const Bucket& b) {
++    return model_dir + "/sensevoice_small_" + b.name + suffix;
++  };
++  const Bucket* bucket = nullptr;
++  for (const Bucket& b : kBuckets) {
++    if (bucket_path(b) != graph_key && !std::ifstream(bucket_path(b)).good()) continue;
++    bucket = &b;
++    if (b.frames >= lfr_frames) break;
++  }
++  if (bucket == nullptr) {
++    result["error"] = "No sensevoice_small_<bucket>" + suffix + " in " + model_dir;
++    return result;
++  }
++  const int frames = bucket->frames;
++  const int valid = std::min(lfr_frames, frames);  // > 30 s is truncated
++  std::vector<float> speech(static_cast<size_t>(kDim) * frames, 0.0f);
++  for (int t = 0; t < valid; ++t) {
++    for (int d = 0; d < kDim; ++d) {
++      speech[static_cast<size_t>(d) * frames + t] = feats[static_cast<size_t>(t) * kDim + d];
++    }
++  }
++  result["featMs"] = ms_since(feat_start);
++  result["bucket"] = bucket->name;
++  result["frames"] = valid;
++
++  const std::string graph_path = bucket_path(*bucket);
++  float compile_ms = 0.0f;
++  if (!graph || graph_key != graph_path) {
++    graph.reset();  // free the previous bucket before compiling the next
++    graph_key.clear();
++    const auto compile_start = Clock::now();
++    auto entry = std::make_unique<GraphEntry>();
++    auto env_or = ::litert::Environment::Create({});
++    auto options_or = ::litert::Options::Create();
++    if (!env_or.HasValue() || !options_or.HasValue()) {
++      result["error"] = "LiteRT environment/options unavailable.";
++      return result;
++    }
++    entry->env = std::make_unique<::litert::Environment>(std::move(env_or.Value()));
++    auto options = std::move(options_or.Value());
++    options.SetHardwareAccelerators(::litert::HwAccelerators::kCpu);
++    auto cpu_options = options.GetCpuOptions();
++    if (cpu_options.HasValue()) {
++      cpu_options->SetNumThreads(4);  // default is 1: ~930 ms for the 3 s bucket on kona
++    }
++    auto model_or = ::litert::CompiledModel::Create(*entry->env, graph_path, options);
++    if (!model_or.HasValue()) {
++      result["error"] = graph_path + ": " + model_or.Error().Message();
++      return result;
++    }
++    entry->model = std::make_unique<::litert::CompiledModel>(std::move(model_or.Value()));
++    entry->frames = frames;
++    graph = std::move(entry);
++    graph_key = graph_path;
++    compile_ms = ms_since(compile_start);
++  }
++  result["compileMs"] = compile_ms;
++
++  // Bound by NAME: the converter orders signature inputs alphabetically.
++  ::litert::FlatHashMap<::litert::StringView, ::litert::TensorBuffer> inputs, outputs;
++  const std::vector<int32_t> length = {valid}, lang = {language_id},
++                             norm = {use_itn ? 14 : 15};
++  if (!FeedSupertonicInput(*graph->model, &inputs, "speech", speech, &result) ||
++      !FeedSupertonicInput(*graph->model, &inputs, "speech_lengths", length, &result) ||
++      !FeedSupertonicInput(*graph->model, &inputs, "language", lang, &result) ||
++      !FeedSupertonicInput(*graph->model, &inputs, "textnorm", norm, &result) ||
++      !MakeSupertonicOutput(*graph->model, &outputs, "ctc_logits", &result) ||
++      !MakeSupertonicOutput(*graph->model, &outputs, "encoder_out_lens", &result)) {
++    return result;
++  }
++  const auto infer_start = Clock::now();
++  auto run = graph->model->Run(kSupertonicSignature, inputs, outputs);
++  if (!run.HasValue()) {
++    result["error"] = run.Error().Message();
++    return result;
++  }
++  std::vector<float> logits(static_cast<size_t>(frames + kTags) * kVocab);
++  auto read = outputs.at(::litert::StringView("ctc_logits"))
++                  .Read<float>(absl::MakeSpan(logits));
++  if (!read.HasValue()) {
++    result["error"] = read.Error().Message();
++    return result;
++  }
++  result["inferMs"] = ms_since(infer_start);
++
++  const auto decode_start = Clock::now();
++  const int rows = valid + kTags;
++  std::vector<int> ids;
++  std::vector<float> token_probs;
++  std::string text;
++  double max_prob_sum = 0.0;
++  int prev = -1;
++  for (int r = 0; r < rows; ++r) {
++    const float* row = logits.data() + static_cast<size_t>(r) * kVocab;
++    const int best = static_cast<int>(std::max_element(row, row + kVocab) - row);
++    double sum = 0.0;
++    for (int v = 0; v < kVocab; ++v) sum += std::exp(row[v] - row[best]);
++    const float prob = static_cast<float>(1.0 / sum);
++    if (r >= kTags) max_prob_sum += prob;
++    if (best != 0 && best == prev && !token_probs.empty()) {
++      if (token_probs.back() >= 0.0f) {  // same CTC run; tags stay -1
++        token_probs.back() = std::max(token_probs.back(), prob);
++      }
++    } else if (best != 0 && best != prev) {
++      const std::string& piece = assets->pieces[best];
++      ids.push_back(best);
++      if (piece.size() >= 4 && piece.rfind("<|", 0) == 0) {
++        token_probs.push_back(-1.0f);  // a tag, not counted
++      } else {
++        token_probs.push_back(prob);
++        text += piece;
++      }
++    }
++    prev = best;
++  }
++  // SentencePiece surface form: U+2581 -> space, no leading/trailing space.
++  const std::string kSpaceMark = "\xE2\x96\x81";
++  for (size_t at = text.find(kSpaceMark); at != std::string::npos;
++       at = text.find(kSpaceMark, at + 1)) {
++    text.replace(at, kSpaceMark.size(), " ");
++  }
++  text.erase(0, text.find_first_not_of(' '));
++  text.erase(text.find_last_not_of(' ') + 1);
++  std::vector<float> per_token;
++  for (float p : token_probs) {
++    if (p >= 0.0f) per_token.push_back(p);
++  }
++  result["decodeMs"] = ms_since(decode_start);
++  result["text"] = text;
++  result["tokens"] = ids;
++  result["confidence"] = {
++      {"meanMaxProb", valid > 0 ? max_prob_sum / valid : 0.0},
++      {"minTokenProb",
++       per_token.empty() ? 0.0f : *std::min_element(per_token.begin(), per_token.end())},
++      {"perToken", per_token}};
++  if (!dump_dir.empty()) {
++    result["dumped"] =
++        WriteFloats(dump_dir + "/feats.f32", feats.data(), static_cast<size_t>(valid) * kDim) &&
++        WriteFloats(dump_dir + "/logits.f32", logits.data(), static_cast<size_t>(rows) * kVocab);
++  }
++  result["success"] = true;
++  return result;
+ }
+ 
++}  // namespace sensevoice
 +
  }  // namespace
  
@@ -4997,10 +5752,28 @@ index 22251ba7..283fab43 100644
 +  return array;
 +}
 +
++LITERTLM_JNIEXPORT jstring JNICALL
++Java_com_google_ai_edge_litertlm_unity_UnityLiteRtLmBridge_nativeRunSenseVoiceAsr(
++    JNIEnv* env, jclass thiz, jstring model_dir, jstring variant,
++    jstring audio_path, jstring language, jboolean use_itn, jstring dump_dir) {
++  const std::string model_dir_str = JStringToStdString(env, model_dir);
++  const std::string audio_path_str = JStringToStdString(env, audio_path);
++  if (model_dir_str.empty() || audio_path_str.empty()) {
++    ThrowLiteRtLmJniException(env, "modelDir and audioPath are required.");
++    return nullptr;
++  }
++  return NewStringStandardUTF(
++      env,
++      sensevoice::Run(model_dir_str, JStringToStdString(env, variant),
++                      audio_path_str, JStringToStdString(env, language),
++                      use_itn == JNI_TRUE, JStringToStdString(env, dump_dir))
++          .dump());
++}
++
  LITERTLM_JNIEXPORT void JNICALL
  Java_com_google_ai_edge_litertlm_NativeLibraryLoader_nativeCheckLoaded(
      JNIEnv* env, jclass thiz) {}
-@@ -573,7 +5232,10 @@ LITERTLM_JNIEXPORT jlong JNICALL JNI_METHOD(nativeCreateBenchmark)(
+@@ -573,7 +5645,10 @@ LITERTLM_JNIEXPORT jlong JNICALL JNI_METHOD(nativeCreateBenchmark)(
      return 0;
    }
  
@@ -5012,7 +5785,7 @@ index 22251ba7..283fab43 100644
    if (!settings.ok()) {
      ThrowLiteRtLmJniException(env, "Failed to create engine settings: " +
                                         settings.status().ToString());
-@@ -614,6 +5276,9 @@ LITERTLM_JNIEXPORT jlong JNICALL JNI_METHOD(nativeCreateBenchmark)(
+@@ -614,6 +5689,9 @@ LITERTLM_JNIEXPORT jlong JNICALL JNI_METHOD(nativeCreateBenchmark)(
    auto& benchmark_params = settings->GetMutableBenchmarkParams();
    benchmark_params.set_num_prefill_tokens(prefill_tokens);
    benchmark_params.set_num_decode_tokens(decode_tokens);
@@ -5033,10 +5806,10 @@ index 00000000..3a10407b
 +extern "C" void LiteRtLmUnityLoaderAnchor() {}
 diff --git a/kotlin/java/com/google/ai/edge/litertlm/unity/UnityLiteRtLmBridge.java b/kotlin/java/com/google/ai/edge/litertlm/unity/UnityLiteRtLmBridge.java
 new file mode 100644
-index 00000000..66caa416
+index 00000000..35f245d5
 --- /dev/null
 +++ b/kotlin/java/com/google/ai/edge/litertlm/unity/UnityLiteRtLmBridge.java
-@@ -0,0 +1,407 @@
+@@ -0,0 +1,433 @@
 +package com.google.ai.edge.litertlm.unity;
 +
 +public final class UnityLiteRtLmBridge implements AutoCloseable {
@@ -5404,6 +6177,32 @@ index 00000000..66caa416
 +      int eosId,
 +      int padId,
 +      boolean useMask);
++
++  /**
++   * SenseVoice-Small ASR on the fixed-shape LiteRT buckets of {@code modelDir} (am.mvn,
++   * tokens.txt, sensevoice_small_{3s,5s,10s,30s}_{variant}.tflite): fbank/LFR/CMVN front end,
++   * the smallest bucket that fits, greedy CTC. Returns JSON {success, text, tokens, confidence
++   * {meanMaxProb, minTokenProb, perToken}, bucket, frames, featMs, inferMs, decodeMs, compileMs,
++   * error}. {@code language}: auto, zh, en, yue, ja, ko (default), nospeech. A non-empty
++   * {@code dumpDir} also writes feats.f32 and logits.f32 there (parity checks).
++   */
++  public static String runSenseVoiceAsr(
++      String modelDir,
++      String variant,
++      String audioPath,
++      String language,
++      boolean useItn,
++      String dumpDir) {
++    return nativeRunSenseVoiceAsr(modelDir, variant, audioPath, language, useItn, dumpDir);
++  }
++
++  private static native String nativeRunSenseVoiceAsr(
++      String modelDir,
++      String variant,
++      String audioPath,
++      String language,
++      boolean useItn,
++      String dumpDir);
 +
 +  private static native String nativeInspectLiteRtModel(String modelPath);
 +
