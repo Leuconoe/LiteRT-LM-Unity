@@ -32,6 +32,7 @@ param(
     [switch]$All,
     [string]$Python = "",
     [string]$LogPath = "",
+    [string]$HotwordsFile = "",  # A/B only: faster-whisper style decoder prefix, off by default
     [switch]$Bootstrap
 )
 
@@ -199,7 +200,8 @@ foreach ($job in $jobs) {
         $fail++
         continue
     }
-    $line = & $py $Runner --model $modelPath --tokenizer $tok --audio $audioPath --lang $Lang --runs $Runs 2>$null
+    $extra = if ($HotwordsFile) { @("--hotwords-file", $HotwordsFile) } else { @() }
+    $line = & $py $Runner --model $modelPath --tokenizer $tok --audio $audioPath --lang $Lang --runs $Runs @extra 2>$null
     if ($LASTEXITCODE -ne 0 -or !$line) {
         Write-Host "FAIL  $(Split-Path $modelPath -Leaf)  <-  $(Split-Path $audioPath -Leaf)" -ForegroundColor Red
         $fail++
