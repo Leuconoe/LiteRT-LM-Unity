@@ -20,7 +20,7 @@ namespace LiteRTLM.Unity
             public string Label;
             public string ModelPath;
             public string TokenizerPath;
-            /// <summary>"whisper" or "qwen3" — selects the native ASR entry point.</summary>
+            /// <summary>"whisper", "qwen3" or "sensevoice" — selects the native ASR entry point.</summary>
             public string Mode = "whisper";
         }
 
@@ -57,6 +57,15 @@ namespace LiteRTLM.Unity
                 ModelPath = "ASR/qwen3-asr-0.6b/qwen3_asr_0.6b_5s_i8.tflite",
                 TokenizerPath = "ASR/qwen3-asr-0.6b/tokenizer.json",
                 Mode = "qwen3",
+            },
+            new()
+            {
+                // TokenizerPath is the CTC vocabulary; am.mvn sits beside it. Only the 5 s bucket is packaged:
+                // the native side truncates longer audio to the largest bucket present.
+                Label = "sensevoice-small w8",
+                ModelPath = "ASR/sensevoice-small/sensevoice_small_5s_w8.tflite",
+                TokenizerPath = "ASR/sensevoice-small/tokens.txt",
+                Mode = "sensevoice",
             },
         };
 

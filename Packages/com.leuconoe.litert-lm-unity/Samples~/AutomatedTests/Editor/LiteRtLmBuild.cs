@@ -492,18 +492,30 @@ namespace LiteRTLM.Unity.Editor
         [MenuItem("LiteRT-LM/Build/Android/Build ASR Function Calling Test APK")]
         public static void BuildAndroidAsrFunctionCallingTestApk()
         {
+            // The interactive scene starts on the first ASR tier and the fine-tuned FunctionGemma router, so a
+            // fresh install needs both; gemma3-1b stays packaged for the "Generic JSON prompt" option.
+            var asr = LiteRtLmSampleAssets.AsrModels[0];
+            var senseVoice = Array.Find(LiteRtLmSampleAssets.AsrModels, m => m.Mode == "sensevoice");
             BuildAndroidAsrFunctionCallingDemoApk(
                 new AndroidAsrFunctionCallingBuildSettings(
-                    AsrFunctionCallingDefaultAsrModelPath,
+                    asr.ModelPath,
                     AsrFunctionCallingDefaultAudioPath,
-                    AsrFunctionCallingDefaultTokenizerJsonPath,
+                    asr.TokenizerPath,
                     "CPU",
                     "ko",
                     FunctionCallingGemma1BModelPath,
                     "GPU",
                     512,
                     "LiteRtLmAsrFunctionCallingTest.apk"),
-                CreateAsrFunctionCallingTestBuildSceneCopy);
+                CreateAsrFunctionCallingTestBuildSceneCopy,
+                new[]
+                {
+                    LiteRtLmSampleAssets.FunctionGemmaRouterModel,
+                    // The "sensevoice-small w8" ASR option: its 5 s bucket, vocabulary and CMVN (~242 MB).
+                    senseVoice.ModelPath,
+                    senseVoice.TokenizerPath,
+                    senseVoice.ModelPath.Substring(0, senseVoice.ModelPath.LastIndexOf('/')) + "/am.mvn",
+                });
         }
 
         // The multimodal FC runner is runtime-config driven on Android: the
@@ -833,8 +845,18 @@ namespace LiteRTLM.Unity.Editor
 
         private static void BuildAndroidAsrFunctionCallingDemoApk(
             AndroidAsrFunctionCallingBuildSettings settings,
-            Func<AndroidAsrFunctionCallingBuildSettings, string> buildSceneFactory = null)
+            Func<AndroidAsrFunctionCallingBuildSettings, string> buildSceneFactory = null,
+            IReadOnlyCollection<string> extraPackagedFiles = null)
         {
+            foreach (var extra in extraPackagedFiles ?? Array.Empty<string>())
+            {
+                var extraPath = Path.Combine(GetProjectRoot(), "Assets", "StreamingAssets", extra);
+                if (!File.Exists(extraPath))
+                {
+                    throw new FileNotFoundException($"Android ASR function-calling build: StreamingAssets file not found: {extraPath}", extraPath);
+                }
+            }
+
             if (string.IsNullOrWhiteSpace(settings.AsrModelFileName))
             {
                 throw new ArgumentException("Android ASR function-calling demo ASR model file name is required.", nameof(settings));
@@ -915,6 +937,11 @@ namespace LiteRTLM.Unity.Editor
                     settings.TokenizerJsonPath,
                     settings.TokenizerJsonPath + ".meta",
                 };
+                foreach (var extra in extraPackagedFiles ?? Array.Empty<string>())
+                {
+                    packagedFiles.Add(extra);
+                    packagedFiles.Add(extra + ".meta");
+                }
 
                 WithAndroidSelectedStreamingAssets(packagedFiles, () =>
                 {
@@ -1575,14 +1602,18 @@ namespace LiteRTLM.Unity.Editor
             try
             {
                 var scene = EditorSceneManager.OpenScene(AndroidAsrFunctionCallingTestBuildScenePath, OpenSceneMode.Single);
+                // The interactive "Voice → tool call" scene picks its models from LiteRtLmSampleAssets at run time,
+                // so only the old headless demo runner needs the build settings injected.
                 var runner = UnityEngine.Object.FindAnyObjectByType<LiteRtLmAsrFunctionCallingDemoRunner>();
-                if (runner == null)
+                if (runner != null)
+                {
+                    ApplyAndroidAsrFunctionCallingBuildSettings(runner, settings);
+                }
+                else if (UnityEngine.Object.FindAnyObjectByType<LiteRtLmAsrFunctionCallingTestRunner>() == null)
                 {
                     throw new InvalidOperationException(
-                        $"ASR function-calling test scene does not contain {nameof(LiteRtLmAsrFunctionCallingDemoRunner)}.");
+                        $"ASR function-calling test scene contains neither {nameof(LiteRtLmAsrFunctionCallingDemoRunner)} nor {nameof(LiteRtLmAsrFunctionCallingTestRunner)}.");
                 }
-
-                ApplyAndroidAsrFunctionCallingBuildSettings(runner, settings);
                 if (!EditorSceneManager.SaveScene(scene, AndroidAsrFunctionCallingTestBuildScenePath))
                 {
                     throw new InvalidOperationException(

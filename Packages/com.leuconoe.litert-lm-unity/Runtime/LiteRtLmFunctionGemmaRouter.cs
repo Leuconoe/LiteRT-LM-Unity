@@ -78,6 +78,10 @@ namespace LiteRTLM.Unity
             public string Function;
             public Dictionary<string, object> Arguments = new Dictionary<string, object>();
 
+            /// <summary>Set by the policy overload of <see cref="Route(string, Func{string, string}, ToolSchema, ConfirmationPolicy, double?)"/>:
+            /// ask the user before executing. Not part of <see cref="ToJson"/>.</summary>
+            public bool NeedsConfirmation;
+
             public bool IsRefusal => Function == RefusalName;
 
             /// <summary>Keys sorted, compact — identical to Python's json.dumps(sort_keys=True, separators=(",", ":")).</summary>
@@ -128,6 +132,37 @@ namespace LiteRTLM.Unity
             }
 
             public bool Has(string function) => function != null && Properties.ContainsKey(function);
+        }
+
+        /// <summary>
+        /// Which routed calls must be confirmed before they run. On hard voices every fine-tune still executes
+        /// 12–15 % wrong calls (docs/benchmarks/functiongemma-korean-fc.md §7b), so irreversible or
+        /// authority-moving commands never run from a single utterance. Mirrors fg_common.needs_confirmation.
+        /// </summary>
+        public sealed class ConfirmationPolicy
+        {
+            public readonly HashSet<string> Functions = new HashSet<string>(StringComparer.Ordinal)
+            {
+                "DisbandTeam", "RevokeTeamControl", "AssignTeamControl", "DetachDrone",
+            };
+
+            /// <summary>AcceptConfirmWindow is only gated for these windows — approving them is irreversible.</summary>
+            public readonly HashSet<string> ConfirmWindows = new HashSet<string>(StringComparer.Ordinal)
+            {
+                "자폭 공격", "팀 해체", "게임 종료", "시뮬레이션 종료", "제어권 회수", "드론봇 팀 제외",
+            };
+
+            /// <summary>Below this ASR confidence any executable call needs confirmation. 0 = off.</summary>
+            public double MinAsrConfidence;
+
+            public bool Requires(Call call, double? asrConfidence = null)
+            {
+                if (call == null || call.IsRefusal) return false;
+                if (asrConfidence.HasValue && asrConfidence.Value < MinAsrConfidence) return true;
+                if (Functions.Contains(call.Function)) return true;
+                return call.Function == "AcceptConfirmWindow"
+                       && call.Arguments.TryGetValue("confirmName", out var name) && name is string s && ConfirmWindows.Contains(s);
+            }
         }
 
         public static Call Refusal() => new Call { Function = RefusalName };
@@ -267,6 +302,28 @@ namespace LiteRTLM.Unity
 
             var parts = Segments(utterance);
             return parts.Count == 0 ? full : CombineSegments(full, parts.Select(p => Validate(ParseCall(infer(p)), schema, p)).ToList());
+        }
+
+        /// <summary>
+        /// <see cref="Route(string, Func{string, string}, ToolSchema)"/> plus the confirmation policy: the call comes
+        /// back with <see cref="Call.NeedsConfirmation"/> set when <paramref name="policy"/> says so (pass
+        /// <paramref name="asrConfidence"/> to gate on the recogniser's confidence). A refusal never needs confirmation.
+        /// </summary>
+        public static Call Route(string utterance, Func<string, string> infer, ToolSchema schema, ConfirmationPolicy policy, double? asrConfidence = null)
+        {
+            var call = Route(utterance, infer, schema);
+            call.NeedsConfirmation = policy != null && policy.Requires(call, asrConfidence);
+            return call;
+        }
+
+        /// <summary>Answer to a confirmation prompt: true = yes, false = no, null = neither (the app cancels).</summary>
+        public static bool? ParseConfirmation(string answer)
+        {
+            var flat = (answer ?? string.Empty).Replace(" ", string.Empty).Trim('.', '!', '?', ',', '~');
+            // ponytail: exact-word lists — "아니"/"아니오" checked first so "아니오" never reads as a yes.
+            if (new[] { "아니", "아니오", "아니요", "취소", "거절", "안돼", "하지마" }.Any(w => flat.StartsWith(w, StringComparison.Ordinal))) return false;
+            if (new[] { "예", "네", "응", "확인", "실행", "승인", "맞아" }.Any(w => flat.StartsWith(w, StringComparison.Ordinal))) return true;
+            return null;
         }
 
         /// <summary>The contract's DefaultResponse carries the input text; the decl-none model emits <c>{}</c>.</summary>

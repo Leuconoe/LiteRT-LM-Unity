@@ -140,6 +140,33 @@ namespace LiteRTLM.Unity.Editor
                 Check(got == g.Expected, $"golden '{g.Utterance}': want {g.Expected} got {got}");
             }
 
+            // confirmation policy (fg_common.needs_confirmation)
+            var policy = new LiteRtLmFunctionGemmaRouter.ConfirmationPolicy();
+            Check(policy.Requires(C("DisbandTeam", "team", "Alpha")), "DisbandTeam needs confirmation");
+            Check(policy.Requires(C("AcceptConfirmWindow", "confirmName", "자폭 공격")), "self-destruct approval needs confirmation");
+            Check(!policy.Requires(C("AcceptConfirmWindow", "confirmName", "전술 확정")), "ordinary confirm window runs");
+            Check(!policy.Requires(C("RejectConfirmWindow", "confirmName", "자폭 공격")), "rejecting is never gated");
+            Check(!policy.Requires(C("SelectTeam", "team", "Alpha")), "SelectTeam runs");
+            Check(!policy.Requires(refusal), "refusal never needs confirmation");
+            Check(!policy.Requires(C("SelectTeam", "team", "Alpha"), 0.1), "confidence gate off by default");
+            policy.MinAsrConfidence = 0.6;
+            Check(policy.Requires(C("SelectTeam", "team", "Alpha"), 0.4), "low ASR confidence gates any call");
+            Check(!policy.Requires(C("SelectTeam", "team", "Alpha"), 0.9), "high ASR confidence runs");
+            Check(!policy.Requires(refusal, 0.1), "low-confidence refusal stays a refusal");
+
+            // the policy overload flags the call without changing it; the old overload never flags
+            var assign = Goldens.First(g => g.Utterance.StartsWith("호텔팀 제어권", StringComparison.Ordinal));
+            string InferAssign(string text) => assign.Raw[text];
+            var flagged = LiteRtLmFunctionGemmaRouter.Route(assign.Utterance, InferAssign, schema, new LiteRtLmFunctionGemmaRouter.ConfirmationPolicy());
+            Check(flagged.NeedsConfirmation && flagged.ToJson() == assign.Expected, "Route+policy flags AssignTeamControl, call unchanged");
+            Check(!LiteRtLmFunctionGemmaRouter.Route(assign.Utterance, InferAssign, schema).NeedsConfirmation, "Route without policy never flags");
+
+            Check(LiteRtLmFunctionGemmaRouter.ParseConfirmation("예") == true, "confirm 예");
+            Check(LiteRtLmFunctionGemmaRouter.ParseConfirmation("네, 실행해") == true, "confirm 네, 실행해");
+            Check(LiteRtLmFunctionGemmaRouter.ParseConfirmation("아니오") == false, "deny 아니오");
+            Check(LiteRtLmFunctionGemmaRouter.ParseConfirmation("취소") == false, "deny 취소");
+            Check(LiteRtLmFunctionGemmaRouter.ParseConfirmation("알파팀 선택") == null, "unrelated answer → null");
+
             return failures;
         }
 

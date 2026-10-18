@@ -85,6 +85,13 @@ namespace LiteRTLM.Unity
         private InputSource _inputSource = InputSource.AudioClip;
         private RouterKind _router = RouterKind.FunctionGemma;
         private LiteRtLmFunctionGemmaRouter.ToolSchema _functionGemmaSchema;
+        // Only SenseVoice reports a confidence; the whisper / qwen3 paths pass none, so the gate never fires for them.
+        private readonly LiteRtLmFunctionGemmaRouter.ConfirmationPolicy _confirmPolicy = new()
+        {
+            MinAsrConfidence = LiteRtLmSenseVoice.RecommendedMinConfidence,
+        };
+        private LiteRtLmFunctionGemmaRouter.Call _pendingCall; // high-impact call waiting for 예/아니오
+        private double? _asrConfidence; // SenseVoice's confidence for the current utterance, else null
 
         private string _systemPrompt = DefaultSystemPrompt;
         private string _toolsJson = DefaultToolsJson;
@@ -274,6 +281,13 @@ namespace LiteRTLM.Unity
 
             LiteRtLmUi.Section("Tool call");
             GUILayout.TextArea(string.IsNullOrEmpty(_toolCall) ? "(none yet)" : _toolCall, LiteRtLmUi.Mono, GUILayout.Height(60f));
+            if (_pendingCall != null)
+            {
+                GUILayout.BeginHorizontal();
+                if (GUILayout.Button("예 (실행)", GUILayout.Height(LiteRtLmUi.RowHeight))) ResolvePending(true);
+                if (GUILayout.Button("아니오 (취소)", GUILayout.Height(LiteRtLmUi.RowHeight))) ResolvePending(false);
+                GUILayout.EndHorizontal();
+            }
 
             if (!string.IsNullOrEmpty(_rawResponse) && _rawResponse != _toolCall)
             {
@@ -319,6 +333,7 @@ namespace LiteRTLM.Unity
             _transcript = string.Empty;
             _toolCall = string.Empty;
             _rawResponse = string.Empty;
+            _asrConfidence = null;
 
             var asrModel = LiteRtLmSampleAssets.AsrModels[_asrModelIndex];
             var llmModel = LiteRtLmSampleAssets.LlmModels[_llmModelIndex];
@@ -354,8 +369,46 @@ namespace LiteRTLM.Unity
                 }
 
                 string asrJson = null;
+                var senseVoice = asrModel.Mode == "sensevoice";
+                string mvnPath = null;
+                if (senseVoice)
+                {
+                    yield return ResolveStreamingAsset(
+                        Path.GetDirectoryName(asrModel.ModelPath)?.Replace('\\', '/') + "/am.mvn", p => mvnPath = p);
+                }
 
-                if (!_client.IsAvailable)
+                if (senseVoice && !_client.IsAvailable)
+                {
+                    Fail("SenseVoice runs through the Android bridge only; pick a whisper tier in the editor.");
+                    yield break;
+                }
+
+                if (senseVoice)
+                {
+                    LiteRtLmSenseVoice.Result sv;
+                    try
+                    {
+                        // tokens.txt (TokenizerPath) and am.mvn were staged next to the graph.
+                        sv = new LiteRtLmSenseVoice(Path.GetDirectoryName(modelPath)).Transcribe(audioPath, language);
+                    }
+                    catch (Exception ex)
+                    {
+                        Fail($"ASR failed: {ex.Message}");
+                        yield break;
+                    }
+
+                    if (!sv.success || mvnPath == null)
+                    {
+                        Fail($"ASR failed: {(mvnPath == null ? "am.mvn missing" : sv.error)}");
+                        yield break;
+                    }
+
+                    _asrConfidence = sv.confidence.meanMaxProb;
+                    Log($"sensevoice {sv.bucket} feat {sv.featMs:0} ms, infer {sv.inferMs:0} ms, " +
+                        $"confidence {sv.confidence.meanMaxProb:0.000} (min token {sv.confidence.minTokenProb:0.000})");
+                    utterance = sv.text;
+                }
+                else if (!_client.IsAvailable)
                 {
                     // Editor: the whisper tflite path is Android-only, so transcribe
                     // through the desktop CLI instead of failing outright.
@@ -403,6 +456,13 @@ namespace LiteRTLM.Unity
                     Fail("ASR produced an empty transcript");
                     yield break;
                 }
+            }
+
+            // A high-impact call is waiting: this utterance is the answer, not a new command (no model call).
+            if (_pendingCall != null)
+            {
+                ResolvePending(LiteRtLmFunctionGemmaRouter.ParseConfirmation(utterance));
+                yield break;
             }
 
             SetStatus("Routing to a tool...", LiteRtLmUi.StatusKind.Busy);
@@ -510,7 +570,7 @@ namespace LiteRTLM.Unity
                 var task = System.Threading.Tasks.Task.Run(() => LiteRtLmFunctionGemmaRouter.Route(
                     utterance,
                     text => Remember(cli.SendMessage(executable, modelPath, text, backend, LiteRtLmFunctionGemmaRouter.Trigger)),
-                    schema));
+                    schema, _confirmPolicy, _asrConfidence));
 
                 while (!task.IsCompleted)
                 {
@@ -537,7 +597,7 @@ namespace LiteRTLM.Unity
                     {
                         _client.ResetConversation(LiteRtLmFunctionGemmaRouter.Trigger);
                         return Remember(_client.SendMessage(text));
-                    }, schema);
+                    }, schema, _confirmPolicy, _asrConfidence);
                 }
                 catch (Exception ex)
                 {
@@ -547,10 +607,40 @@ namespace LiteRTLM.Unity
             }
 
             _rawResponse = firstRaw ?? string.Empty;
+            if (call.NeedsConfirmation)
+            {
+                _pendingCall = call;
+                _toolCall = $"확인: {call.ToJson()} 실행할까요? (예/아니오)";
+                var lowConfidence = _asrConfidence < _confirmPolicy.MinAsrConfidence ? $", ASR confidence {_asrConfidence:0.000}" : "";
+                Log($"needs confirmation: {call.ToJson()} ({inferences} inference{(inferences == 1 ? "" : "s")}{lowConfidence})");
+                SetStatus("확인 대기 — 예/아니오로 답하세요", LiteRtLmUi.StatusKind.Idle);
+                _isBusy = false;
+                yield break;
+            }
+
             _toolCall = LiteRtLmFunctionGemmaRouter.WithRefusalText(call, utterance).ToJson();
             Log($"tool call: {_toolCall} ({inferences} inference{(inferences == 1 ? "" : "s")})");
             SetStatus(_client.IsAvailable ? "Done" : "Done (Windows CLI)", LiteRtLmUi.StatusKind.Idle);
             _isBusy = false;
+        }
+
+        /// <summary>Answer to a pending high-impact call: yes runs it; no or anything else cancels it.</summary>
+        private void ResolvePending(bool? yes)
+        {
+            var call = _pendingCall;
+            _pendingCall = null;
+            _isBusy = false;
+            if (yes == true)
+            {
+                _toolCall = call.ToJson();
+                Log($"confirmed: {_toolCall}");
+                SetStatus("Done (confirmed)", LiteRtLmUi.StatusKind.Idle);
+                return;
+            }
+
+            _toolCall = string.Empty;
+            Log($"cancelled{(yes == null ? " (answer was not 예/아니오)" : string.Empty)}: {call.ToJson()}");
+            SetStatus("Cancelled", LiteRtLmUi.StatusKind.Idle);
         }
 
         private static string WindowsCliExecutablePath() => Path.Combine(

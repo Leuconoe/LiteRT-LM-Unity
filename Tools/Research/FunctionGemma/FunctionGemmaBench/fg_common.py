@@ -264,6 +264,24 @@ def combine_segments(full: dict, segment_calls: list[dict]) -> dict:
     return calls[0] if len(distinct) == 1 else full
 
 
+# Irreversible / authority-moving commands never run from one utterance: on hard voices every fine-tune still
+# executes 12-15 % wrong calls. Mirrors LiteRtLmFunctionGemmaRouter.ConfirmationPolicy.
+CONFIRM_FUNCTIONS = frozenset(["DisbandTeam", "RevokeTeamControl", "AssignTeamControl", "DetachDrone"])
+CONFIRM_WINDOWS = frozenset(["자폭 공격", "팀 해체", "게임 종료", "시뮬레이션 종료", "제어권 회수", "드론봇 팀 제외"])
+
+
+def needs_confirmation(call: dict | None, asr_confidence: float | None = None, min_asr_confidence: float = 0.0,
+                       functions=CONFIRM_FUNCTIONS, windows=CONFIRM_WINDOWS) -> bool:
+    """True when the routed call must be confirmed by the user before it runs (a refusal never does)."""
+    if not call or call["function"] == "DefaultResponse":
+        return False
+    if asr_confidence is not None and asr_confidence < min_asr_confidence:
+        return True
+    if call["function"] in functions:
+        return True
+    return call["function"] == "AcceptConfirmWindow" and call["arguments"].get("confirmName") in windows
+
+
 def grade(case: dict, got: dict | None, tool_index: dict[str, dict]) -> tuple[bool, str]:
     """Returns (passed, reason). reason ∈ ok | parse | function | type | arguments."""
     if got is None:
@@ -323,6 +341,15 @@ if __name__ == "__main__":
     assert combine_segments(REFUSAL, [REFUSAL, sel, REFUSAL]) == sel
     assert combine_segments(REFUSAL, [sel, {"function": "StartRecording", "arguments": {}}]) == REFUSAL
     assert combine_segments(REFUSAL, [sel, dict(sel)]) == sel
+    assert needs_confirmation({"function": "DisbandTeam", "arguments": {"team": "Alpha"}})
+    assert needs_confirmation({"function": "AcceptConfirmWindow", "arguments": {"confirmName": "자폭 공격"}})
+    assert not needs_confirmation({"function": "AcceptConfirmWindow", "arguments": {"confirmName": "전술 확정"}})
+    assert not needs_confirmation({"function": "RejectConfirmWindow", "arguments": {"confirmName": "자폭 공격"}})
+    assert not needs_confirmation(sel) and not needs_confirmation(REFUSAL) and not needs_confirmation(None)
+    assert not needs_confirmation(sel, asr_confidence=0.1)  # gate off by default
+    assert needs_confirmation(sel, asr_confidence=0.4, min_asr_confidence=0.6)
+    assert not needs_confirmation(sel, asr_confidence=0.9, min_asr_confidence=0.6)
+    assert not needs_confirmation(REFUSAL, asr_confidence=0.1, min_asr_confidence=0.6)
     sel = index["SelectDrone"]["function"]["parameters"]
     assert sel["required"] == ["droneNumber"] and len(sel["properties"]["team"]["enum"]) == 26, sel
     assert compact_tool_lines(tools).splitlines()[0].startswith('SelectTeam(team: "Alpha"|"Bravo"')
