@@ -113,65 +113,53 @@ def forced_prefix(vocab, lang):
     return [sot, lang_id, transcribe, nots], eot
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--model", required=True)
-    parser.add_argument("--tokenizer", required=True)
-    parser.add_argument("--audio", required=True)
-    parser.add_argument("--lang", default="ko", choices=["ko", "en"])
-    parser.add_argument("--runs", type=int, default=3,
-                        help="encoder timing repeats; the median is reported")
-    args = parser.parse_args()
+def load_hotwords(path):
+    """One entry per non-'#' line, stripped and space-joined (faster-whisper hotwords)."""
+    with open(path, encoding="utf-8") as f:
+        return " ".join(l.strip() for l in f.read().splitlines()
+                        if l.strip() and not l.lstrip().startswith("#"))
 
-    for label, path in (("model", args.model), ("tokenizer", args.tokenizer),
-                        ("audio", args.audio)):
-        if not os.path.isfile(path):
-            print(f"{label} not found: {path}", file=sys.stderr)
-            return 2
 
-    data = load_audio(args.audio)
-    audio_s = len(data) / SR
+def hotword_prefix(tok, hotwords, budget):
+    """faster-whisper get_prompt(): <|startofprev|> + encode(" " + hotwords),
+    placed before the SOT sequence; over-long lists keep their first tokens."""
+    ids = tok.encode(" " + hotwords.strip(), add_special_tokens=False).ids
+    return [tok.token_to_id("<|startofprev|>")] + ids[:max(0, budget)]
 
-    interp = Interpreter(model_path=args.model)
-    try:
-        encode = interp.get_signature_runner("encode")
-        decode = interp.get_signature_runner("decode")
-    except Exception as exc:  # encoder-only or non-whisper export
-        print(f"not a whisper encode/decode export: {exc}", file=sys.stderr)
-        return 3
 
-    feat_name = n_mels = n_frames = None
+def load_model(model_path):
+    interp = Interpreter(model_path=model_path)
+    encode = interp.get_signature_runner("encode")
+    decode = interp.get_signature_runner("decode")
+    m = {"encode": encode, "decode": decode}
     for name, det in encode.get_input_details().items():
         shape = det["shape"]
         if len(shape) == 3:
-            feat_name, n_mels, n_frames = name, int(shape[1]), int(shape[2])
-    assert feat_name, encode.get_input_details()
-
-    dec_out = decode.get_output_details()
-    vocab = int(list(dec_out.values())[0]["shape"][-1])
-    prompt, eot = forced_prefix(vocab, args.lang)
-
-    feats = log_mel(data, n_mels, n_frames)
-
-    enc_times = []
-    for _ in range(max(1, args.runs)):
-        t = time.perf_counter()
-        enc_out = encode(**{feat_name: feats})
-        enc_times.append(time.perf_counter() - t)
-    audio_embed = list(enc_out.values())[0]
-    encode_s = float(np.median(enc_times))
-
+            m.update(feat=name, n_mels=int(shape[1]), n_frames=int(shape[2]))
+    assert "feat" in m, encode.get_input_details()
+    m["vocab"] = int(list(decode.get_output_details().values())[0]["shape"][-1])
     # Decode inputs are bound by shape/dtype, not by name: exports disagree on
     # naming and on argument order (turbo swaps two of them).
-    names = {"audio": None, "tokens": None, "mask": None}
     for name, det in decode.get_input_details().items():
         shape, dtype = det["shape"], det["dtype"]
         if len(shape) == 3:
-            names["audio"] = name
+            m["audio"] = name
         elif len(shape) == 4:
-            names["mask"] = name
+            m["mask"] = name
         elif dtype == np.int32:
-            names["tokens"] = name
+            m["tokens"] = name
+    return m
+
+
+def transcribe(m, data, prompt, eot, runs=1):
+    """Returns (output ids, median encode s, decode s)."""
+    feats = log_mel(data, m["n_mels"], m["n_frames"])
+    enc_times = []
+    for _ in range(max(1, runs)):
+        t = time.perf_counter()
+        enc_out = m["encode"](**{m["feat"]: feats})
+        enc_times.append(time.perf_counter() - t)
+    audio_embed = list(enc_out.values())[0]
 
     mask = np.triu(np.full((SEQ, SEQ), -1e9, dtype=np.float32), k=1)
     mask = mask[np.newaxis, np.newaxis]
@@ -182,9 +170,9 @@ def main():
     t_dec = time.perf_counter()
     pos = len(prompt)
     while pos < SEQ:
-        logits = decode(**{names["audio"]: audio_embed,
-                           names["tokens"]: tokens,
-                           names["mask"]: mask})
+        logits = m["decode"](**{m["audio"]: audio_embed,
+                                m["tokens"]: tokens,
+                                m["mask"]: mask})
         logits = list(logits.values())[0]
         nxt = int(np.argmax(logits[0, pos - 1]))
         if nxt == eot:
@@ -192,16 +180,53 @@ def main():
         tokens[0, pos] = nxt
         out_ids.append(nxt)
         pos += 1
-    decode_s = time.perf_counter() - t_dec
+    return out_ids, float(np.median(enc_times)), time.perf_counter() - t_dec
 
-    text = Tokenizer.from_file(args.tokenizer).decode(out_ids)
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--model", required=True)
+    parser.add_argument("--tokenizer", required=True)
+    parser.add_argument("--audio", required=True)
+    parser.add_argument("--lang", default="ko", choices=["ko", "en"])
+    parser.add_argument("--runs", type=int, default=3,
+                        help="encoder timing repeats; the median is reported")
+    parser.add_argument("--hotwords-file", default="",
+                        help="faster-whisper style hotwords file, one entry per line; off by default")
+    parser.add_argument("--max-new-tokens", type=int, default=32,
+                        help="decoder positions kept free for output when a hotword prefix is used")
+    args = parser.parse_args()
+
+    for label, path in (("model", args.model), ("tokenizer", args.tokenizer),
+                        ("audio", args.audio)):
+        if not os.path.isfile(path):
+            print(f"{label} not found: {path}", file=sys.stderr)
+            return 2
+
+    data = load_audio(args.audio)
+    try:
+        m = load_model(args.model)
+    except Exception as exc:  # encoder-only or non-whisper export
+        print(f"not a whisper encode/decode export: {exc}", file=sys.stderr)
+        return 3
+    tok = Tokenizer.from_file(args.tokenizer)
+    prompt, eot = forced_prefix(m["vocab"], args.lang)
+    if args.hotwords_file:
+        # ponytail: this export's decoder is a fixed 128-token window (faster-whisper
+        # has 448), so a long list is cut to what fits; re-export with a longer
+        # decoder window if the whole list must be used.
+        budget = SEQ - len(prompt) - 1 - args.max_new_tokens
+        prompt = hotword_prefix(tok, load_hotwords(args.hotwords_file), budget) + prompt
+
+    out_ids, encode_s, decode_s = transcribe(m, data, prompt, eot, args.runs)
     print(json.dumps({
         "model": os.path.basename(args.model),
         "audio": os.path.basename(args.audio),
-        "lang": args.lang, "frames": n_frames, "n_mels": n_mels,
-        "vocab": vocab, "audio_s": round(audio_s, 2), "text": text,
+        "lang": args.lang, "frames": m["n_frames"], "n_mels": m["n_mels"],
+        "vocab": m["vocab"], "audio_s": round(len(data) / SR, 2),
+        "text": tok.decode(out_ids),
         "encode_s": round(encode_s, 3), "decode_s": round(decode_s, 3),
-        "steps": len(out_ids),
+        "steps": len(out_ids), "prompt_tokens": len(prompt),
     }, ensure_ascii=False), flush=True)
     return 0
 

@@ -186,6 +186,10 @@ if (Test-Path $statusLog) {
     Get-Content $statusLog | Add-Content -Path $summaryLog -Encoding utf8
 }
 
+Invoke-AdbBestEffort @("shell", "am", "force-stop", $PackageName)
+# The headset's home launcher holds KEEP_SCREEN_ON, so the screen never times out on its own: sleep it explicitly.
+Invoke-AdbBestEffort @("shell", "input", "keyevent", "KEYCODE_SLEEP")
+
 if ([string]::IsNullOrWhiteSpace($statusText)) {
     throw "ASR smoke test timed out without a status file. Log: $summaryLog"
 }

@@ -586,6 +586,8 @@ foreach ($benchmark in $Benchmarks) {
         $thermalAfterSummary = Format-ThermalSnapshot $thermalAfter
         # Stop the app so an idle smoke scene does not keep heating the device between runs.
         Invoke-AdbBestEffort $Serial @("shell", "am", "force-stop", $PackageName) "Post-run force-stop failed"
+        # The headset's home launcher holds KEEP_SCREEN_ON, so the screen never times out on its own: sleep it explicitly.
+        Invoke-AdbBestEffort $Serial @("shell", "input", "keyevent", "KEYCODE_SLEEP") "Post-run sleep failed"
 
         $Results.Add([pscustomobject]@{
             Name = $name

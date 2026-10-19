@@ -155,8 +155,11 @@ if ([string]::IsNullOrWhiteSpace($statusText)) {
     & adb -s $DeviceSerial logcat -d -t 200 2>$null |
         Select-String -Pattern "LiteRT-LM|Unity|tombstone|SIGSEGV|FATAL" |
         Select-Object -Last 30 | ForEach-Object { Write-Host "  $($_.Line)" }
-    throw "TTS smoke test produced no status output."
 }
+Invoke-AdbBestEffort @("shell", "am", "force-stop", $PackageName)
+# The headset's home launcher holds KEEP_SCREEN_ON, so the screen never times out on its own: sleep it explicitly.
+Invoke-AdbBestEffort @("shell", "input", "keyevent", "KEYCODE_SLEEP")
+if ([string]::IsNullOrWhiteSpace($statusText)) { throw "TTS smoke test produced no status output." }
 
 Write-Host ""
 Write-Host "=== device status ($verdict) ==="
