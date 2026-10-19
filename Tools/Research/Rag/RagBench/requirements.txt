@@ -1,0 +1,7 @@
+# torch comes from the cu128 index (Run-RagBench.ps1 -Bootstrap); the PyPI wheel is CPU-only.
+transformers>=4.57
+sentence-transformers>=5.1
+datasets>=3.0
+sentencepiece
+ai-edge-litert
+numpy
