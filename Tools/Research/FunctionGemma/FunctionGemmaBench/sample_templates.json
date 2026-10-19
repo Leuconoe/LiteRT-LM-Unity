@@ -1,0 +1,32 @@
+{
+  "_doc": "make_dataset.py input. {param} = a value of that parameter (enum: the value or one of its x-aliases; number: digits or Sino-Korean in [minimum, maximum]); {param:native} = digits or native Korean counter form (한/두/세 …); {param|을} attaches the right particle (을/를, 은/는, 이/가, 과/와, 으로/로). The parameters a template names are exactly the arguments of its record, so every template must name all required parameters.",
+  "tools": {
+    "TurnOnLight": ["{room} 불 켜 줘", "{room} 조명 켜", "{room} 불 좀 켜 줄래", "{room} 전등 켜 주세요", "{room|을} 밝게 해 줘", "{room} 불 켜", "{room}에 불 켜 줘", "{room} 조명 좀 켜 줘요"],
+    "TurnOffLight": ["{room} 불 꺼 줘", "{room} 조명 꺼", "{room} 불 좀 꺼 줄래", "{room} 전등 꺼 주세요", "{room} 불 꺼", "{room}에 불 꺼 줘", "{room} 조명 좀 꺼 줘요"],
+    "SetTemperature": ["온도 {degrees}도로 맞춰 줘", "{room} 온도 {degrees}도로 설정해", "난방 {degrees}도로 해 줘", "{room} 에어컨 {degrees}도로 맞춰", "실내 온도 {degrees}도", "온도를 {degrees}도로 바꿔 줘", "{room} {degrees}도로 맞춰 줄래"],
+    "PlayMusic": ["음악 틀어 줘", "노래 좀 틀어", "음악 재생해", "{genre} 틀어 줘", "{genre} 음악 재생해", "{genre} 들려 줘", "{genre} 좀 틀어 줄래", "노래 듣고 싶어, 음악 틀어 줘"],
+    "PauseMusic": ["음악 멈춰", "노래 꺼 줘", "음악 일시정지", "재생 멈춰 줘", "음악 그만", "노래 잠깐 멈춰 줘"],
+    "SetVolume": ["볼륨 {level|으로} 해 줘", "소리 {level|으로} 맞춰", "음량 {level}", "볼륨을 {level|으로} 바꿔 줘", "볼륨 {level} 단계로", "소리를 {level|으로} 해 줄래"],
+    "SetTimer": ["타이머 {minutes}분 맞춰 줘", "{minutes}분 타이머", "{minutes}분 뒤에 알려 줘", "타이머 {minutes}분 설정해", "{minutes}분짜리 타이머 켜 줘"],
+    "SetAlarm": ["{hour:native}시에 알람 맞춰 줘", "{hour:native}시 {minute}분에 깨워 줘", "알람 {hour:native}시 {minute}분", "내일 {hour:native}시에 깨워 줘", "{hour:native}시 알람 설정해", "아침 {hour:native}시 {minute}분 알람"],
+    "StartRobotVacuum": ["청소기 돌려 줘", "로봇청소기 시작", "청소 시작해", "{room} 청소해 줘", "{room} 청소기 돌려", "로봇청소기로 {room} 청소해 줄래"],
+    "LockDoor": ["문 잠가 줘", "현관문 잠가", "현관 잠금", "문 좀 잠가 줄래", "도어락 잠가 줘"],
+    "UnlockDoor": ["문 열어 줘", "현관문 열어", "잠금 해제해 줘", "도어락 열어 줘", "현관 잠금 풀어 줘"]
+  },
+  "refusals": [
+    "오늘 날씨 어때", "지금 몇 시야", "냉장고에 뭐 있어", "택시 불러 줘", "엄마한테 전화해 줘", "주식 시세 알려 줘",
+    "라면 끓여 줘", "창문 열어 줘", "커튼 쳐 줘", "티비 켜 줘", "세탁기 돌려 줘", "내일 일정 알려 줘", "농담 하나 해 줘",
+    "고마워", "안녕", "불 켜지 마", "음악 틀지 마", "알람 맞추지 마", "아무것도 하지 마", "잠깐만", "뭐라고"
+  ],
+  "missing": {
+    "TurnOnLight": ["불 켜 줘", "조명 켜"],
+    "TurnOffLight": ["불 꺼 줘", "조명 꺼"],
+    "SetTemperature": ["온도 맞춰 줘", "에어컨 온도 바꿔 줘", "난방 좀 해 줘"],
+    "SetVolume": ["볼륨 조절해 줘", "소리 바꿔 줘"],
+    "SetTimer": ["타이머 맞춰 줘", "타이머 켜 줘"],
+    "SetAlarm": ["알람 맞춰 줘", "깨워 줘"]
+  },
+  "joiners": [" 그리고 ", ", 그리고 ", " 다음에 "],
+  "clauses": ["좀 춥네, ", "덥다, ", "잠깐만, ", "자기 전에, ", "손님 온다, ", "아 맞다, "],
+  "fillers": ["음 ", "어 ", "저기 ", "그 "]
+}

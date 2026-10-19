@@ -1,0 +1,18 @@
+# Install torch first, from the CUDA index — the PyPI wheel is CPU-only:
+#   pip install --index-url https://download.pytorch.org/whl/cu128 torch
+# Run-FunctionGemmaEval.ps1 -Bootstrap does this for you.
+#
+# FunctionGemma is Gemma3 (gemma3_text) with its own chat template; the
+# template renders tool declarations from `tools=` and needs jinja2.
+#
+# Verified set (2026-10-16): torch 2.11.0+cu128, transformers 5.20.0, trl 1.16.0.
+# trl >= 1.x matters: its fused LM head scores only completion positions, so the
+# 262k-vocab logits for a 4-7k-token prompt are never materialized.
+transformers==5.20.0
+trl==1.16.0
+peft>=0.17
+datasets>=3.0
+accelerate>=1.0
+safetensors>=0.4
+jinja2>=3.1
+huggingface_hub[hf_xet]>=0.30
