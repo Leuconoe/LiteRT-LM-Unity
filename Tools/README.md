@@ -47,6 +47,7 @@ as code.
 | --- | --- |
 | `Build-LiteRtLmAndroid*Apk.ps1` | APK builders for the gates (smoke, ASR smoke, FC demo) |
 | `Run-LiteRtLmAndroidAsrSmokeTest.ps1`, `Run-LiteRtLmAndroidTtsSmokeTest.ps1` | On-device ASR and TTS gates |
+| `Run-LiteRtLmAndroidSenseVoiceSmokeTest.ps1`, `Run-LiteRtLmAndroidRagSmokeTest.ps1` | On-device SenseVoice (device vs desktop parity) and RAG sample runs |
 | `Run-LiteRtLmAndroidAsrFunctionCallingDemo.ps1` | Voice → routing demo on the device |
 | `Run-LiteRtLmAndroidDeviceBenchmarks.ps1`, `LiteRtLmAndroidBenchmarks.ps1` | Device throughput benchmarks and the shared helper they dot-source |
 | `Run-LiteRtLmWindowsAsrSmokeTest.ps1` | Desktop ASR smoke through the CLI |
@@ -62,6 +63,8 @@ Device runs need `-DeviceSerial 46a880a0` — an emulator is usually attached to
 | `Whisper/` | Can the Whisper tflite exports run on Windows? | `docs/benchmarks/whisper-windows-tflite.md` |
 | `Kanana/` | How does a candidate LLM score on our 20-case Korean routing set when LiteRT cannot run it yet? | `docs/llm-details.md` |
 | `Moonshine/` | Are the Moonshine Korean ASR models more accurate than the Whisper tiers we ship, before any conversion is spent? | `docs/benchmarks/moonshine-korean-eval.md` |
+| `SenseVoice/` | Is SenseVoice-Small a better on-device Korean ASR, and can it run on LiteRT? Eval, conversion, Zeroth fine-tune, device parity | `docs/benchmarks/sensevoice-korean-eval.md` |
+| `Rag/` | Which embedder and Korean corpus for the RAG sample, and does multilingual-e5 run on LiteRT? | `Tools/Research/Rag/README.md` |
 
 Each has its own venv (gitignored) and its own `-Bootstrap` switch. They are
 independent — installing one does not disturb another, which matters because
