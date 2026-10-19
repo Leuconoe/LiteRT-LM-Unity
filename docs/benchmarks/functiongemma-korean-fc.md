@@ -228,7 +228,36 @@ Windows CLI int8: eval 147/147, prompt tokens identical to HF on 284/284 cases.
 heldout4 (typed text, spent since v6) slips by one case and two wrong actions; the
 voice sets are the measure that matters for a voice UI. Bundle staged next to v6e as
 `Assets/StreamingAssets/LLM/functiongemma-270m-ko/functiongemma_270m_ko_v7e_c256_p64.litertlm`;
-`FunctionGemmaRouterModel` still points at v6e until the switch is decided.
+`FunctionGemmaRouterModel` points at it since 2026-10-19.
+
+## 7d. v7u: first real run of the rebuild script, + '유지비' (2026-10-19)
+
+The WebServer ToolsPrompt added '유지비' (how a recogniser spells "UGV") to CreateTeam's
+teamType, so `make_dataset.py` TEAM_TYPES gained it and
+`Rebuild-FunctionGemmaRouter.ps1 -Label v7u -WaitForGpu -Device` rebuilt the v7
+composition from scratch: 25,399 records, 32 with '유지비' (data_v7 had 8, all from
+transcripts). Every stage ran on the real contract — gate eval 147/147 with 0 wrong,
+Windows CLI parity 147/147, export of `functiongemma_tools.json`; stage 7 stopped once
+because the headset was not attached and was rerun by hand with the same runner and
+`rebuild_check.py device-grade`.
+
+| | v7e (shipped) | v7u |
+| --- | ---: | ---: |
+| eval 147 on device · ms mean | 147 / 0 · 346 | 147 / 0 · 309 |
+| '유지비' ad hoc (`adhoc_ugv_cases.json`, 18) | 16 / 1 wrong | 16 / 2 wrong |
+| heldout6 (385) · SenseVoice w8 | 320 / 22 | 322 / 21 |
+| heldout6 · whisper base | 296 / 22 | 297 / 28 |
+| heldout5 (2,024) · SenseVoice w8 | 1620 / 127 | 1637 / 140 |
+| heldout5 · whisper base | 1455 / 149 | 1483 / 149 |
+
+heldout5/6 are spent for v7 and serve here as a regression check (counts only); the
+device latencies come from runs at different start temperatures. **v7u is not
+shipped.** v7e already maps '유지비' to UGV — both models miss the same two ad-hoc cases
+(an unspaced `유지비세대로팀생성` and '열 대' = 10), neither about the alias — and v7u
+exceeds the ship rule's noise allowance on two arms (+6 wrong on heldout6 whisper,
++13 on heldout5 SenseVoice). Read the other way, a re-roll of the same recipe moves
+single arms by up to ±13 wrong actions and +17–28 correct: that is the floor for
+calling one training better than another on these sets.
 
 ## 8. Traps that cost time
 

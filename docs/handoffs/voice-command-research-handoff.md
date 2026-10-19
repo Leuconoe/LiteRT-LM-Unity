@@ -105,8 +105,15 @@ What was done, for reference:
 
 `Tools/Research/FunctionGemma/Rebuild-FunctionGemmaRouter.ps1` — `-DryRun`, a fake
 contract (new tool + callsign → exit 2 with 4 to-dos) and `-Smoke` (CPU, train →
-convert → CLI parity 8/8) pass; a real GPU run, `-Stage`, `-Device` and
-`-RefreshParaphrases` have not run yet. Usage in
+convert → CLI parity 8/8) pass, and the first real run (2026-10-19, `-Label v7u
+-WaitForGpu -Device`, ~1 h) went through every stage on GPU and the headset —
+results in the benchmark doc §7d. Still unexercised: `-Stage` and
+`-RefreshParaphrases`. Stage 7 needs the headset attached when it starts; if it is
+not, everything else is already done — rerun just the device part by hand:
+`Run-LiteRtLmAndroidFcPromptSet.ps1 -DeviceSerial 46a880a0 -Bundle <bundle> -SystemInstructionFile <log>\device\system.txt -PromptsFile <log>\device\prompts.txt -MaxNumTokens 256 -OutDir <log>\device`,
+then `rebuild_check.py device-grade --cases <log>\cases\eval_cases.json --results <log>\device\results.jsonl --log <log>`.
+Locked-set rows land only in the quiet `04-eval-heldout5*/6.log` files — do not open
+them. Usage in
 [functiongemma-korean-fc.md](../benchmarks/functiongemma-korean-fc.md) §9. Flow: contract diff vs
 `FunctionGemmaBench/contract_snapshot.json` → **stop with a to-do list** when new
 tools lack templates, a callsign/filter name is missing from `CALLSIGN_KO` /
@@ -119,10 +126,10 @@ Why it exists: with no declarations in the prompt, any change to tools, paramete
 or enum values (e.g. a new callsign) needs a retrain; mapping a call to a UI handler
 or editing the confirmation list does not.
 
-Found while writing it: the app's `functiongemma_tools.json` lags the current
-WebServer ToolsPrompt (CreateTeam teamType gained UGV · '유지비'), and
-`make_dataset.py` TEAM_TYPES has no '유지비' alias — decide whether the next rebuild
-trains it. Data it rebuilds is filtered against every eval set (0 hits); the old
+'유지비' (resolved 2026-10-19): TEAM_TYPES has the alias and the app's
+`functiongemma_tools.json` matches the current ToolsPrompt again. The v7u rebuild
+that trained it was not shipped — v7e already maps '유지비' to UGV, and v7u fell
+outside the ship rule on two voice arms (§7d). Data it rebuilds is filtered against every eval set (0 hits); the old
 data_v6 holds 35 records of the 24 locked overlap cases, already covered by
 all/clean reporting.
 

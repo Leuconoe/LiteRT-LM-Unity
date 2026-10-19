@@ -1,0 +1,24 @@
+{
+  "source": "Hand-written 2026-10-19 for the '유지비' (UGV) alias the WebServer ToolsPrompt added to CreateTeam teamType. Not a blind set: written to check one alias, so it ranks v7e vs v7u on that alias only.",
+  "grading": "same as eval_cases.json",
+  "cases": [
+    {"id": "u01", "suite": "ugv_alias", "text": "유지비 세 대로 팀 생성", "function": "CreateTeam", "arguments": {"teamType": "UGV", "memberCount": 3}},
+    {"id": "u02", "suite": "ugv_alias", "text": "유지비 팀 두 대로 편성해", "function": "CreateTeam", "arguments": {"teamType": "UGV", "memberCount": 2}},
+    {"id": "u03", "suite": "ugv_alias", "text": "유지비 네 대로 팀 만들어 줘", "function": "CreateTeam", "arguments": {"teamType": "UGV", "memberCount": 4}},
+    {"id": "u04", "suite": "ugv_alias", "text": "유지비 5대 팀 생성", "function": "CreateTeam", "arguments": {"teamType": "UGV", "memberCount": 5}},
+    {"id": "u05", "suite": "ugv_alias", "text": "유지비 여섯 대로 새 팀 만들어", "function": "CreateTeam", "arguments": {"teamType": "UGV", "memberCount": 6}},
+    {"id": "u06", "suite": "ugv_alias", "text": "유지비로 세 대 팀 꾸려줘", "function": "CreateTeam", "arguments": {"teamType": "UGV", "memberCount": 3}},
+    {"id": "u07", "suite": "ugv_alias", "text": "유지비 팀 생성", "function": "EnterTeamCreation", "arguments": {}},
+    {"id": "u08", "suite": "ugv_alias", "text": "유지비세대로팀생성", "function": "CreateTeam", "arguments": {"teamType": "UGV", "memberCount": 3}},
+    {"id": "u09", "suite": "ugv_alias", "text": "유지비 열 대로 팀 생성", "function": "CreateTeam", "arguments": {"teamType": "UGV", "memberCount": 10}},
+    {"id": "u10", "suite": "ugv_alias", "text": "유지비 일곱 기로 팀 짜줘", "function": "CreateTeam", "arguments": {"teamType": "UGV", "memberCount": 7}},
+    {"id": "u11", "suite": "ugv_alias", "text": "유지비 차량 두 대로 팀 만들어", "function": "CreateTeam", "arguments": {"teamType": "UGV", "memberCount": 2}},
+    {"id": "c01", "suite": "ugv_control", "text": "유지브이 세 대로 팀 생성", "function": "CreateTeam", "arguments": {"teamType": "UGV", "memberCount": 3}},
+    {"id": "c02", "suite": "ugv_control", "text": "UGV 두 대로 팀 만들어", "function": "CreateTeam", "arguments": {"teamType": "UGV", "memberCount": 2}},
+    {"id": "c03", "suite": "ugv_control", "text": "지상 네 대로 팀 생성", "function": "CreateTeam", "arguments": {"teamType": "UGV", "memberCount": 4}},
+    {"id": "c04", "suite": "ugv_control", "text": "정찰 드론 세 대로 팀 생성", "function": "CreateTeam", "arguments": {"teamType": "정찰", "memberCount": 3}},
+    {"id": "r01", "suite": "ugv_refuse", "text": "유지비 얼마야", "function": "DefaultResponse", "arguments": {"text": "유지비 얼마야"}},
+    {"id": "r02", "suite": "ugv_refuse", "text": "이번 달 유지비 알려줘", "function": "DefaultResponse", "arguments": {"text": "이번 달 유지비 알려줘"}},
+    {"id": "r03", "suite": "ugv_refuse", "text": "유지비가 너무 많이 나온다", "function": "DefaultResponse", "arguments": {"text": "유지비가 너무 많이 나온다"}}
+  ]
+}
