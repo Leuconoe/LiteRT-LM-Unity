@@ -20,7 +20,7 @@ namespace LiteRTLM.Unity
             public string Label;
             public string ModelPath;
             public string TokenizerPath;
-            /// <summary>"whisper" or "qwen3" — selects the native ASR entry point.</summary>
+            /// <summary>"whisper", "qwen3" or "sensevoice" — selects the native ASR entry point.</summary>
             public string Mode = "whisper";
         }
 
@@ -58,6 +58,15 @@ namespace LiteRTLM.Unity
                 TokenizerPath = "ASR/qwen3-asr-0.6b/tokenizer.json",
                 Mode = "qwen3",
             },
+            new()
+            {
+                // TokenizerPath is the CTC vocabulary; am.mvn sits beside it. Only the 5 s bucket is packaged:
+                // the native side truncates longer audio to the largest bucket present.
+                Label = "sensevoice-small w8",
+                ModelPath = "ASR/sensevoice-small/sensevoice_small_5s_w8.tflite",
+                TokenizerPath = "ASR/sensevoice-small/tokens.txt",
+                Mode = "sensevoice",
+            },
         };
 
         /// <summary>LLM tiers usable as a function-calling router or chat model.</summary>
@@ -69,6 +78,16 @@ namespace LiteRTLM.Unity
             new() { Label = "lfm2.5-1.2b i4", ModelPath = "LLM/lfm2.5-1.2b/LFM2.5-1.2B-Instruct_int4.litertlm" },
             new() { Label = "gemma-4-E2B", ModelPath = "Multimodal/gemma-4-e2b/gemma-4-E2B-it.litertlm" },
         };
+
+        /// <summary>
+        /// A FunctionGemma-270M fine-tune for the sample smart-home contract (decl-mode none, int8,
+        /// cache 256 / prefill 64·128). Not a chat model, so it is not in <see cref="LlmModels"/>. Not shipped:
+        /// train it with Tools/Research/FunctionGemma/Rebuild-FunctionGemmaRouter.ps1 -Label sample -Stage.
+        /// </summary>
+        public const string FunctionGemmaRouterModel = "LLM/functiongemma-270m-sample/functiongemma_270m_sample_c256_p64.litertlm";
+
+        /// <summary>Its tool contract (FunctionGemmaBench/sample_contract.json), under the sample's Resources.</summary>
+        public const string FunctionGemmaToolsResource = "functiongemma_tools";
 
         /// <summary>Multimodal models (image and audio input).</summary>
         public static readonly ModelOption[] MultimodalModels =
