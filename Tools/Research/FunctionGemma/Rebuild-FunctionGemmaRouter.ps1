@@ -12,10 +12,11 @@
                 miss a callsign or filter name. Eval cases whose expected call no longer
                 validates are listed and left out of every score (relabel by hand).
     2 data      make_dataset v4 templates, + the old two-teacher paraphrases that still validate
-                (-RefreshParaphrases: regenerate them with vLLM, GPU), + the v6 classes, exact-text
-                filtered against every *_cases.json incl. locked\ -> FunctionGemmaBench\data_rebuild_<label>\.
+                (-RefreshParaphrases: regenerate them with vLLM, GPU), + the v6 classes, + the v7
+                recogniser-transcript records that still validate, exact-text filtered against every
+                *_cases.json incl. locked\ -> FunctionGemmaBench\data_rebuild_<label>\.
     3 train     GPU guard (>= 12 GB free, no other training; -WaitForGpu polls every 2 min), then the
-                v6e recipe through Run-FunctionGemmaEval.ps1 -Train; after a crash it reruns with
+                v6e/v7e recipe through Run-FunctionGemmaEval.ps1 -Train; after a crash it reruns with
                 --resume, 3 attempts in all.
     4 gate      fg_eval on eval_cases, batch 1 + clause split: 0 wrong actions and >= -GatePass.
                 heldout1-4 and the locked sets are scored for the report (aggregates only).
@@ -110,8 +111,8 @@ function Invoke-Rebuild {
     if ($code -ne 0) { throw "contract check failed ($code)" }
     if ($DryRun) {
         $plan = @("## Plan (dry run — nothing below ran)", "",
-            "- 2 data: make_dataset v4 -> $Data\v4; paraphrases $(if ($RefreshParaphrases) { "regenerated ($ParaphraseGen; teachers $TeacherA + $TeacherB; GPU)" } else { 'carried over from data_v5_empty where they still validate' }) -> $Data\v5; v6 composition -> $Data",
-            "- 3 train: v6e recipe (3 epochs, lr 2e-5, batch 8, decl none) -> $Merged; GPU guard$(if ($WaitForGpu) { ', waiting' }); --resume retries (3 attempts)",
+            "- 2 data: make_dataset v4 -> $Data\v4; paraphrases $(if ($RefreshParaphrases) { "regenerated ($ParaphraseGen; teachers $TeacherA + $TeacherB; GPU)" } else { 'carried over from data_v5_empty where they still validate' }) -> $Data\v5; v6 composition + the data_v7_empty ASR records that still validate -> $Data",
+            "- 3 train: v6e/v7e recipe (3 epochs, lr 2e-5, batch 8, decl none) -> $Merged; GPU guard$(if ($WaitForGpu) { ', waiting' }); --resume retries (3 attempts)",
             "- 4 gate: eval_cases minus stale, batch 1 + clause split: 0 wrong actions and >= $($GatePass.ToString('P0')) pass$(if ($Force) { ' (-Force: not enforced)' })",
             "- 5 convert: cache 256 / prefill 64,128 -> $BundleDir; Windows CLI parity on eval_cases",
             "- 6 export: functiongemma_tools.json$(if ($Stage) { "; stage Assets\StreamingAssets\LLM\functiongemma-270m-ko\$BundleName + FunctionGemmaRouterModel" }); contract_snapshot.json after a passed gate",
@@ -144,13 +145,14 @@ function Invoke-Rebuild {
     }
     if ((Invoke-Logged "02-data-carry" { & $Py $Check carry --tools-prompt $ToolsPrompt --old-v4 $oldV4 --old-v5 $oldV5 --new-v4 "$Data\v4" --out "$Data\v5" }) -ne 0) { throw "paraphrase carry-over failed" }
     if ((Invoke-Logged "02-data-v6" { & $Py $md --version 6 --filter-all --tools-prompt $ToolsPrompt --v5 "$Data\v5" --v4 "$Data\v4" --out $Data }) -ne 0) { throw "make_dataset v6 failed" }
+    if ((Invoke-Logged "02-data-v7" { & $Py $Check asr --tools-prompt $ToolsPrompt --old-v6 (Join-Path $Bench "data_v6_empty") --old-v7 (Join-Path $Bench "data_v7_empty") --data $Data }) -ne 0) { throw "ASR-record carry-over failed" }
     $trainDir = $Data
     if ($Smoke) {
         if ((Invoke-Logged "02-data-subset" { & $Py $Check subset --src $Data --out "$Data\smoke" --n 200 }) -ne 0) { throw "subset failed" }
         $trainDir = "$Data\smoke"
     }
     $summary = Get-Content (Get-ChildItem $Log -Filter "02-data-*.log").FullName -Encoding utf8 |
-        Select-String -Pattern '^(exact-text filter|collisions|base v5|train \d+|DefaultResponse share|carry:|subset:|label conflicts|shortfall)' | ForEach-Object { $_.Line }
+        Select-String -Pattern '^(exact-text filter|collisions|base v5|train \d+|DefaultResponse share|carry:|asr:|subset:|label conflicts|shortfall)' | ForEach-Object { $_.Line }
     (@("## 2. Data", "", "Train set: ``$trainDir``", "", '```') + $summary + '```') -join "`n" | Out-File -Encoding utf8 (Join-Path $Log "02-data.md")
 
     # ---------------------------------------------------------------- 3 train

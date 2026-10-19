@@ -5,9 +5,11 @@ VoiceCommand-WebServer tool contract (`assets/ToolsPrompt.txt`, 44 tools incl.
 `DefaultResponse`, callsigns Alpha–Zulu) on the AR headset (kona / SM8250, CPU)?
 
 **Answer: yes, after fine-tuning, with an app-side router.** The shipped model
-(`v6e`, int8, 277 MB) on device: **eval 147/147 with 0 wrong actions**, blind
-heldout4 **130/137 with 4 wrong actions**, **~0.3–0.4 s per command**, 0.9 s init.
-Without fine-tuning it is unusable (8/147).
+(`v7e` since 2026-10-19, int8, 277 MB) on device: **eval 147/147 with 0 wrong
+actions**, **~0.35 s per command**, 0.9 s init. Trained on real recogniser output
+(§7c), it cuts wrong actions on the locked voice sets by 40–50 % against its
+predecessor v6e (eval 147/147, blind heldout4 130/137 with 4 wrong). Without
+fine-tuning it is unusable (8/147).
 
 ## 1. What was measured
 
@@ -186,6 +188,48 @@ recogniser output. Engine-native speed changes cost nothing (MeloTTS 0.9×/1.15�
 1.0×); the phase-vocoder speed augmentation halves accuracy through its own
 artifacts, so its column is not a speaking-rate result.
 
+## 7c. v7e: trained on real recogniser output (2026-10-19)
+
+`data_v7_empty` = data_v6 + 7,067 records whose text is what SenseVoice w8 / whisper
+base-acft-ko actually heard (TTS voices sunhi, hyunsu, st-m1 and rate variants →
+ASR → relabelled by a Qwen2.5-14B teacher; unrecoverable transcripts became refusals).
+24,147 train records; v6e recipe, 19 min on the 4090 alone, epoch 3 selected (288/300
+exact on val).
+
+Verdict set: **locked heldout6** (196 utterances written after v7 data, voices InJoon
+and Supertonic F1 not used for v7), scored once, router on. "clean" drops the 24
+locked texts that also occur in data_v6.
+
+| Set · ASR | v6e correct / wrong | **v7e correct / wrong** | clean v6e | clean v7e |
+| --- | ---: | ---: | ---: | ---: |
+| heldout6 (385) · SenseVoice w8 | 307 / 37 | **320 / 22** | 289 / 36 | 301 / 21 |
+| heldout6 · whisper base | 282 / 34 | **296 / 22** | 268 / 33 | 282 / 21 |
+| heldout5 (2,024) · SenseVoice w8 | 1552 / 214 | **1620 / 127** | 1488 / 210 | 1542 / 127 |
+| heldout5 · whisper base | 1335 / 307 | **1455 / 149** | 1280 / 304 | 1388 / 148 |
+
+Wrong actions drop by 40–50 % with no loss in correct commands — the first change
+that moves the wrong-action rate at all (§7b). heldout5 shares 3 of its 7 voices with
+the v7 data; on the 4 unseen voices alone (1,150 clips, SenseVoice) v7e goes
+897 / 113 → 930 / 69, so the gain is not voice memorisation.
+
+With the high-impact confirmation policy on top, v7e leaves 20 wrong actions on
+heldout6 SenseVoice (v6e: 30) and asks to confirm 15 of 200 correct commands (v6e:
+13 of 187). The policy now holds fewer of the remaining wrong actions (2/22 vs
+7/37): what v7e still gets wrong is mostly low-impact navigation.
+
+Device (46a880a0, CPU, int8 c256 / p64·128, router host-side):
+
+| Set | v6e pass / wrong | v7e pass / wrong | v7e ms / command (mean, p50, p95) |
+| --- | ---: | ---: | --- |
+| eval 147 | 147 / 0 | **147 / 0** | 346, 350, 499 |
+| heldout4 137 (spent) | 130 / 4 | 129 / 6 | 400, 387, 690 |
+
+Windows CLI int8: eval 147/147, prompt tokens identical to HF on 284/284 cases.
+heldout4 (typed text, spent since v6) slips by one case and two wrong actions; the
+voice sets are the measure that matters for a voice UI. Bundle staged next to v6e as
+`Assets/StreamingAssets/LLM/functiongemma-270m-ko/functiongemma_270m_ko_v7e_c256_p64.litertlm`;
+`FunctionGemmaRouterModel` still points at v6e until the switch is decided.
+
 ## 8. Traps that cost time
 
 - **Batched left-padded `generate` garbles gemma-3** (`となって…`) — score with
@@ -211,8 +255,10 @@ contract in the weights, so a changed tool, parameter or enum value needs a new 
 ```
 
 It diffs the contract against `FunctionGemmaBench/contract_snapshot.json`, rebuilds
-the v6 composition (v4 templates + the v5 paraphrases that still validate + the v6
-classes, filtered against every eval set incl. `locked/`), trains the v6e recipe
+the v7 composition (v4 templates + the v5 paraphrases that still validate + the v6
+classes + the data_v7_empty recogniser-transcript records that still validate,
+filtered against every eval set incl. `locked/`; fed the old v6 it reproduces
+data_v7_empty record for record), trains the v6e/v7e recipe
 behind a GPU guard with `--resume` retries, gates on eval_cases (0 wrong actions,
 ≥ 98 %), converts (c256 / p64·128), checks Windows-CLI parity, and with `-Stage`
 writes the bundle, `FunctionGemmaRouterModel` and `functiongemma_tools.json`.
@@ -238,6 +284,6 @@ The paraphrase stage (v5) is `FunctionGemmaBench/paraphrase/paraphrase.py`
 (vLLM 0.29 docker; on Docker Desktop/WSL2 set `VLLM_USE_V2_MODEL_RUNNER=0`).
 Voice E2E: `fg_voice_e2e.py asr --arm …` then `fc --model <merged> --label <x>`.
 
-Not done: the FC demo APK's StreamingAssets staging list does not include the
-router bundle yet; the bundle is staged for the editor at
-`Assets/StreamingAssets/LLM/functiongemma-270m-ko/functiongemma_270m_ko_v6e_c256_p64.litertlm`.
+The bundle is staged (gitignored) at
+`Assets/StreamingAssets/LLM/functiongemma-270m-ko/functiongemma_270m_ko_v7e_c256_p64.litertlm`;
+the FC demo APK picks it up through `LiteRtLmSampleAssets.FunctionGemmaRouterModel`.

@@ -8,6 +8,7 @@ the script joins into report.md.
                 stale eval cases (non-stale copies -> <log>/cases/). Exit 2 = hand edits needed.
   snapshot      rewrite contract_snapshot.json (only after a passed gate)
   carry         new v4 templates + the old paraphrases that still validate -> v5 composition
+  asr           + the old v7 recogniser-transcript records that still validate -> v7 composition
   subset        the first N records of a data dir (CPU smoke)
   score         aggregate fg_eval outputs; --gate enforces 0 wrong actions and a pass rate (exit 3)
   parity        HF vs Windows-CLI calls, case by case
@@ -249,6 +250,35 @@ def cmd_carry(a) -> int:
     return 0
 
 
+def cmd_asr(a) -> int:
+    """v7: the recogniser-transcript records (old v7 minus old v6) that still validate, appended to the rebuilt data."""
+    snap, index = load_contract(a.tools_prompt, a.webserver_root)
+    if snap["filter_names"]:
+        fg.FILTER_NAMES = frozenset(snap["filter_names"])
+    key = lambda t: re.sub(r"[\s.,!?~]+", "", t)  # make_dataset --filter-all key
+    banned = {key(c["text"]) for f in case_files() for c in json.loads(f.read_text(encoding="utf-8"))["cases"]}
+    added, dropped = Counter(), Counter()
+    for s in SPLITS:
+        base = {r["text"] for r in read_jsonl(Path(a.old_v6) / f"{s}.jsonl")}
+        rows = read_jsonl(Path(a.data) / f"{s}.jsonl")
+        have = {r["text"] for r in rows}  # exact: a transcript that only moved a space is the point of v7
+        for r in read_jsonl(Path(a.old_v7) / f"{s}.jsonl"):
+            if r["text"] in base:
+                continue
+            valid = (r["function"] == "DefaultResponse" and "DefaultResponse" in index) or fg.validate(r, index, r["text"]) is r
+            why = "eval" if key(r["text"]) in banned else "dup" if r["text"] in have else "" if valid else r["function"]
+            if why:
+                dropped[why] += 1
+                continue
+            have.add(r["text"])
+            rows.append(r)
+            added[s] += 1
+        write_jsonl(Path(a.data) / f"{s}.jsonl", rows)
+    print(f"asr: added train {added['train']}, val {added['val']}; dropped {sum(dropped.values())}"
+          + (f" ({dict(dropped.most_common())})" if dropped else "") + f" -> {a.data}")
+    return 0
+
+
 def cmd_subset(a) -> int:
     n_val = max(10, a.n // 20)
     for s, k in (("train", a.n - n_val), ("val", n_val)):
@@ -403,6 +433,9 @@ def main() -> int:
     s.add_argument("--snapshot", default=str(SNAPSHOT))
     s = sub.add_parser("carry", parents=[common])
     for k in ("--old-v4", "--old-v5", "--new-v4", "--out"):
+        s.add_argument(k, required=True)
+    s = sub.add_parser("asr", parents=[common])
+    for k in ("--old-v6", "--old-v7", "--data"):
         s.add_argument(k, required=True)
     s = sub.add_parser("subset")
     s.add_argument("--src", required=True)

@@ -12,10 +12,10 @@ and [`../benchmarks/sensevoice-korean-eval.md`](../benchmarks/sensevoice-korean-
 | --- | --- |
 | Branch | `research/functiongemma-sensevoice-jev-rag` |
 | PR | [#2](https://github.com/Leuconoe/LiteRT-LM-Unity/pull/2) — the first 10 commits (`c327d91` … `8773ec1`) |
-| Round 2 (after PR #2 opened) | SenseVoice on the headset (AAR take20), confirmation policy, this handoff, `fg_train.py` checkpoint + `--resume`, locked heldout6 + v7 data, the rebuild script (§4.2) |
+| Round 2 (after PR #2 opened) | SenseVoice on the headset (AAR take20), confirmation policy, this handoff, `fg_train.py` checkpoint + `--resume`, locked heldout6 + v7 data, the rebuild script (§4.2), v7e shipped |
 
-`git push` is refused by Claude Code's auto-mode classifier in this setup — ask the
-user to run `! git push` themselves; `gh pr create` worked once the branch existed.
+`git push` was refused twice by Claude Code's auto-mode classifier on 2026-10-17 and
+went through on 2026-10-19 — if it is refused, ask the user to run `! git push`.
 Never `git add -A` (CLAUDE.md); stage explicit paths. Left out on purpose: editor
 reserialization churn (URP / ProjectSettings / `.slnx`), `External/`, `outputs/`,
 `.bkit/`, `Tools/Builds/`, training data v1–v5, `paraphrase/out/`, patch backups.
@@ -24,7 +24,7 @@ reserialization churn (URP / ProjectSettings / `.slnx`), `External/`, `outputs/`
 
 | Piece | State |
 | --- | --- |
-| **FunctionGemma-270M ko, v6e** | Fine-tuned with **no tool declarations** (31-token prompt). eval 147/147 with 0 wrong actions, blind heldout4 130/137, ~0.3–0.4 s per command, int8 277 MB (cache 256 / prefill 64·128). Staged at `Assets/StreamingAssets/LLM/functiongemma-270m-ko/functiongemma_270m_ko_v6e_c256_p64.litertlm` (gitignored). |
+| **FunctionGemma-270M ko, v7e** (shipped 2026-10-19; v6e before) | Fine-tuned with **no tool declarations** (31-token prompt) on v6 data + real recogniser transcripts. eval 147/147 with 0 wrong actions, 40–50 % fewer wrong actions than v6e on the locked voice sets (§4.1), ~0.35 s per command, int8 277 MB (cache 256 / prefill 64·128). Staged at `Assets/StreamingAssets/LLM/functiongemma-270m-ko/functiongemma_270m_ko_v7e_c256_p64.litertlm` (gitignored), named by `FunctionGemmaRouterModel`. |
 | **Router** `Runtime/LiteRtLmFunctionGemmaRouter.cs` | Parses the raw call; schema guard + grounding guard (numbers / team / soldier name must be in the utterance); clause split when the whole utterance is refused; `ConfirmationPolicy` (+ `MinAsrConfidence`) marks high-impact calls `NeedsConfirmation`. Twin in `fg_common.py` — keep them in sync. |
 | **SenseVoice-Small** | LiteRT buckets published as `litert-community/SenseVoiceSmall` and `…-ko-zeroth`. On the headset (AAR take20, `runSenseVoiceAsr`): device = desktop token for token; quiet commands 12/13; ~0.4 s (3 s bucket). Keep one bucket resident. |
 | **Jev sample** (jevlike offline) | Frozen gemma-3-270m trunk + jevlike head; area accuracy 0.80, 63 ms. Package `.jev`. |
@@ -45,14 +45,32 @@ even a correct transcript turned into the wrong command). Measured countermeasur
 | --- | --- | --- |
 | Confirmation policy (high-impact commands) | 7–11 % | asks to confirm ~10 % of correct commands |
 | + SenseVoice confidence ≥ 0.90 | 12–14 % on heldout5; **0 extra on heldout6** | +1–2 pp confirmations |
-| Train on real ASR transcripts (v7) | pending — §4.1 | — |
+| Train on real ASR transcripts (v7e) | **40–50 %** (heldout6 SenseVoice 37 → 22, heldout5 214 → 127) | none — correct commands go up too (§4.1) |
 
 18–31 % of wrong actions come from a correct transcript, which is why the ASR
-confidence gate is weak and v7 is the main bet.
+confidence gate is weak and v7 was the main bet — it paid off.
 
 ## 4. In progress — how to resume
 
-### 4.1 v7e: train on real recogniser output
+### 4.1 v7e: train on real recogniser output — done and shipped 2026-10-19
+
+Result (router on; detail in functiongemma-korean-fc.md §7c):
+
+| Set · ASR | v6e correct / wrong | v7e correct / wrong | clean v7e |
+| --- | ---: | ---: | ---: |
+| heldout6 (385) · SenseVoice w8 | 307 / 37 | **320 / 22** | 301 / 21 |
+| heldout6 · whisper base | 282 / 34 | **296 / 22** | 282 / 21 |
+| heldout5 (2,024) · SenseVoice w8 | 1552 / 214 | **1620 / 127** | 1542 / 127 |
+| heldout5 · whisper base | 1335 / 307 | **1455 / 149** | 1388 / 148 |
+
+Device: eval 147/147, 0 wrong, 346 ms mean; heldout4 (spent) 129/137, 6 wrong (v6e
+130 / 4). Trained in 19 min alone on the GPU, first attempt. Converted bundle staged
+beside v6e (`functiongemma_270m_ko_v7e_c256_p64.litertlm`, gitignored);
+`FunctionGemmaRouterModel` points at it and the rebuild script trains the v7
+composition. Score locked sets with `locked/score_locked.py` (counts only, never rows).
+heldout5 and heldout6 are now spent for v7: a v8 needs a new locked set.
+
+What was done, for reference:
 
 - Data ready: `FunctionGemmaBench/data_v7_empty/` = data_v6_empty + 7,067 ASR-transcript
   records (TTS → SenseVoice w8 / whisper base-acft-ko, relabelled by a Qwen2.5-14B
@@ -93,8 +111,8 @@ convert → CLI parity 8/8) pass; a real GPU run, `-Stage`, `-Device` and
 `FunctionGemmaBench/contract_snapshot.json` → **stop with a to-do list** when new
 tools lack templates, a callsign/filter name is missing from `CALLSIGN_KO` /
 `FILTER_NAMES` (in `fg_common.py` **and** the C# router), or eval labels went stale →
-data (templates + paraphrases that still validate + v6 additions, filtered against
-every eval set) → GPU guard → train with `--resume` retries → gate (0 wrong, ≥ 98 %)
+data (templates + paraphrases that still validate + v6 additions + the v7 ASR records
+that still validate, filtered against every eval set) → GPU guard → train with `--resume` retries → gate (0 wrong, ≥ 98 %)
 → convert + CLI parity → export `functiongemma_tools.json`, optional `-Stage` and
 `-Device`. `-DryRun` = contract check only, `-Smoke` = CPU plumbing test.
 Why it exists: with no declarations in the prompt, any change to tools, parameters
@@ -135,10 +153,9 @@ all/clean reporting.
 
 ## 7. Open decisions for the user
 
-1. Ship v7e if it beats v6e on heldout6 (pending §4.1).
-2. Which high-impact commands require confirmation in the product (default list in
+1. Which high-impact commands require confirmation in the product (default list in
    the router; the product owns the final list).
-3. Whether to wire LiteRT-LM's `Conversation::Clone` prefix reuse into the JNI, which
+2. Whether to wire LiteRT-LM's `Conversation::Clone` prefix reuse into the JNI, which
    would allow tool declarations in the prompt (no retrain on contract changes) at
    acceptable latency.
-4. Merge PR #2 once the round-2 commits are pushed.
+3. Merge PR #2 once the round-2 commits are pushed.
