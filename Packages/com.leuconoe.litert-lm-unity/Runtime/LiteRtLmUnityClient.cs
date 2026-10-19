@@ -384,6 +384,25 @@ namespace LiteRTLM.Unity
 #endif
         }
 
+        /// <summary>
+        /// Timings of the current conversation's last turn — the same <c>BenchmarkInfo:</c> text
+        /// <see cref="RunBenchmark"/> returns (Time to first token, Last Prefill/Decode tokens and tok/s).
+        /// Needs AAR take19 or later.
+        /// </summary>
+        public string GetLastBenchmark()
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            if (_bridge == null)
+            {
+                throw new InvalidOperationException("LiteRT-LM bridge is not initialized.");
+            }
+
+            return _bridge.Call<string>("getLastBenchmark");
+#else
+            throw new PlatformNotSupportedException("LiteRT-LM Unity wrapper currently supports Android device builds only.");
+#endif
+        }
+
         public void SetNativeMinLogSeverity(string severity)
         {
 #if UNITY_ANDROID && !UNITY_EDITOR

@@ -1,0 +1,7 @@
+# Training venv for the Zeroth-Korean SenseVoice fine-tune (Train-SenseVoiceZeroth.ps1).
+# torch/torchaudio come from the cu128 index first; this file holds the rest.
+funasr>=1.2.7,<1.3
+huggingface_hub
+datasets>=3,<5
+soundfile
+jiwer

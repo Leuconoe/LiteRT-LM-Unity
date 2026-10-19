@@ -1,0 +1,11 @@
+# Eval venv (.venv): funasr reference + onnxruntime + LiteRT interpreter.
+# torch/torchaudio come from the cu128 index first (Run-SenseVoiceEval.ps1 -Bootstrap);
+# the PyPI torch wheel is CPU-only. Python 3.12/3.13 — never 3.14 (no numpy wheel).
+funasr
+onnx
+onnxruntime
+ai-edge-litert==2.1.6
+sentencepiece
+av
+datasets
+soundfile

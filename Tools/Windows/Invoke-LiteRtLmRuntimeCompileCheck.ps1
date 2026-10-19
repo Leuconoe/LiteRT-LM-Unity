@@ -42,6 +42,7 @@ $modules = @(
     "UnityEngine.CoreModule",
     "UnityEngine.AudioModule",
     "UnityEngine.IMGUIModule",
+    "UnityEngine.JSONSerializeModule",
     "UnityEngine.TextRenderingModule",
     "UnityEngine.UnityWebRequestModule",
     "UnityEngine.UnityWebRequestAudioModule",
