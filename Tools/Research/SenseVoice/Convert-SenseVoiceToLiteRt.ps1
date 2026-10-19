@@ -42,7 +42,7 @@ $env:TF_CPP_MIN_LOG_LEVEL = "2"
 
 if ($Bootstrap) {
     if (!(Test-Path $ConvPython)) {
-        $base = "C:\Users\user\AppData\Roaming\uv\python\cpython-3.12.13-windows-x86_64-none\python.exe"
+        $base = Join-Path $env:APPDATA "uv\python\cpython-3.12.13-windows-x86_64-none\python.exe"
         if (!(Test-Path $base)) { throw "Python 3.12 not found (TensorFlow has no cp314 wheel)." }
         & $base -m venv (Join-Path $BenchDir ".venv-convert")
         if ($LASTEXITCODE -ne 0) { throw "venv creation failed." }

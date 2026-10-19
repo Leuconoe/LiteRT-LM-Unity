@@ -44,7 +44,7 @@ $env:PYTHONIOENCODING = "utf-8"
 
 if ($Bootstrap) {
     if (!(Test-Path $Py)) {
-        $base = "C:\Users\user\AppData\Roaming\uv\python\cpython-3.12.13-windows-x86_64-none\python.exe"
+        $base = Join-Path $env:APPDATA "uv\python\cpython-3.12.13-windows-x86_64-none\python.exe"
         if (!(Test-Path $base)) { $base = (& py -3.13 -c "import sys; print(sys.executable)").Trim() }
         & $base -m venv (Join-Path $BenchDir ".venv-train")
         if ($LASTEXITCODE -ne 0) { throw "venv creation failed." }
