@@ -25,6 +25,9 @@ numbers are reference only.
   smoke-test commands
 - [TTS details](tts-details.md) — engine screening and licences, the LiteRT
   conversion and bucketing work, and the shipped Supertonic numbers
+- [FunctionGemma function calling](functiongemma-function-calling.md) — fine-tuning
+  FunctionGemma-270M on your own tool contract, the app-side router (guard, clause
+  split, confirmation), conversion and the traps; sample smart-home contract
 
 ## Benchmarks (source data)
 
