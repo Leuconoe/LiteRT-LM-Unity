@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+# generated
+data/
+data_rebuild_*/
+contract_snapshot.json

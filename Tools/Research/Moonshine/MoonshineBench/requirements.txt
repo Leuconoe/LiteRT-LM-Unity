@@ -1,0 +1,9 @@
+# torch/torchaudio come from the cu128 index (see Run-MoonshineEval.ps1 -Bootstrap)
+transformers>=4.56
+datasets
+soundfile
+librosa
+accelerate
+huggingface_hub
+tokenizers
+numpy

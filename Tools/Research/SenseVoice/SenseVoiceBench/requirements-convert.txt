@@ -1,0 +1,16 @@
+# Conversion venv (.venv-convert): ONNX -> tflite. Kept apart from .venv because
+# TensorFlow/onnx2tf pin numpy/onnx versions that fight torch/funasr — same split as
+# Tools/Research/Supertonic. Python 3.12 (TensorFlow has no cp314 wheel).
+#
+# onnx2tf==2.6.7 is installed AFTER this file with --no-deps (Convert-SenseVoiceToLiteRt.ps1
+# -Bootstrap): it pins ai-edge-litert==2.1.2 + onnxsim==0.6.5, while ai-edge-quantizer 0.8.0
+# pins ai-edge-litert==2.1.6 — unresolvable together, harmless in practice.
+onnx==1.20.1
+onnxruntime==1.26.0
+onnxsim
+tensorflow>=2.18,<2.21
+ai-edge-quantizer==0.8.0
+onnx-graphsurgeon
+sng4onnx
+simple_onnx_processing_tools
+psutil

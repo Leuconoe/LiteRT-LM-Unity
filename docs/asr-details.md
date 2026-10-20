@@ -340,6 +340,22 @@ Tokenizers are the per-tier
 [openai/whisper-*](https://huggingface.co/openai/whisper-tiny) files.
 Qwen3-ASR is the official tflite with a project JNI port.
 
+### SenseVoice-Small (on the device since AAR take20)
+
+**SenseVoice-Small** (FunAudioLLM, ~234 M, non-autoregressive CTC) — encodes the
+actual utterance length instead of a fixed window, ranks between turbo-acft and
+base-acft on the gate at a quarter of turbo's size, and reads the quiet 0.79 s
+`볼륨 업`. Converted to fixed-shape LiteRT buckets (w8 231 MB, 5 s window 172 ms on
+desktop) and published as
+[litert-community/SenseVoiceSmall](https://huggingface.co/litert-community/SenseVoiceSmall)
+plus a Zeroth fine-tune
+([…-ko-zeroth](https://huggingface.co/litert-community/SenseVoiceSmall-ko-zeroth)).
+On kona (`LiteRtLmSenseVoice`, take20): tokens identical to desktop on 62/62 clips, real_clean CER
+0.0064 (12/13 exact), real_noise 0.2685, 3 s bucket 396 ms / 5 s 766 ms p50 on 4 CPU threads, 2.46 GB PSS
+with one bucket resident (ship one bucket — each is a full 242 MB copy). It also returns a CTC confidence
+(`RecommendedMinConfidence` 0.90) for asking the user to confirm what was heard. Detail:
+[benchmarks/sensevoice-korean-eval.md](benchmarks/sensevoice-korean-eval.md) §6.
+
 ### Screened and rejected
 
 Candidates that were looked at and not adopted, so the search is not repeated.
@@ -350,6 +366,7 @@ Candidates that were looked at and not adopted, so the search is not repeated.
 | **seastar105 Korean-Whisper collection** (`whisper-{base,small,medium}-komixv2`, `whisper-turbo-komix-lora`) | Every tier loses to its deployed counterpart, and the Korean-only full fine-tunes collapse on English. Full comparison: [asr-model-matrix Addendum 2](benchmarks/asr-model-matrix.md) | [seastar105](https://huggingface.co/collections/seastar105/korean-whisper) |
 | **KsponSpeech-trained tiers** | Programme abandoned by decision; all 87 GB of artifacts deleted 2026-07-26. The only surviving record is [`handoffs/asr-training-program-handoff.md`](handoffs/asr-training-program-handoff.md) §4–5 | — |
 | **Raon-Speech-9B** (STT half) | 9 B, CUDA-only AWQ kernels, CC-BY-NC. Excellent Korean transcription — CER 0.000 on our four clips — but it is a workstation model. [`tts-details.md`](tts-details.md), [`litert-lm-model-support.md`](litert-lm-model-support.md) | [KRAFTON](https://huggingface.co/KRAFTON/Raon-Speech-9B) |
+| **Moonshine tiny-ko / base-ko** | Non-commercial Community License (the Korean models are the enumerated MIT exceptions), and on sub-1.5 s commands tiny-ko ties whisper-tiny at best while base-ko emits the literal `audiotext` on 37/40 clips. Strong on sentences (fleurs_ko np CER 0.08 vs whisper-base 0.16) — the wrong regime. Screened 2026-09-21: [benchmarks/moonshine-korean-eval.md](benchmarks/moonshine-korean-eval.md) | [moonshine-ai](https://huggingface.co/UsefulSensors/moonshine-base-ko) |
 
 Whisper on Windows is a separate question with its own answer:
 [`benchmarks/whisper-windows-tflite.md`](benchmarks/whisper-windows-tflite.md).

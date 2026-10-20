@@ -1,0 +1,13 @@
+{
+  "_doc": "Jev questions for the FunctionGemma sample contract. area: option key -> the Korean criterion sentence the head scores against (its mean layer-12 state is the option vector, so criteria can be re-declared without retraining the trunk) and the contract functions it covers; DefaultResponse belongs to `none`. noul: is the utterance an executable command at all.",
+  "areas": {
+    "light": {"criterion": "조명을 켜거나 끄는 명령", "functions": ["TurnOnLight", "TurnOffLight"]},
+    "climate": {"criterion": "냉난방 온도를 맞추는 명령", "functions": ["SetTemperature"]},
+    "music": {"criterion": "음악을 틀거나 멈추거나 음량을 바꾸는 명령", "functions": ["PlayMusic", "PauseMusic", "SetVolume"]},
+    "time": {"criterion": "타이머나 알람을 맞추는 명령", "functions": ["SetTimer", "SetAlarm"]},
+    "cleaning": {"criterion": "로봇청소기로 청소를 시작하는 명령", "functions": ["StartRobotVacuum"]},
+    "door": {"criterion": "현관문을 잠그거나 여는 명령", "functions": ["LockDoor", "UnlockDoor"]},
+    "none": {"criterion": "지원하지 않거나 모호하거나 두 가지 동작이 섞인, 실행하지 않을 말", "functions": ["DefaultResponse"]}
+  },
+  "noul": {"yes": "바로 실행할 수 있는 명령", "no": "실행하지 않을 말"}
+}

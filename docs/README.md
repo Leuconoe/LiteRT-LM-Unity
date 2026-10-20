@@ -25,16 +25,24 @@ numbers are reference only.
   smoke-test commands
 - [TTS details](tts-details.md) — engine screening and licences, the LiteRT
   conversion and bucketing work, and the shipped Supertonic numbers
+- [FunctionGemma function calling](functiongemma-function-calling.md) — fine-tuning
+  FunctionGemma-270M on your own tool contract, the app-side router (guard, clause
+  split, confirmation), conversion and the traps; sample smart-home contract
 
 ## Benchmarks (source data)
 
 - [ASR model matrix](benchmarks/asr-model-matrix.md) — every tier × 10 clips,
   CER/WER/RTF
 - [FC model benchmark](benchmarks/fc-model-benchmark.md) — 20-case scoring
+- [SenseVoice Korean eval](benchmarks/sensevoice-korean-eval.md) — stock vs Zeroth
+  fine-tune vs Whisper tiers, the LiteRT conversion (published to litert-community),
+  and the on-device port
 - [Device PDCA ledger](benchmarks/device-cycle1-baseline.md) — cycles 1–6 in full
 - [Short-utterance ASR research](benchmarks/short-utterance-asr-research.md)
 - [Whisper tflite on Windows](benchmarks/whisper-windows-tflite.md) — desktop
   runs, 20/20, and the tier boundary on short clips reproducing off-device
+- [Moonshine Korean eval](benchmarks/moonshine-korean-eval.md) — tiny-ko/base-ko
+  vs stock Whisper on the same three buckets; rejected (licence + short commands)
 - [gemma-4 GGUF comparison](benchmarks/gemma4-gguf-vs-litertlm.md)
 - [v0.14 session report](benchmarks/session-final-report-20260723.md)
 
